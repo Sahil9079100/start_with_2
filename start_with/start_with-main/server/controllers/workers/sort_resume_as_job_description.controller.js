@@ -1,0 +1,161 @@
+import { Interview } from "../../models/Interview.model.js";
+import { Candidate } from "../../models/Candidate.model.js";
+import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.model.js";
+import { geminiAPI } from "../../server.js";
+
+// ⏳ Utility to pause execution
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const sort_resume_as_job_description = async (interviewId) => {
+    try {
+        if (!interviewId) throw new Error("Missing interviewId");
+
+        // 1️⃣ Fetch Interview
+        const interview = await Interview.findById(interviewId);
+        if (!interview) throw new Error("Interview not found");
+
+        const jobDescription = interview.jobDescription;
+        const jobminimumqualifications = interview.minimumQualification;
+        const jobminimumskillsrequired = interview.minimumSkillsRequired;
+
+        if (!jobDescription)
+            throw new Error("Interview missing job description");
+
+        // 2️⃣ Fetch Candidates
+        const candidates = await Candidate.find({ interview: interviewId });
+        if (!candidates.length)
+            throw new Error("No candidates found for this interview");
+
+        console.log(`Processing ${candidates.length} candidates for matching...`);
+
+        // 3️⃣ Sequential processing (so delay actually works)
+        for (let i = 0; i < candidates.length; i++) {
+            const candidate = candidates[i];
+
+            if (!candidate.resumeSummary) {
+                console.warn(`Candidate ${candidate._id} missing resume text, skipped.`);
+                continue;
+            }
+
+            console.log(`🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate._id}`);
+
+            const aiResult = await resume_sorter_agent({
+                jobDescription,
+                resumeSummary: candidate.resumeSummary,
+            });
+
+            if (aiResult?.matchScore && aiResult?.matchLevel) {
+                candidate.matchScore = aiResult.matchScore;
+                candidate.matchLevel = aiResult.matchLevel;
+                await candidate.save();
+            }
+
+            console.log(
+                `Candidate ${candidate._id} → ${aiResult.matchLevel} (${aiResult.matchScore})`
+            );
+
+            // ⏳ Wait 6 seconds between each AI call
+            await sleep(6000);
+        }
+
+        // 4️⃣ Update interview status
+        interview.status = "sort_resume_as_job_description";
+        await interview.save();
+
+        // 5️⃣ Log progress
+        await InterviewGSheetStructure.findOneAndUpdate(
+            { interview: interviewId },
+            {
+                $push: {
+                    logs: {
+                        step: "sort_resume_as_job_description",
+                        message: `Sorted ${candidates.length} candidates by job description`,
+                        timestamp: new Date(),
+                    },
+                },
+            },
+            { upsert: true }
+        );
+
+        console.log(`✅ Step F completed: Sorted ${candidates.length} candidates`);
+        return { success: true };
+    } catch (error) {
+        console.error("❌ Error in sort_resume_as_job_description:", error);
+        return { success: false, error: error.message || "Internal server error" };
+    }
+};
+
+
+/**
+ * 🧠 AI Agent: resume_sorter_agent
+ * Evaluates resume vs job description.
+ */
+export async function resume_sorter_agent({ jobDescription, resumeSummary }) {
+    try {
+        const model = geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const prompt = `
+You are an expert technical recruiter with 20+ years of experience.
+Your job: Evaluate how well a candidate's resume matches a given job description.
+
+Analyze these two inputs carefully:
+
+--- JOB DESCRIPTION ---
+${jobDescription}
+
+-- JOB REQUIREMENTS ---
+Minimum Qualifications: ${jobminimumqualifications}
+Minimum Skills Required: ${jobminimumskillsrequired}
+
+--- RESUME TEXT ---
+${resumeSummary}
+
+Now determine the candidate's suitability with very high accuracy.
+
+Your output *must* be strictly valid JSON in this format:
+\`\`\`json
+{
+  "matchLevel": "High Match" | "Medium Match" | "Low Match" | "Unqualified",
+  "matchScore": number (0 to 100)
+}
+\`\`\`
+
+Guidelines for scoring:
+- 90–100 → "High Match": candidate fits almost perfectly.
+- 70–89 → "Medium Match": candidate is good but not perfect.
+- 40–69 → "Low Match": candidate is weak but possibly trainable.
+- Below 40 → "Unqualified": candidate does not meet core requirements.
+
+Important:
+- Focus only on skills, experience, and role alignment.
+- Ignore formatting or location.
+- Be consistent — identical resumes  identical scores.
+`;
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+
+        const match = text.match(/```json([\s\S]*?)```/);
+        const jsonText = match ? match[1] : text;
+
+        const parsed = JSON.parse(jsonText);
+
+        if (
+            !parsed.matchLevel ||
+            typeof parsed.matchScore !== "number" ||
+            parsed.matchScore < 0 ||
+            parsed.matchScore > 100
+        ) {
+            throw new Error("Invalid or incomplete AI response");
+        }
+
+        return parsed;
+    } catch (error) {
+        console.error("[resume_sorter_agent] Error:", error.message);
+        return {
+            matchLevel: "Unqualified",
+            matchScore: 0,
+            error: error.message,
+        };
+    }
+}
