@@ -137,6 +137,13 @@ const interviewDetailsSchema = new mongoose.Schema({
             timestamp: { type: Date, default: Date.now },
         },
     ],
+    userlogs: [
+        {
+            message: String,
+            level: { type: String, enum: ["info", "error", "success"], default: "info" },
+            timestamp: { type: Date, default: Date.now },
+        },
+    ],
 },
     { timestamps: true }
 );

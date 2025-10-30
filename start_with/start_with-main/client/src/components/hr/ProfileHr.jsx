@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import Switcher1 from '../ToggleButton.jsx';
 import gemai from '../../assets/gemai.png';
 import SparkleLoader from '../SparkleLoader.jsx';
+import SocketService from '../../socket/socketService.js';
+import { act } from 'react';
 
 
 const ProfileHr = () => {
@@ -158,6 +160,18 @@ const ProfileHr = () => {
     useEffect(() => {
         setSocketConnected(isConnected);
         console.log("Socket connection status changed:", isConnected);
+        if (!isConnected) return;
+        const handleProgress = (data) => {
+            // console.log("📡 Got interview progress update:", data);
+            // data = { interview: "123", step: "Sheet structure processed" }
+            console.log(data.step)
+        };
+
+        SocketService.on("INTERVIEW_PROGRESS_LOG", handleProgress);
+
+        return () => {
+            SocketService.off("INTERVIEW_PROGRESS_LOG", handleProgress);
+        };
     }, [isConnected]);
 
     useEffect(() => {
@@ -237,11 +251,13 @@ const ProfileHr = () => {
 
                         <div className=' w-full h-full flex gap-2'>
                             <div className='bg-white relative min-w-[200px] rounded-lg flex flex-col gap-1 p-1'>
-                                <div onClick={() => setActivePage('Home')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Home</div>
-                                <div onClick={() => setActivePage('Analytics')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Analytics</div>
+                                {/* <div onClick={() => setActivePage('Home')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Home</div> */}
+                                {/* <div onClick={() => setActivePage('Analytics')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Analytics</div> */}
                                 <div onClick={() => setActivePage('Candidates')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Candidates</div>
-                                <div onClick={() => setActivePage('Recruiters')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Recruiters</div>
-                                <div onClick={() => setActivePage('Company')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Company</div>
+                                {/* <div onClick={() => setActivePage('Recruiters')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Recruiters</div> */}
+                                {/* <div onClick={() => setActivePage('Company')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Company</div> */}
+                                <div onClick={() => setActivePage('Interview')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Interview</div>
+
 
                                 <div className={`order left-0 w-[100%] p-1 border-black/30 absolute bottom-0 text-orange-500 text-lg font-normal`}>
                                     <div className='w-full rounded-md border-2  border-black/20'>
@@ -480,6 +496,25 @@ const ProfileHr = () => {
                                     </div>
                                 }
 
+                                {activePage === 'Interview' &&
+                                    <div className='bg-slate-200 h-full w-full rounded-md p-1 flex gap-2'>
+                                        <div className='w-full h-full bg-white rounded-md p-6 flex flex-col gap-4'>
+                                            <div className='flex justify-between items-center mb-4'>
+                                                <div className='text-2xl font-semibold text-black/80'>Companies</div>
+                                                {/* <button onClick={() => setCompanyCreateWindow(true)} className='bg-orange-400 px-4 py-2 rounded-md text-white font-bold text-lg hover:scale-[98%]'>
+                                                    + Create Company
+                                                </button> */}
+                                            </div>
+                                            <div className='flex flex-col gap-3'>
+                                                <div className='bg-red-400 w-full flex flex-col justify-center items-center text-white font-semibold text-lg'>
+                                                    <div className='bg-green-300 w-full'>Interview 1</div>
+                                                    <div className='bg-green-300 w-full'>Interview 1</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+
                                 {companyCreateWindow &&
                                     <div className='fixed inset-0 z-50 flex items-center justify-center'>
                                         <div onClick={() => setCompanyCreateWindow(false)} className='absolute inset-0 bg-black/45 backdrop-blur-sm' />
@@ -577,9 +612,9 @@ const ProfileHr = () => {
                                                         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                                                             <div>
                                                                 <label className='block text-sm font-medium text-gray-700 mb-2'>Company *</label>
-                                                                <select name='company' value={interviewForm.company} 
-                                                                // onChange={handleInterviewChange} 
-                                                                className='w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white'>
+                                                                <select name='company' value={interviewForm.company}
+                                                                    // onChange={handleInterviewChange} 
+                                                                    className='w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white'>
                                                                     <option value=''>Select Company</option>
                                                                     {/* {companyList.map((c, i) => (
                                                                         <option key={c._id || i} value={c._id}>{c.name}</option>

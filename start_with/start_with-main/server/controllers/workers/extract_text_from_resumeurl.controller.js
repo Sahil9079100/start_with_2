@@ -1,19 +1,26 @@
-import {Interview} from "../../models/Interview.model.js";
-import {Candidate} from "../../models/Candidate.model.js";
+import { Interview } from "../../models/Interview.model.js";
+import { Candidate } from "../../models/Candidate.model.js";
 
 import axios from "axios";
 import { google } from "googleapis";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import { sort_resume_as_job_description } from "./sort_resume_as_job_description.controller.js";
+import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 export const extract_text_from_resumeurl = async (interviewId) => {
     try {
         console.log("[extract_text_from_resumeurl] Starting for interview:", interviewId);
 
+        
         const interview = await Interview.findById(interviewId);
         if (!interview) throw new Error("Interview not found");
-
+        
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "INFO",
+            step: `Extractiing text from resume url started...`
+        });
         const candidates = await Candidate.find({ interview: interviewId });
         if (!candidates.length) throw new Error("No candidates found for this interview");
 
@@ -21,6 +28,11 @@ export const extract_text_from_resumeurl = async (interviewId) => {
             try {
                 if (candidate.isResumeScanned) {
                     console.log(`Skipping ${candidate.email || "unknown"}, already scanned.`);
+                    await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                        interview: interviewId,
+                        level: "INFO",
+                        step: `Skipping ${candidate.email || "unknown"}, already scanned.`
+                    });
                     continue;
                 }
 
@@ -37,6 +49,12 @@ export const extract_text_from_resumeurl = async (interviewId) => {
                     });
                     continue;
                 }
+
+                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "INFO",
+                    step: `Extracting resume for: ${candidate.email || "unknown"} completed.`
+                });
 
                 candidate.resumeSummary = text;
                 candidate.isResumeScanned = true;
@@ -61,6 +79,12 @@ export const extract_text_from_resumeurl = async (interviewId) => {
             level: "success",
         });
         await interview.save();
+
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "SUCCESS",
+            step: `All candidate resumes are extracted successfully.`
+        });
 
         setTimeout(() => {
             sort_resume_as_job_description(interviewId);

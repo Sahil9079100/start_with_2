@@ -2,6 +2,7 @@ import { Interview } from "../../models/Interview.model.js";
 import { Candidate } from "../../models/Candidate.model.js";
 import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.model.js";
 import { geminiAPI } from "../../server.js";
+import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 // ⏳ Utility to pause execution
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,6 +28,11 @@ export const sort_resume_as_job_description = async (interviewId) => {
             throw new Error("No candidates found for this interview");
 
         console.log(`Processing ${candidates.length} candidates for matching...`);
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "INFO",
+            step: `Processing ${candidates.length} candidates for matching...`
+        });
 
         // 3️⃣ Sequential processing (so delay actually works)
         for (let i = 0; i < candidates.length; i++) {
@@ -39,9 +45,17 @@ export const sort_resume_as_job_description = async (interviewId) => {
 
             console.log(`🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate._id}`);
 
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "INFO",
+                step: `🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate.email}`
+            });
+
             const aiResult = await resume_sorter_agent({
                 jobDescription,
                 resumeSummary: candidate.resumeSummary,
+                jobminimumqualifications,
+                jobminimumskillsrequired
             });
 
             if (aiResult?.matchScore && aiResult?.matchLevel) {
@@ -53,6 +67,12 @@ export const sort_resume_as_job_description = async (interviewId) => {
             console.log(
                 `Candidate ${candidate._id} → ${aiResult.matchLevel} (${aiResult.matchScore})`
             );
+
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "INFO",
+                step: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`
+            });
 
             // ⏳ Wait 6 seconds between each AI call
             await sleep(6000);
@@ -78,6 +98,37 @@ export const sort_resume_as_job_description = async (interviewId) => {
         );
 
         console.log(`✅ Step F completed: Sorted ${candidates.length} candidates`);
+
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "SUCCESS",
+            step: `Sorted all ${candidates.length} candidates by job description`
+        });
+
+
+        // find all candidates for that interview with top score to less score
+        const sortedCandidates = await Candidate.find({ interview: interviewId })
+            .sort({ matchScore: -1 });
+
+        // console log all candiates with their score from highest to lowest
+        console.log("Sorted Candidates by Match Score:");
+        sortedCandidates.forEach(async (candidate, index) => {
+            console.log(
+                `${index + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}`
+            );
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "INFO",
+                step: `${index + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}.`
+            });
+        });
+
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "INFO",
+            step: `Waiting for recruiter to review sorted candidates and allow to send emails...`
+        });
+
         return { success: true };
     } catch (error) {
         console.error("❌ Error in sort_resume_as_job_description:", error);
@@ -90,7 +141,7 @@ export const sort_resume_as_job_description = async (interviewId) => {
  * 🧠 AI Agent: resume_sorter_agent
  * Evaluates resume vs job description.
  */
-export async function resume_sorter_agent({ jobDescription, resumeSummary }) {
+export async function resume_sorter_agent({ jobDescription, resumeSummary, jobminimumqualifications, jobminimumskillsrequired }) {
     try {
         const model = geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
 

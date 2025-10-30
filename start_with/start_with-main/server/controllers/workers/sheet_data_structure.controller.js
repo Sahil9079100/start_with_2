@@ -1,18 +1,19 @@
 // server/controllers/workers/sheet_data_structure.controller.js
 
 import { google } from "googleapis";
-import {Interview} from "../../models/Interview.model.js";
+import { Interview } from "../../models/Interview.model.js";
 import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.model.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import { geminiAPI } from "../../server.js";
 import { extractSheetData } from "./sheet_data_extract_json.controller.js";
+import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 export async function sheet_structure_finder_agent(sampleRows) {
     try {
         const model = geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        console.log("okok: ", JSON.stringify(sampleRows, null, 2));
+        // console.log("okok: ", JSON.stringify(sampleRows, null, 2));
         const prompt = `
 You are given a set of sample rows from a Google Sheet.
 Your job is to infer what each column represents (e.g., Name, Email, Resume URL, etc.).
@@ -88,6 +89,15 @@ export const sheet_data_structure_worker = async (interviewId) => {
             logs: [{ message: "Started processing sheet structure", level: "info" }],
         });
 
+        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG",
+            {
+                interview: interviewId,
+                level: "INFO",
+                step: "Sheet structure process started..."
+            });
+
+
         // 4️⃣ Setup OAuth client
         const oAuth2Client = createOAuthClient();
         oAuth2Client.setCredentials(integration.tokens);
@@ -115,9 +125,31 @@ export const sheet_data_structure_worker = async (interviewId) => {
             level: "info",
         });
         await structureDoc.save();
+        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG",
+            {
+                interview: interviewId,
+                level: "INFO",
+                step: `Fetched top ${sampleRows.length} rows dynamically from sheet`
+            });
 
         // 6️⃣ Pass sample rows to AI agent
+        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG",
+            {
+                interview: interviewId,
+                level: "INFO",
+                step: `Agent finding sheet structure...`
+            });
         const columnMapping = await sheet_structure_finder_agent(sampleRows);
+
+        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG",
+            {
+                interview: interviewId,
+                level: "SUCCESS",
+                step: `Agent successfully find the structure`
+            });
 
         structureDoc.columnMapping = columnMapping;
         structureDoc.status = "completed";
@@ -131,8 +163,21 @@ export const sheet_data_structure_worker = async (interviewId) => {
             level: "success",
         });
         await interview.save();
+        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "SUCCESS",
+            step: "Google Sheet structure successfully processed"
+        });
 
         console.log(`[Worker] Sheet structure processed for interview ${interviewId}`);
+
+        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        // await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+        //     interview: interviewId,
+        //     level: "INFO",
+        //     step: "Google Sheet structure processed"
+        // });
 
         // ✅ kick off next worker asynchronously
         setTimeout(() => {
@@ -155,6 +200,13 @@ export const sheet_data_structure_worker = async (interviewId) => {
                 },
             }
         );
+
+        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "ERROR",
+            step: "Google Sheet structure processed"
+        });
 
         return false;
     }

@@ -1,9 +1,10 @@
-import {Interview} from "../../models/Interview.model.js";
+import { Interview } from "../../models/Interview.model.js";
 import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.model.js";
 import SheetDataExtractJson from "../../models/SheetDataExtractJson.model.js";
-import {Candidate} from "../../models/Candidate.model.js";
+import { Candidate } from "../../models/Candidate.model.js";
 import { geminiAPI } from "../../server.js";
 import { extract_text_from_resumeurl } from "./extract_text_from_resumeurl.controller.js";
+import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 /**
  * STEP D: Separate resume URLs, emails, and save candidates
@@ -20,6 +21,11 @@ export const separate_resume_urls_and_save = async (interviewId) => {
 
         const interview = await Interview.findById(interviewId);
         if (!interview) throw new Error("Interview not found");
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "INFO",
+            step: `Starting candidate separation form Google Sheet`
+        });
 
         const structureDoc = await InterviewGSheetStructure.findOne({ interview: interviewId });
         if (!structureDoc) throw new Error("Sheet structure not found");
@@ -33,17 +39,34 @@ export const separate_resume_urls_and_save = async (interviewId) => {
         const sampleRows = extractDoc.rows.slice(0, 5); // first 5 rows as context
 
 
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "INFO",
+            step: `AI Agent is analyzing the sheet's rows and columns...`
+        });
         const columnAnalysis = await which_column_is_which_agent(structureDoc.columnMapping, sampleRows);
         const { resumeUrlColumn, emailColumn, dynamicColumns } = columnAnalysis;
 
-        if (!resumeUrlColumn || !emailColumn || !dynamicColumns?.length)
+        if (!resumeUrlColumn || !emailColumn || !dynamicColumns?.length) {
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "ERROR",
+                step: `Agent failed to identify rows and columns`
+            });
             throw new Error("Agent failed to identify resume/email/dynamic columns");
+        }
 
         structureDoc.logs.push({
             message: `Identified resume column (${resumeUrlColumn}), email column (${emailColumn}), and dynamic columns: ${dynamicColumns.join(", ")}`,
             level: "success",
         });
         await structureDoc.save();
+
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "ERROR",
+            step: `Agent identified resume column (${resumeUrlColumn}), email column (${emailColumn}), and dynamic columns: ${dynamicColumns.join(", ")}`
+        });
 
         let savedCount = 0;
 
@@ -63,9 +86,14 @@ export const separate_resume_urls_and_save = async (interviewId) => {
 
             const resumeUrl = row[resumeIndex] || "";
             const email = row[emailIndex] || "";
-
+            i
             if (!resumeUrl) {
-                console.warn(`Row ${i + 1}: Missing resume URL, skipping`);
+                console.log(`Row ${i + 1}: Missing resume URL, skipping`);
+                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "INFO",
+                    step: `Row ${i + 1}: Missing resume URL, skipping`
+                });
                 continue;
             }
 
@@ -82,10 +110,20 @@ export const separate_resume_urls_and_save = async (interviewId) => {
             savedCount++;
             if (savedCount % 10 === 0) {
                 console.log(`[Step D] Saved ${savedCount} candidates so far...`);
+                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "INFO",
+                    step: `Saved ${savedCount} candidates so far...`
+                });
             }
         }
 
         console.log(`[Step D] Completed. Total candidates saved: ${savedCount}`);
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "SUCCESS",
+            step: `Total ${savedCount} candidates are saved from sheet`
+        });
 
         interview.status = "separate_resume_urls_and_save";
         await interview.save();

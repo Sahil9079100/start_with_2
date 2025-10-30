@@ -19,6 +19,9 @@ export function initSocket(server) {
     // Handle connections
     io.on("connection", (socket) => {
         console.log("✅ Socket connected:", socket.id, "User:", socket.user?.email || socket.user?.id);
+        const ownerRoom = `owner:${socket.user.id}`;
+        socket.join(ownerRoom);
+        console.log(`🏠 Joined owner room: ${ownerRoom}`);
         console.log("-----------------------------------------------------------------------");
 
         // Example event handler

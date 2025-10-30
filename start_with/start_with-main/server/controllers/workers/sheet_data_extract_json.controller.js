@@ -2,11 +2,12 @@
 
 import { google } from "googleapis";
 import SheetDataExtractJson from "../../models/SheetDataExtractJson.model.js";
-import {Interview} from "../../models/Interview.model.js";
+import { Interview } from "../../models/Interview.model.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import { createOAuthClient } from "../../utils/googleClient.js";  // Your existing helper
 import InterviewGSheetStructureModel from "../../models/InterviewGSheetStructure.model.js";
 import { separate_resume_urls_and_save } from "./separate_resume_urls_and_save.controller.js";
+import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 export const extractSheetData = async (interviewId) => {
     try {
@@ -42,6 +43,12 @@ export const extractSheetData = async (interviewId) => {
             });
         }
 
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "INFO",
+            step: "Started extracting data from google sheet..."
+        });
+
         // 5️⃣ Fetch rows in buffer
         const bufferSize = 5;
         let startRow = 2; // skip header
@@ -59,12 +66,22 @@ export const extractSheetData = async (interviewId) => {
             if (rows.length === 0) {
                 moreRows = false;
                 sheetExtract.logs.push({ message: `No more rows found. Extraction complete`, level: "success" });
+                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "INFO",
+                    step: "No more rows found. Extraction complete"
+                });
                 break;
             }
 
             sheetExtract.rows.push(...rows);
             sheetExtract.logs.push({ message: `Fetched rows ${startRow} to ${endRow}`, level: "info" });
             await sheetExtract.save();
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "INFO",
+                step: `Fetched rows ${startRow} to ${endRow}`
+            });
 
             startRow += bufferSize;
             endRow += bufferSize;
@@ -75,10 +92,17 @@ export const extractSheetData = async (interviewId) => {
         sheetExtract.logs.push({ message: "Sheet data extraction completed", level: "success" });
         await sheetExtract.save();
 
+
         // 7️⃣ Update parent interview status
         interview.status = "sheet_data_extract_json";
         interview.logs.push({ message: "Sheet data extracted successfully", level: "success" });
         await interview.save();
+
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "SUCCESS",
+            step: `Sheet data extracted successfully`
+        });
 
         console.log(`[Worker] Sheet extraction done for interview ${interview._id}`);
         // console.log(`✅ Sheet extraction done for interview ${interview._id}`);
@@ -96,5 +120,11 @@ export const extractSheetData = async (interviewId) => {
                 $push: { logs: { message: `Sheet extraction failed: ${error.message}`, level: "error" } }
             });
         }
+
+        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "ERROR",
+            step: `Sheet extraction failed: ${error.message}`
+        });
     }
 };

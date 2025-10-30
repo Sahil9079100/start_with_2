@@ -1,6 +1,6 @@
 // server/controllers/workers/createInterview.controller.js
 
-import {Interview} from "../../models/Interview.model.js";
+import { Interview } from "../../models/Interview.model.js";
 import { sheet_data_structure_worker } from "./sheet_data_structure.controller.js";
 
 export const createInterview = async (req, res) => {
