@@ -7,7 +7,7 @@ let io; // we’ll export this later for other modules to use
 export function initSocket(server) {
     io = new Server(server, {
         cors: {
-            origin: "*", // ⚠️ use your actual frontend origin in prod (e.g. "https://yourapp.com")
+            origin: ['http://localhost:5173', 'https://ac409bf3900f.ngrok-free.app'], // ⚠️ use your actual frontend origin in prod (e.g. "https://yourapp.com")
             methods: ["GET", "POST"],
             credentials: true,
         },

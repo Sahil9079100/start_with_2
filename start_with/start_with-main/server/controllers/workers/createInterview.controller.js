@@ -10,6 +10,8 @@ export const createInterview = async (req, res) => {
         if (!data.candidateSheetId || !data.jobPosition)
             return res.status(400).json({ error: "Missing required fields" });
 
+        console.log(data)
+        
         const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173"
 
         const newInterview = await Interview.create({
@@ -30,6 +32,7 @@ export const createInterview = async (req, res) => {
         newInterview.interviewUrl = url;
         await newInterview.save();
 
+        // return
         console.log(`[INTERVIEW CREATED] ${newInterview._id} by ${ownerId}`);
 
         // ✅ kick off next worker asynchronously

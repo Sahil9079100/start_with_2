@@ -64,7 +64,7 @@ export const separate_resume_urls_and_save = async (interviewId) => {
 
         await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
             interview: interviewId,
-            level: "ERROR",
+            level: "SUCCESS",
             step: `Agent identified resume column (${resumeUrlColumn}), email column (${emailColumn}), and dynamic columns: ${dynamicColumns.join(", ")}`
         });
 

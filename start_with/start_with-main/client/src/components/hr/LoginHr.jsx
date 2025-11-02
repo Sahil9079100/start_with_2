@@ -34,6 +34,7 @@ export const LoginHr = () => {
             // navigate(`/p/o/${response.data.owner._id}`)
         } catch (error) {
             console.log("login owner error", error)
+            navigate('/r/o')
         }
     }
     return (

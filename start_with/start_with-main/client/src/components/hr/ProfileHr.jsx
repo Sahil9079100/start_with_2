@@ -3,11 +3,18 @@ import API from '../../axios.config';
 import { useContext } from "react";
 import { SocketContext } from "../../socket/SocketProvider.jsx";
 import { useNavigate } from 'react-router-dom';
-import Switcher1 from '../ToggleButton.jsx';
-import gemai from '../../assets/gemai.png';
+// import Switcher1 from '../ToggleButton.jsx';
+// import gemai from '../../assets/gemai.png';
 import SparkleLoader from '../SparkleLoader.jsx';
 import SocketService from '../../socket/socketService.js';
-import { act } from 'react';
+import { FiInfo } from "react-icons/fi";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { RiArrowLeftSLine } from "react-icons/ri";
+import { LuListCheck } from "react-icons/lu";
+import { MdDelete } from "react-icons/md";
+
+
+
 
 
 const ProfileHr = () => {
@@ -20,18 +27,27 @@ const ProfileHr = () => {
     const [isChecked, setIsChecked] = useState(false)
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [sheetsNames, setSheetsName] = useState([])
+    const [interviews, setInterviews] = useState([])
+    const [interviewDetails, setInterviewDetails] = useState(null);
+    const [combinedLogs, setCombinedLogs] = useState([]); // Combined logs from userLogs + socket
+    const [interviewExtraWindow, setInterviewExtraWindow] = useState(false);
+    const [emailSuccessSortedToolWindow, setEmailSuccessSortedToolWindow] = useState(false);
+    const [eSSWindow, setESSWindow] = useState('details');
+    const [areYouSureDeleteWindow, setAreYouSureDeleteWindow] = useState(false);
+    const [deleteInterviewID, setDeleteInterviewID] = useState('')
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     // This is a Job role for Content creator for Social media platform
     const [interviewForm, setInterviewForm] = useState({
-        // company: '', // will be a dropdown, fetch all the companies of the owner and show them here
-        recruiter: '', // will be a dropdown, fetch all the recruiters of the owner and show them here
+        //company: '', // will be a dropdown, fetch all the companies of the owner and show them here
+        launguage: '', // will be a dropdown, fetch all the languages of the owner and show them here
         candidateSheetId: '', // will be a dynamic form, where owner can add multiple candidates
         jobPosition: '', // will be a text input
         jobDescription: '', // will be a text area
         duration: '', // will be a text input in minutes
         expiryDate: '', // will be a date picker
         minimumQualification: '', // will be a text input
-        minimumSkillsRequired: '', // will be a text input
+        minimumSkills: '', // will be a text input
     })
     const [interviewQuestions, setInterviewQuestions] = useState(['']);
 
@@ -71,6 +87,8 @@ const ProfileHr = () => {
             const response = await API.post('/api/owner/create/interview', payload);
             console.log("interview created", response)
             console.log(response.data)
+            // reload the page so that the new interview loads
+            window.location.reload();
         } catch (error) {
             console.log("create interview error", error)
         }
@@ -157,14 +175,57 @@ const ProfileHr = () => {
         }
     }
 
+    // Helper function to get sheet name by ID
+    const getSheetNameById = (sheetId) => {
+        const sheet = sheetsNames.find(s => s.id === sheetId);
+        return sheet ? sheet.name : sheetId;
+    }
+
+    async function set_Interview_Details_page(interview_id) {
+        try {
+            // find the interview from interviews state using the interview_id from the interview array
+            const interview_detail = interviews.find((int) => int._id === interview_id);
+            setInterviewDetails(interview_detail);
+            console.log(interview_detail.jobPosition)
+        } catch (error) {
+            console.log("Error fetching interview details:", error);
+        }
+    }
+
+    async function deleteInterview() {
+        try {
+            setDeleteLoading(true)
+            // const response = await API.delete(`/api/owner/interview/${deleteInterviewID}`);
+            const response = await API.post("/api/owner/delete/interview", { interviewid: deleteInterviewID });
+            console.log(response)
+            console.log("delete the interview of id ", deleteInterviewID)
+            setInterviews((prev) => prev.filter((int) => int._id !== deleteInterviewID));
+            setDeleteInterviewID('')
+            setDeleteLoading(false)
+        } catch (error) {
+            console.log("Error while deleting interview", error)
+        }
+    }
+
     useEffect(() => {
         setSocketConnected(isConnected);
         console.log("Socket connection status changed:", isConnected);
         if (!isConnected) return;
+
         const handleProgress = (data) => {
             // console.log("📡 Got interview progress update:", data);
             // data = { interview: "123", step: "Sheet structure processed" }
-            console.log(data.step)
+            console.log(data.step);
+
+            // Add new socket log to combined logs
+            const newSocketLog = {
+                message: data.step,
+                level: 'INFO',
+                timestamp: new Date().toISOString(),
+                _id: `socket_${Date.now()}_${Math.random()}` // Unique ID for socket logs
+            };
+
+            setCombinedLogs(prev => [...prev, newSocketLog]);
         };
 
         SocketService.on("INTERVIEW_PROGRESS_LOG", handleProgress);
@@ -190,16 +251,50 @@ const ProfileHr = () => {
                 // setCompanyList(response.data.owner.company)
                 // setRecruiterList(response.data.owner.recrutier)
                 console.log(response.data)
+
             } catch (error) {
                 console.log("Error fetching profile:", error);
+                // navigate("/l/o")
             }
         };
         fetchProfile();
     }, [])
 
+    useEffect(() => {
+        const fetchAllInterviews = async () => {
+            try {
+                const response = await API.post('/api/owner/fetch/interviews');
+                console.log("Fetched interviews:", response.data);
+                setInterviews(response.data.data);
+            } catch (error) {
+                console.log("Error while fetching all interviews", error)
+            }
+        }
+        fetchAllInterviews();
+    }, [profile])
+
+    // Debug: log when interviewDetails changes (setInterviewDetails is async)
+    useEffect(() => {
+        if (interviewDetails) {
+            console.log('interviewDetails changed ->', interviewDetails);
+            // Initialize combined logs with userLogs when interview details are loaded
+            setCombinedLogs(interviewDetails.userlogs || []);
+            // Fetch sheets names if not already loaded and interview has a candidateSheetId
+            if (interviewDetails.candidateSheetId && sheetsNames.length === 0) {
+                getSheetsNames();
+            }
+        } else {
+            console.log('interviewDetails cleared');
+            // Clear combined logs when no interview is selected
+            setCombinedLogs([]);
+        }
+    }, [interviewDetails]);
+
+
     const [recruiterCreateWindow, setRecruiterCreateWindow] = useState(false);
     const [companyCreateWindow, setCompanyCreateWindow] = useState(false);
     const [interviewCreateWindow, setInterviewCreateWindow] = useState(false);
+    const [showLogsModal, setShowLogsModal] = useState(false);
 
     const handleCheckboxChange = (e) => {
         setIsChecked(e.target.checked)
@@ -249,7 +344,7 @@ const ProfileHr = () => {
                         </div>
 
 
-                        <div className=' w-full h-full flex gap-2'>
+                        <div className=' w-full h-[89vh] bg-yellow-400 flex gap-2'>
                             <div className='bg-white relative min-w-[200px] rounded-lg flex flex-col gap-1 p-1'>
                                 {/* <div onClick={() => setActivePage('Home')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Home</div> */}
                                 {/* <div onClick={() => setActivePage('Analytics')} className={`bg-orange-300/40 text-orange-500 px-4 py-3 text-lg rounded-md font-semibold cursor-pointer`}>Analytics</div> */}
@@ -417,7 +512,7 @@ const ProfileHr = () => {
                                                         </div>
                                                     ))
                                                 ) : (
-                                                    <div className='text-md text-black/40 text-center'>No recruiter yet</div>
+                                                    <div className='text-md text-black/40 text-center'>No launguage yet</div>
                                                 )} */}
                                             </div>
                                         </div>
@@ -498,22 +593,357 @@ const ProfileHr = () => {
 
                                 {activePage === 'Interview' &&
                                     <div className='bg-slate-200 h-full w-full rounded-md p-1 flex gap-2'>
-                                        <div className='w-full h-full bg-white rounded-md p-6 flex flex-col gap-4'>
-                                            <div className='flex justify-between items-center mb-4'>
-                                                <div className='text-2xl font-semibold text-black/80'>Companies</div>
-                                                {/* <button onClick={() => setCompanyCreateWindow(true)} className='bg-orange-400 px-4 py-2 rounded-md text-white font-bold text-lg hover:scale-[98%]'>
-                                                    + Create Company
-                                                </button> */}
-                                            </div>
-                                            <div className='flex flex-col gap-3'>
-                                                <div className='bg-red-400 w-full flex flex-col justify-center items-center text-white font-semibold text-lg'>
-                                                    <div className='bg-green-300 w-full'>Interview 1</div>
-                                                    <div className='bg-green-300 w-full'>Interview 1</div>
+
+                                        {interviewDetails == null &&
+                                            <div className='w-full h-full bg-white rounded-md p-6 flex flex-col gap-4'>
+                                                <div className='flex justify-between items-center mb-4'>
+                                                    <div className='text-2xl font-semibold text-black'>Interviews</div>
                                                 </div>
+                                                <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] max-h-[100%]'>
+
+                                                    {interviews.map((interview) => (
+                                                        <div key={interview._id}>
+                                                            <div className='relative w-full flex max-h-8 hover:bg-gray-200/30 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
+                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
+                                                                <span onClick={() => { setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); }} className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span>
+
+                                                                {interviewExtraWindow[interview._id] && (
+                                                                    <div className='absolute z-50 top-0 right-0 mt-10 mr-0 bg-gray-50 border-[2px] border-gray-200 rounded-[5px] p-1 flex flex-col gap-1 ' >
+                                                                        <div onClick={() => { setAreYouSureDeleteWindow(true); setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); setDeleteInterviewID(interview._id); }} className={`hover:bg-red-200/40 hover:cursor-pointer flex rounded-[3px] px-2 py-1 font-normal text-red-400 select-none`}>Delete <span className='ml-2 text-xl flex justify-center items-center'><MdDelete /></span></div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {/* <div className='w-full flex justify-end pr-3'>
+                                                                <div className='absolute top-0 right-0  mr-0 bg-gray-50 border-[2px] border-gray-200 rounded-[5px] p-1 flex flex-col gap-1 ' >
+                                                                    <div onClick={() => { setESSWindow('details'); setEmailSuccessSortedToolWindow(false) }} className={`${eSSWindow === 'details' ? 'bg-gray-200' : ''} hover:bg-gray-200 hover:cursor-pointer rounded-[3px] px-2 py-1 font-normal text-gray-900`}>Details</div>
+                                                                </div>
+                                                            </div> */}
+                                                            <hr className='border border-black/20 ' />
+                                                        </div>
+                                                    ))}
+
+                                                </div>
+                                            </div>
+                                        }
+
+                                        {
+                                            // here i will add the "Are you sure to delete this interview?" confirmation box
+                                            areYouSureDeleteWindow && (
+                                                <div className='absolute top-0 left-0 w-full h-full bg-black/30 flex justify-center items-center'>
+                                                    <div className='bg-white rounded-md p-4 flex flex-col gap-4'>
+                                                        <h3 className='text-lg font-bold text-center'>Are you sure you want to delete this <br /> interview permanently?</h3>
+                                                        <div className='flex justify-end'>
+                                                            <button onClick={() => { setAreYouSureDeleteWindow(false); setDeleteLoading(false); }} className='bg-gray-200 hover:bg-gray-300 rounded-md px-4 py-2'>Cancel</button>
+                                                            {deleteLoading &&
+                                                                <div className="flex w-[82px] justify-center items-center bg-red-500 hover:bg-red-600 text-white rounded-md px-4 py-2 ml-2">
+                                                                    <div className="w-5 h-5 border-t-2 border-b-2 border-white rounded-full animate-spin"></div>
+                                                                </div>}
+                                                            {!deleteLoading && <button onClick={() => { deleteInterview(); }} className='bg-red-500 w-[82px] hover:bg-red-600 text-white rounded-md px-4 py-2 ml-2'>Delete</button>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        {interviewDetails &&
+                                            <div className='w-full h-full bg-white rounded-md p-4 flex flex-col gap-4 relative'>
+                                                <div className=' flex flex-col h-[100%] items-center gap-3 pb-2 border-b border-gray-200 flex-shrink-0'>
+                                                    <div className='w-full flex relative'>
+
+                                                        <div onClick={() => { setInterviewDetails(null); setESSWindow(''); }} className="text-[30px] rounded-full pr-[2px] py-[1px] w-fit h-fit hover:bg-gray-200 cursor-pointer transition-colors">
+                                                            <RiArrowLeftSLine />
+                                                        </div>
+                                                        <div className='flex-1'>
+                                                            <h2 className='text-2xl font-bold text-gray-800'>{interviewDetails.jobPosition}</h2>
+                                                            <p className='text-sm text-gray-500 mt-1'>Created: {new Date(interviewDetails.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                                                        </div>
+
+                                                        <div onClick={() => { setEmailSuccessSortedToolWindow(!emailSuccessSortedToolWindow) }} className='w-8 h-8 flex justify-center items-center rounded-full hover:bg-gray-200 cursor-pointer transition-colors'>
+                                                            <BsThreeDotsVertical />
+                                                        </div>
+
+                                                        {emailSuccessSortedToolWindow && (
+                                                            <div className='absolute top-0 right-0 mt-10 mr-0 bg-gray-50 border-[2px] border-gray-200 rounded-[5px] p-1 flex flex-col gap-1 ' >
+                                                                <div onClick={() => { setESSWindow('details'); setEmailSuccessSortedToolWindow(false) }} className={`${eSSWindow === 'details' ? 'bg-gray-200' : ''} hover:bg-gray-200 hover:cursor-pointer rounded-[3px] px-2 py-1 font-normal text-gray-900`}>Details</div>
+                                                                <div onClick={() => { setESSWindow('emailSent'); setEmailSuccessSortedToolWindow(false) }} className={`${eSSWindow === 'emailSent' ? 'bg-gray-200' : ''} hover:bg-gray-200 hover:cursor-pointer rounded-[3px] px-2 py-1 font-normal text-gray-900`}>Emails Sent</div>
+                                                                <div onClick={() => { setESSWindow('successfulInterview'); setEmailSuccessSortedToolWindow(false) }} className={`${eSSWindow === 'successfulInterview' ? 'bg-gray-200' : ''} hover:bg-gray-200 hover:cursor-pointer rounded-[3px] px-2 py-1 font-normal text-gray-900`}>Successful Interview</div>
+                                                                <div onClick={() => { setESSWindow('sortedList'); setEmailSuccessSortedToolWindow(false) }} className={`${eSSWindow === 'sortedList' ? 'bg-gray-200' : ''} hover:bg-gray-200 hover:cursor-pointer rounded-[3px] px-2 py-1 font-normal text-gray-900`}>Sorted List</div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {eSSWindow === 'emailSent' &&
+                                                        <>
+                                                            <hr className='border border-black/10 w-full' />
+                                                            <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
+                                                                <div className='text-xl font-bold w-full'>Emails sent list</div>
+                                                                <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] w-full'>
+
+                                                                    {interviews.map((interview) => (
+                                                                        <div key={interview._id}>
+                                                                            <div className='w-full flex max-h-8 hover:bg-gray-200/30 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
+                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                                {/* set state and log the interview object (not the stale state) */}
+                                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
+                                                                                <span className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span>
+                                                                            </div>
+                                                                            <hr className='border border-black/20 ' />
+                                                                        </div>
+                                                                    ))}
+
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    }
+
+
+                                                    {/* Status Badge */}
+                                                    {/* <div className='flex items-center gap-2'>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${interviewDetails.status === 'sort_resume_as_job_description' ? 'bg-yellow-100 text-yellow-700' :
+                                                            interviewDetails.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                                'bg-blue-100 text-blue-700'
+                                                            }`}>
+                                                            {interviewDetails.status?.replace(/_/g, ' ').toUpperCase()}
+                                                        </span>
+                                                    </div> */}
+
+                                                    {eSSWindow === 'details' && (
+                                                        <div className='w-full flex-1 h-[100%] overflow-y-scroll space-y-4 bg-rd-500'>
+                                                            <div className='grid grid-cols-1 md:grid-cols-4 gap-3'>
+                                                                <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
+                                                                    <div className='text-sm font-semibold text-gray-600 mb-2'>Duration</div>
+                                                                    <div className='text-gray-800'>{interviewDetails.duration} min</div>
+                                                                </div>
+                                                                <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
+                                                                    <div className='text-sm font-semibold text-gray-600 mb-2'>Language</div>
+                                                                    <div className='text-gray-800'>{interviewDetails.launguage || 'English'}</div>
+                                                                </div>
+                                                                <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
+                                                                    <div className='text-sm font-semibold text-gray-600 mb-2'>Candiate interview completed</div>
+                                                                    <div className='text-gray-800'>{interviewDetails.usercompleteintreviewemailandid?.length || 0}</div>
+                                                                </div>
+                                                                <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
+                                                                    <div className='text-sm font-semibold text-gray-600 mb-2'>Expiry date</div>
+                                                                    <div className='text-gray-800'>{new Date(interviewDetails.expiryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className='bg-gray-50 p-5 rounded-lg border border-gray-200'>
+                                                                <h3 className='text-lg font-semibold text-gray-800 mb-3'>Job Description</h3>
+                                                                <p className='text-gray-700 leading-relaxed'>{interviewDetails.jobDescription}</p>
+                                                            </div>
+
+                                                            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                                                                <div className='bg-white p-4 rounded-lg border border-gray-200 shadow-sm'>
+                                                                    <h4 className='text-sm font-semibold text-gray-600 mb-2'>Minimum Qualification</h4>
+                                                                    <p className='text-gray-800'>{interviewDetails.minimumQualification || 'Not specified'}</p>
+                                                                </div>
+                                                                <div className='bg-white p-4 rounded-lg border border-gray-200 shadow-sm'>
+                                                                    <h4 className='text-sm font-semibold text-gray-600 mb-2'></h4>
+                                                                    <p className='text-gray-800'>{new Date(interviewDetails.expiryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                                                                </div>
+                                                                <div className='bg-white p-4 rounded-lg border border-gray-200 shadow-sm md:col-span-2'>
+                                                                    <h4 className='text-sm font-semibold text-gray-600 mb-2'>Candidate Sheet</h4>
+                                                                    <div className='flex items-center gap-2'>
+                                                                        <svg className='w-5 h-5 text-green-600' fill="currentColor" viewBox="0 0 20 20">
+                                                                            <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
+                                                                            <path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                                                                        </svg>
+                                                                        <p className='text-gray-800 font-medium'>{getSheetNameById(interviewDetails.candidateSheetId)}</p>
+                                                                    </div>
+                                                                    {interviewDetails.candidateSheetId && (
+                                                                        <p className='text-xs text-gray-500 mt-2 font-mono'>ID: {interviewDetails.candidateSheetId}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className='bg-white p-4 rounded-lg border border-gray-200 shadow-sm'>
+                                                                <h4 className='text-sm font-semibold text-gray-600 mb-2'>Interview URL</h4>
+                                                                <div className='flex items-center gap-2'>
+                                                                    <input
+                                                                        type='text'
+                                                                        readOnly
+                                                                        value={interviewDetails.interviewUrl}
+                                                                        className='flex-1 bg-gray-50 border border-gray-300 rounded px-3 py-2 text-sm text-gray-700'
+                                                                    />
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            navigator.clipboard.writeText(interviewDetails.interviewUrl);
+                                                                            alert('URL copied to clipboard!');
+                                                                        }}
+                                                                        className='bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors'
+                                                                    >
+                                                                        Copy
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {combinedLogs && combinedLogs.length > 0 && (
+                                                                <div className='bg-white p-4 rounded-lg border border-gray-200 shadow-sm'>
+                                                                    <div className='flex justify-between items-center mb-3'>
+                                                                        <h4 className='text-sm font-semibold text-gray-600'>Recent Activity</h4>
+                                                                        <span className='text-xs text-gray-500'>{combinedLogs.length} logs</span>
+                                                                    </div>
+                                                                    <div className='space-y-2'>
+                                                                        {combinedLogs.slice(-3).reverse().map((log, idx) => (
+                                                                            <div key={log._id || idx} className='flex items-start gap-2 text-sm'>
+                                                                                <span className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${log.level === 'SUCCESS' ? 'bg-green-500' :
+                                                                                    log.level === 'ERROR' ? 'bg-red-500' :
+                                                                                        'bg-blue-500'
+                                                                                    }`}></span>
+                                                                                <p className='text-gray-700 flex-1'>{log.message}</p>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {eSSWindow === 'sortedList' && (
+                                                        <>
+                                                            <hr className='border border-black/10 w-full' />
+                                                            <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
+                                                                <div className='text-xl font-bold w-full'>Sorted list</div>
+                                                                <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] w-full'>
+
+                                                                    {interviews.map((interview) => (
+                                                                        <div key={interview._id}>
+                                                                            <div className='w-full flex max-h-8 hover:bg-gray-200/30 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
+                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                                {/* set state and log the interview object (not the stale state) */}
+                                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
+                                                                                <span className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span>
+                                                                            </div>
+                                                                            <hr className='border border-black/20 ' />
+                                                                        </div>
+                                                                    ))}
+
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+
+                                                    {eSSWindow === 'successfulInterview' && (
+                                                        <>
+                                                            <hr className='border border-black/10 w-full' />
+                                                            <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
+                                                                <div className='text-xl font-bold w-full'>Successfully Interview Completed</div>
+                                                                <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] w-full'>
+
+                                                                    {interviews.map((interview) => (
+                                                                        <div key={interview._id}>
+                                                                            <div className='w-full flex max-h-8 hover:bg-gray-200/30 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
+                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                                {/* set state and log the interview object (not the stale state) */}
+                                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
+                                                                                <span className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span>
+                                                                            </div>
+                                                                            <hr className='border border-black/20 ' />
+                                                                        </div>
+                                                                    ))}
+
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+
+
+
+                                                </div>
+
+                                                <div
+                                                    onClick={() => setShowLogsModal(true)}
+                                                    className="bg-white text-black/80 hover:cursor-pointer hover:text-black w-fit h-fit hover:bg-gray-100 border-[2px] border-black/30 absolute px-4 py-[2px] rounded-full text-lg font-medium bottom-4 right-4 flex justify-center items-center shadow-lg transition-all hover:shadow-xl">
+                                                    Logs
+                                                    <div className='ml-[7px] text-[20px]'>
+                                                        <LuListCheck />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                {/* Here i will */}
+                                { }
+
+                                {showLogsModal && interviewDetails && (
+                                    <div className=' inset-0 z-50 flex items-center justify-center p-4 absolute'>
+                                        <div onClick={() => setShowLogsModal(false)} className='absolute inset-0 bg-black/50 backdrop-blur-sm' />
+
+                                        <div className='relative w-full max-w-4xl bg-white rounded-xl shadow-2xl border border-gray-200 max-h-[85vh] overflow-hidden flex flex-col'>
+
+                                            <div className='flex items-center justify-between p-5 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100'>
+                                                <div>
+                                                    <h2 className='text-xl font-bold text-gray-800'>Interview Logs</h2>
+                                                    <p className='text-sm text-gray-600 mt-1'>{interviewDetails.jobPosition} - {combinedLogs.length} entries</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => setShowLogsModal(false)}
+                                                    className='bg-white hover:bg-gray-100 rounded-lg p-2 transition-colors shadow-sm'>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className='h-5 w-5 text-gray-600' viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+
+
+                                            <div className='flex-1 overflow-y-auto p-5'>
+                                                <div className='space-y-3'>
+                                                    {combinedLogs && combinedLogs.length > 0 ? (
+                                                        combinedLogs.map((log, idx) => (
+                                                            <div key={log._id || idx} className={`p-4 rounded-lg border-l-4 ${log.level === 'SUCCESS' ? 'bg-green-50 border-green-500' :
+                                                                log.level === 'ERROR' ? 'bg-red-50 border-red-500' :
+                                                                    'bg-blue-50 border-blue-500'
+                                                                }`}>
+                                                                <div className='flex items-start justify-between gap-3'>
+                                                                    <div className='flex-1'>
+                                                                        <div className='flex items-center gap-2 mb-1'>
+                                                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${log.level === 'SUCCESS' ? 'bg-green-200 text-green-800' :
+                                                                                log.level === 'ERROR' ? 'bg-red-200 text-red-800' :
+                                                                                    'bg-blue-200 text-blue-800'
+                                                                                }`}>
+                                                                                {log.level}
+                                                                            </span>
+                                                                            <span className='text-xs text-gray-500'>
+                                                                                {new Date(log.timestamp).toLocaleString('en-US', {
+                                                                                    month: 'short',
+                                                                                    day: 'numeric',
+                                                                                    hour: '2-digit',
+                                                                                    minute: '2-digit',
+                                                                                    second: '2-digit'
+                                                                                })}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className='text-gray-800 text-sm leading-relaxed'>{log.message}</p>
+                                                                    </div>
+                                                                    <div className='text-gray-400 text-xs font-mono'>#{idx + 1}</div>
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div className='text-center py-12'>
+                                                            <div className='text-gray-400 text-lg mb-2'>No logs available</div>
+                                                            <p className='text-gray-500 text-sm'>Logs will appear here as the interview progresses</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Modal Footer */}
+                                            <div className='flex items-center justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50'>
+                                                <button
+                                                    onClick={() => setShowLogsModal(false)}
+                                                    className='px-5 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-medium transition-colors'>
+                                                    Close
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
-                                }
+                                )}
+
 
                                 {companyCreateWindow &&
                                     <div className='fixed inset-0 z-50 flex items-center justify-center'>
@@ -624,7 +1054,7 @@ const ProfileHr = () => {
 
                                                             <div>
                                                                 <label className='block text-sm font-medium text-gray-700 mb-2'>Launguage *</label>
-                                                                <select name='recruiter' value={interviewForm.recruiter} onChange={handleInterviewChange} className='w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white'>
+                                                                <select name='launguage' value={interviewForm.launguage} onChange={handleInterviewChange} className='w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white'>
                                                                     <option value=''>Select Launguage</option>
                                                                     {/* {recruiterList.map((r, i) => (
                                                                         <option key={r._id || i} value={r._id}>{r.name}</option>
@@ -674,7 +1104,7 @@ const ProfileHr = () => {
 
                                                             <div className='md:col-span-2'>
                                                                 <label className='block text-sm font-medium text-gray-700 mb-2'>Required Skills</label>
-                                                                <input name='minimumSkillsRequired' value={interviewForm.minimumSkillsRequired} onChange={handleInterviewChange} placeholder='e.g. React, Node.js, TypeScript' className='w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent' />
+                                                                <input name='minimumSkills' value={interviewForm.minimumSkills} onChange={handleInterviewChange} placeholder='e.g. React, Node.js, TypeScript' className='w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-500 focus:border-transparent' />
                                                             </div>
                                                         </div>
                                                     </div>

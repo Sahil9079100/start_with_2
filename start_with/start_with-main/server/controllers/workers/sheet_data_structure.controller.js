@@ -170,6 +170,7 @@ export const sheet_data_structure_worker = async (interviewId) => {
             step: "Google Sheet structure successfully processed"
         });
 
+
         console.log(`[Worker] Sheet structure processed for interview ${interviewId}`);
 
         // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------

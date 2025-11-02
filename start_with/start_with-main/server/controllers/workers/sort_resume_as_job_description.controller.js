@@ -123,6 +123,15 @@ export const sort_resume_as_job_description = async (interviewId) => {
             });
         });
 
+        interview.sortedList = sortedCandidates.map((candidate) => ({
+            candidateId: candidate._id,
+            matchLevel: candidate.matchLevel,
+            matchScore: candidate.matchScore,
+        }));
+        await interview.save();
+
+        console.log(`Sorted list saved to interview ${interviewId}`);
+
         await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
             interview: interviewId,
             level: "INFO",

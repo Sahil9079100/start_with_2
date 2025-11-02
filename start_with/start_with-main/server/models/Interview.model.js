@@ -74,7 +74,6 @@ const interviewDetailsSchema = new mongoose.Schema({
     },
     expiryDate: {
         type: Date,
-        required: true
     },
     interviewUrl: {
         type: String,
@@ -140,10 +139,21 @@ const interviewDetailsSchema = new mongoose.Schema({
     userlogs: [
         {
             message: String,
-            level: { type: String, enum: ["info", "error", "success"], default: "info" },
+            level: { type: String, enum: ["INFO", "ERROR", "SUCCESS"], default: "INFO" },
             timestamp: { type: Date, default: Date.now },
         },
     ],
+    sortedList: [
+        {
+            candidateId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Candidate",
+            },
+            matchLevel: { type: String },
+            matchScore: { type: Number },
+        },
+    ],
+    totalCandidates: { type: Number, default: 0 },
 },
     { timestamps: true }
 );

@@ -42,7 +42,7 @@ initSocket(server);
 app.use(express.json());
 app.use(cookieParser())
 app.use(cors({
-    origin: ["http://localhost:5173"],
+    origin: ['http://localhost:5173', 'https://ac409bf3900f.ngrok-free.app'],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
 }))

@@ -2,6 +2,10 @@ import Owner from "../models/owner.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { geminiAPI } from "../server.js";
+import { Interview } from "../models/Interview.model.js";
+import SheetDataExtractJsonModel from "../models/SheetDataExtractJson.model.js";
+import InterviewGSheetStructureModel from "../models/InterviewGSheetStructure.model.js";
+import { Candidate } from "../models/Candidate.model.js";
 // import Company from "../model/company.model.js";
 // import Recruiter from "../model/recruiter.model.js";
 // import Interview from "../model/interview.model.js";
@@ -61,7 +65,7 @@ export const LoginOwner = async (req, res) => {
         res.cookie("otoken", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "None",
             maxAge: 24 * 60 * 60 * 1000
         });
 
@@ -264,6 +268,51 @@ export const CreateInterview = async (req, res) => {
     }
 }
 
+export const FetchAllInterviews = async (req, res) => {
+    try {
+        const ownerid = req.user;
+
+        const interviews = await Interview.find({ owner: ownerid }).select('-questions');
+
+        res.status(200).json({ message: "Interviews fetched successfully", data: interviews })
+    } catch (error) {
+        console.log("fetch all interviews error", error)
+        res.status(500).json({ message: "fetch all interviews error" })
+    }
+}
+
+export const DeleteInterviews = async (req, res) => {
+    try {
+        const ownerid = req.user;
+        console.log("this is owner id: ", ownerid, req.user)
+        const { interviewid } = req.body;
+        if (!interviewid) return res.status(400).json({ message: "Interview id is required" });
+
+        const interviews = await Interview.findById(interviewid);
+        if (!interviews) return res.status(404).json({ message: "Interview not found" });
+
+        console.log(interviews.owner, ownerid)
+        if (interviews.owner.toString() != ownerid.toString()) return res.status(403).json({ message: "You are not authorized to delete this interview" });
+
+        await Interview.findByIdAndDelete(interviewid);
+
+        // const SheetDataExtractJson_delete = await SheetDataExtractJsonModel.findByIdAndDelete({ interview: interviewid });
+        // if (!SheetDataExtractJson_delete) return res.status(404).json({ message: "No SheetDataExtractJson found for this interview" });
+
+        // const InterviewGSheetStructure_delete = await InterviewGSheetStructureModel.findByIdAndDelete({ interview: interviewid });
+        // if (!InterviewGSheetStructure_delete) return res.status(404).json({ message: "No InterviewGSheetStructure found for this interview" });
+
+        // const candidate_delete = await Candidate.deleteMany({ interview: interviewid });
+        // if (!candidate_delete) return res.status(404).json({ message: "No candidates found for this interview" });
+
+
+        res.status(200).json({ message: "Interview deleted successfully" });
+    }
+    catch (error) {
+        console.log("Error while deleting the interview ", error);
+        res.status(500).json({ message: "Error deleting the Interview" })
+    }
+}
 
 // export const CreateCompany = async (req, res) => {
 //     try {
