@@ -88,7 +88,11 @@ const ProfileHr = () => {
             console.log("interview created", response)
             console.log(response.data)
             // reload the page so that the new interview loads
-            window.location.reload();
+            // window.location.reload();
+            setInterviewCreateWindow(false);
+            setActivePage('Interview');
+            setInterviewDetails(response.data.Interview);
+            setShowLogsModal(true)
         } catch (error) {
             console.log("create interview error", error)
         }

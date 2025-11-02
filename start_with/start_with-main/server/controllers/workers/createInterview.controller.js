@@ -11,7 +11,7 @@ export const createInterview = async (req, res) => {
             return res.status(400).json({ error: "Missing required fields" });
 
         console.log(data)
-        
+
         const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173"
 
         const newInterview = await Interview.create({
@@ -47,6 +47,7 @@ export const createInterview = async (req, res) => {
                 id: newInterview._id,
                 url: newInterview.interviewUrl,
             },
+            Interview: newInterview,
             message: "Interview created and queued for processing",
         });
     } catch (error) {
