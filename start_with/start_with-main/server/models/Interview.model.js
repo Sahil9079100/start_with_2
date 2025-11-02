@@ -102,7 +102,7 @@ const interviewDetailsSchema = new mongoose.Schema({
 
     duration: {
         type: String,
-        required: true
+        // required: true
     },
     minimumQualification: {
         type: String,
