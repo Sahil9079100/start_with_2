@@ -1123,7 +1123,7 @@ const ProfileHr = () => {
 
                                                             <div className='md:col-span-2 relative'>
                                                                 <label className='block text-sm font-medium text-gray-700 mb-2'>Job Description *</label>
-                                                                <textarea name='jobDescription' value={interviewForm.jobDescription} onChange={handleInterviewChange} placeholder='Describe the role and responsibilities...' rows='4' className='w-full border border-gray-300 rounded-lg p-3 focus:outline-none transition-all duration-75 focus:border-2 focus:border-orange-500 resize-none' />
+                                                                <textarea name='jobDescription' value={interviewForm.jobDescription} onChange={handleInterviewChange} placeholder='Describe the role and responsibilities...' rows='4' className='w-full border h-[220px] border-gray-300 rounded-lg p-3 focus:outline-none transition-all duration-75 focus:border-2 focus:border-orange-500 resize-none' />
                                                                 <div onClick={enhanceWithAI} className='underline text-orange-500  font-normal absolute top-[1px] right-3 flex hover:cursor-pointer'>
                                                                     <div className='' >
                                                                         <SparkleLoader isEnhancing={isEnhancing} />
