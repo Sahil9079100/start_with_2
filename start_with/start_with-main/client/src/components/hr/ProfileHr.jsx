@@ -364,7 +364,7 @@ const ProfileHr = () => {
                                             setInterviewCreateWindow(true);
                                             getSheetsNames();
                                         }}
-                                        className='bg-orange-400 px-3 py-2 rounded-md text-white font-bold text-lg hover:scale-[98%] '>+ Create Interview</div>
+                                        className='bg-orange-400 px-3 py-2 rounded-md text-white font-bold text-lg hover:scale-[98%] hover:cursor-pointer '>+ Create Interview</div>
                                 </div >
                                 <div className='w-10'><img src="https://www.reshot.com/preview-assets/icons/F3N5JXHBEG/user-F3N5JXHBEG.svg" alt="" /></div>
                             </div>
