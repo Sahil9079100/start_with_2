@@ -135,7 +135,7 @@ const RegisterOwner = () => {
                             />
                         </div>
                         <div className="mb-4 relative">
-                            <label className="block text-orange-300 mb-1 font-medium" htmlFor="password">Password</label>
+                            <label className="block text-orange-300 mb-1 font-medium" htmlFor="password">Set Password</label>
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 id="password"
