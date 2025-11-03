@@ -6,7 +6,7 @@ import SocketService from '../../socket/socketService'
 
 export const LoginHr = () => {
     const navigate = useNavigate()
-    const [form, setForm] = useState({ email: 'sahil@gmail.com', password: '12345', secretkey: 'sahil' })
+    const [form, setForm] = useState({ email: '@gmail.com', password: '', secretkey: '' })
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value })

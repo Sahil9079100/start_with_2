@@ -5,10 +5,10 @@ import authSocket from "./middleware/authSocket.js";
 let io; // we’ll export this later for other modules to use
 
 export function initSocket(server) {
-    console.log("In the socket",process.env.FRONTEND_URL)
+    console.log("In the socket", process.env.FRONTEND_URL)
     io = new Server(server, {
         cors: {
-            origin: [`${process.env.FRONTEND_URL}`, 'http://localhost:5173', 'https://ac409bf3900f.ngrok-free.app'],
+            origin: [`${process.env.FRONTEND_URL}`, 'http://localhost:5173', 'https://e39f2f419ab1.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app'],
             methods: ["GET", "POST"],
             credentials: true,
         },

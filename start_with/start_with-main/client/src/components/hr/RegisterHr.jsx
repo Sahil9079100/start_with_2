@@ -6,11 +6,11 @@ import SocketService from '../../socket/socketService';
 
 const RegisterOwner = () => {
     const [form, setForm] = useState({
-        name: 'Sahil',
-        email: 'sahil@gmail.com',
-        phone: '12345',
-        password: '12345',
-        secretKey: 'sahil',
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        secretKey: '',
     });
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
