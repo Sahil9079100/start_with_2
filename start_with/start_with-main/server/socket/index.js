@@ -5,9 +5,10 @@ import authSocket from "./middleware/authSocket.js";
 let io; // we’ll export this later for other modules to use
 
 export function initSocket(server) {
+    console.log("In the socket",process.env.FRONTEND_URL)
     io = new Server(server, {
         cors: {
-            origin: ['http://localhost:5173', 'https://ac409bf3900f.ngrok-free.app'], // ⚠️ use your actual frontend origin in prod (e.g. "https://yourapp.com")
+            origin: [`${process.env.FRONTEND_URL}`, 'http://localhost:5173', 'https://ac409bf3900f.ngrok-free.app'],
             methods: ["GET", "POST"],
             credentials: true,
         },

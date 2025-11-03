@@ -295,6 +295,14 @@ const ProfileHr = () => {
     }, [interviewDetails]);
 
 
+    useEffect(() => {
+        console.log(activePage)
+
+        if (activePage === 'emailSent') {
+            // setEmailSuccessSortedToolWindow(true);
+        }
+    }, [activePage])
+
     const [recruiterCreateWindow, setRecruiterCreateWindow] = useState(false);
     const [companyCreateWindow, setCompanyCreateWindow] = useState(false);
     const [interviewCreateWindow, setInterviewCreateWindow] = useState(false);
@@ -609,7 +617,7 @@ const ProfileHr = () => {
                                                         <div key={interview._id}>
                                                             <div className='relative w-full flex max-h-8 hover:bg-gray-200/30 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
                                                                 <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 text-xl'>{interview.jobPosition || 'Interview'}</div>
-                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
+                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); setESSWindow('details'); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
                                                                 <span onClick={() => { setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); }} className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span>
 
                                                                 {interviewExtraWindow[interview._id] && (
@@ -809,7 +817,7 @@ const ProfileHr = () => {
                                                         <>
                                                             <hr className='border border-black/10 w-full' />
                                                             <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
-                                                                <div className='text-xl font-bold w-full'>Sorted list</div>
+                                                                <div className='text-xl font-bold w-full ml-10'>Sorted list</div>
                                                                 <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] w-full'>
 
                                                                     {interviews.map((interview) => (
