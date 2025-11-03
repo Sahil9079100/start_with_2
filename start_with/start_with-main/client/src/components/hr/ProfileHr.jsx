@@ -36,6 +36,7 @@ const ProfileHr = () => {
     const [areYouSureDeleteWindow, setAreYouSureDeleteWindow] = useState(false);
     const [deleteInterviewID, setDeleteInterviewID] = useState('')
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [sortedListArray, setSortedListArray] = useState([])
 
     // This is a Job role for Content creator for Social media platform
     const [interviewForm, setInterviewForm] = useState({
@@ -296,12 +297,26 @@ const ProfileHr = () => {
 
 
     useEffect(() => {
-        console.log(activePage)
+        console.log(eSSWindow)
 
-        if (activePage === 'emailSent') {
-            // setEmailSuccessSortedToolWindow(true);
+        if (eSSWindow === 'emailSent') {
+            console.log("email is clicked, can fetch emails")
+
         }
-    }, [activePage])
+
+        if (eSSWindow === 'sortedList') {
+            console.log("sortedList is clicked, can fetch sorted list")
+            get_sorted_list()
+        }
+
+    }, [eSSWindow])
+
+    async function get_sorted_list() {
+        // /owner/fetch/interview/:id/sorted-list
+        const response = await API.get(`/api/owner/fetch/interview/${interviewDetails._id}/sorted-list`);
+        console.log("sorted list response: ", response.data);
+        setSortedListArray(response.data.data.sortedCandidates);
+    }
 
     const [recruiterCreateWindow, setRecruiterCreateWindow] = useState(false);
     const [companyCreateWindow, setCompanyCreateWindow] = useState(false);
@@ -815,25 +830,45 @@ const ProfileHr = () => {
 
                                                     {eSSWindow === 'sortedList' && (
                                                         <>
-                                                            <hr className='border border-black/10 w-full' />
-                                                            <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
-                                                                <div className='text-xl font-bold w-full ml-10'>Sorted list</div>
-                                                                <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] w-full'>
+                                                            {sortedListArray.length !== 0 ? (
+                                                                <>
+                                                                    <hr className='border border-black/10 w-full' />
+                                                                    <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
+                                                                        <div className='text-xl font-bold w-full ml-10'>Sorted list</div>
+                                                                        <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] w-full'>
 
-                                                                    {interviews.map((interview) => (
-                                                                        <div key={interview._id}>
-                                                                            <div className='w-full flex max-h-8 hover:bg-gray-200/30 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
-                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 text-xl'>{interview.jobPosition || 'Interview'}</div>
-                                                                                {/* set state and log the interview object (not the stale state) */}
-                                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
-                                                                                <span className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span>
+                                                                            <div className='w-full h-[100%] flex items-center text-black/70 hover:text-black text-xl'>
+                                                                                <div className='w-full h-[100%] flex items-center text-black hover:text-black text-xl ml-4 mr-[-65px]'># &nbsp; Name </div>
+                                                                                <div className='w-full h-[100%] flex items-center text-black hover:text-black text-xl'>Resume Score </div>
+                                                                                <div className='w-full h-[100%] flex items-center text-black hover:text-black text-xl ml-24'>Match</div>
                                                                             </div>
                                                                             <hr className='border border-black/20 ' />
-                                                                        </div>
-                                                                    ))}
 
-                                                                </div>
-                                                            </div>
+                                                                            {sortedListArray.map((candidate, idx) => (
+                                                                                <div key={candidate._id}>
+                                                                                    <div className='w-full flex max-h-8 hover:bg-gray-200/20 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
+                                                                                        <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/70 hover:text-black text-xl'>{idx + 1}.&nbsp;&nbsp;&nbsp;{candidate.dynamicData?.Name || 'Interview'}</div>
+                                                                                        <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/70 hover:text-black text-xl'>{candidate.matchScore || 'Interview'}/100</div>
+                                                                                        <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/70 hover:text-black text-xl'>
+                                                                                            {candidate.matchLevel === 'Unqualified' && <div className='bg-red-400/40 w-[140px] h-fit px-3 py-0 border-2 border-red-500 text-red-600 text-[15px] font-medium flex items-center justify-center rounded-full'>Unqualified</div>}
+                                                                                            {candidate.matchLevel === 'High Match' && <div className='bg-green-400/30 w-[140px] h-fit px-3 py-0 border-2 border-green-400 text-green-600 text-[15px] font-medium flex items-center justify-center rounded-full'>High Match</div>}
+                                                                                            {candidate.matchLevel === 'Medium Match' && <div className='bg-yellow-400/30 w-[140px] h-fit px-3 py-0 border-2 border-yellow-300 text-yellow-500 text-[15px] font-medium flex items-center justify-center rounded-full'>Medium Match</div>}
+                                                                                            {candidate.matchLevel === 'Low Match' && <div className='bg-orange-400/30 w-[140px] h-fit px-3 py-0 border-2 border-orange-300 text-orange-500 text-[15px] font-medium flex items-center justify-center rounded-full'>Low Match</div>}
+                                                                                        </div>
+                                                                                        <span className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
+                                                                                        {/* <span className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span> */}
+                                                                                    </div>
+                                                                                    <hr className='border border-black/20 ' />
+                                                                                </div>
+                                                                            ))}
+
+                                                                        </div>
+                                                                    </div>
+                                                                </>) : (
+                                                                <div className='text-xl font-normal w-full text-center mt-24'>Loading the list<br />OR<br />Sorted list is empty</div>
+                                                                // <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
+                                                                // </div>
+                                                            )}
                                                         </>
                                                     )}
 

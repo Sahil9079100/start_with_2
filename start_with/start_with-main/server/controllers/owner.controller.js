@@ -314,6 +314,19 @@ export const DeleteInterviews = async (req, res) => {
     }
 }
 
+export const FetchSortedListCandidates = async (req, res) => {
+    try {
+        const interviewId = req.params.id;
+        const sortedCandidates = await Candidate.find({ interview: interviewId })
+            .sort({ matchScore: -1 });
+
+        res.status(200).json({ message: "Sorted list fetched successfully", data: { sortedCandidates } });
+    } catch (error) {
+        console.log("fetch sorted list error", error);
+        res.status(500).json({ message: "fetch sorted list error" });
+    }
+}
+
 // export const CreateCompany = async (req, res) => {
 //     try {
 //         const { name, location, website, size, industry, recruiters } = req.body
