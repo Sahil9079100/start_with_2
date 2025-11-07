@@ -26,6 +26,11 @@ const server = createServer(app)
 
 initSocket(server);
 
+
+const G1 = process.env.G1;
+const G2 = process.env.G2;
+const G3 = process.env.G3;
+
 // const io = new Server(server, {
 //     cors: {
 //         origin: ["//frontend url"],
@@ -42,7 +47,7 @@ initSocket(server);
 app.use(express.json());
 app.use(cookieParser())
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://startwith.live', 'https://e39f2f419ab1.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app'],
+    origin: ['http://localhost:5173', 'https://startwith.live', 'https://37d8bbfe437c.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app'],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
 }))

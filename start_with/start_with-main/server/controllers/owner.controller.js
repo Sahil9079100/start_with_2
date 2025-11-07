@@ -6,6 +6,7 @@ import { Interview } from "../models/Interview.model.js";
 import SheetDataExtractJsonModel from "../models/SheetDataExtractJson.model.js";
 import InterviewGSheetStructureModel from "../models/InterviewGSheetStructure.model.js";
 import { Candidate } from "../models/Candidate.model.js";
+import { IntreviewResult } from "../models/IntreviewResult.model.js";
 // import Company from "../model/company.model.js";
 // import Recruiter from "../model/recruiter.model.js";
 // import Interview from "../model/interview.model.js";
@@ -216,6 +217,48 @@ export const enhanceJobDescription = async (req, res) => {
     }
 }
 
+export const getSkillsUsingAI = async (req, res) => {
+    try {
+        const { jobPosition } = req.params;
+
+        if (!jobPosition) return res.status(400).json({ message: "Job Position is required" });
+        // Call to AI service to get skills
+        const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' }); //gemini-2.0-flash-lite
+
+        const prompt = `
+Given the job position of '[${jobPosition}]', please generate a list of 4-5 of the most relevant and essential technical skills or programming languages required for this role. Return the skills as a JSON array of strings.
+
+For example, if the job position is 'Senior Backend Developer', the output should be:
+["Node.js", "Express.js", "MongoDB", "RESTful APIs", "GraphQL"]
+Now, generate the skills for the job position: '[${jobPosition}]'.
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = await response.text();
+
+        let skills = [];
+        try {
+            // The response might contain markdown ```json ... ```, so we need to extract the JSON part.
+            const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+            if (jsonMatch && jsonMatch[1]) {
+                skills = JSON.parse(jsonMatch[1]);
+            } else {
+                // Fallback for plain JSON array, in case the format changes.
+                skills = JSON.parse(text);
+            }
+        } catch (e) {
+            console.error("Error parsing AI response for skills:", e);
+            // If parsing fails, return an empty array or handle the error as needed.
+        }
+
+        res.status(200).json({ message: "Skills fetched successfully", skills });
+    } catch (error) {
+        console.log("Error fetching skills using AI:", error);
+        res.status(500).json({ message: "Error fetching skills using AI", error });
+    }
+}
+
 export const CreateInterview = async (req, res) => {
     try {
         const { company, recruiter, allowedCandidates, expiryDate, interviewUrl, questions, jobPosition, jobDescription, duration, minimumQualification, minimumSkillsRequired } = req.body;
@@ -327,6 +370,28 @@ export const FetchSortedListCandidates = async (req, res) => {
     }
 }
 
+export const FetchCandiateCompletedInterviewDetails = async (req, res) => {
+    try {
+        const interviewId = req.params.id;
+        const findInterview = await Interview.findById(interviewId);
+        if (!findInterview) return res.status(404).json({ message: "Interview not found" })
+        const completedInterviewEntries = findInterview.usercompleteintreviewemailandid;
+        const sortedCandidateInterviews = [];
+        for (const entry of completedInterviewEntries) {
+            const interviewResult = await IntreviewResult.findById(entry.intreviewid);
+            if (interviewResult) {
+                sortedCandidateInterviews.push({
+                    email: entry.email,
+                    interviewResult
+                });
+            }
+        }
+        res.status(200).json({ message: "Candidate completed interview details fetched successfully", data: { sortedCandidateInterviews } });
+    } catch (error) {
+        console.log("fetch candiate completed interview details error", error);
+        res.status(500).json({ message: "fetch candiate completed interview details error" });
+    }
+}
 // export const CreateCompany = async (req, res) => {
 //     try {
 //         const { name, location, website, size, industry, recruiters } = req.body

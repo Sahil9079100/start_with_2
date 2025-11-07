@@ -37,6 +37,7 @@ const ProfileHr = () => {
     const [deleteInterviewID, setDeleteInterviewID] = useState('')
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [sortedListArray, setSortedListArray] = useState([])
+    const [completedInterviewCandidateResults, setCompletedInterviewCandidateResults] = useState([])
 
     // This is a Job role for Content creator for Social media platform
     const [interviewForm, setInterviewForm] = useState({
@@ -212,6 +213,16 @@ const ProfileHr = () => {
         }
     }
 
+    async function InterviewCompletedResultArray() {
+        try {
+            const response = await API.get(`/api/owner/fetch/interview/result/${interviewDetails._id}`)
+            console.log("Interview completed results:", response.data);
+            setCompletedInterviewCandidateResults(response.data.data.sortedCandidateInterviews)
+        } catch (error) {
+            console.log("Error fetching interview completed results:", error);
+        }
+    }
+
     useEffect(() => {
         setSocketConnected(isConnected);
         console.log("Socket connection status changed:", isConnected);
@@ -297,19 +308,13 @@ const ProfileHr = () => {
 
 
     useEffect(() => {
-        console.log(eSSWindow)
+        console.log(eSSWindow);
 
-        if (eSSWindow === 'emailSent') {
-            console.log("email is clicked, can fetch emails")
+        if (eSSWindow === 'emailSent') console.log("email is clicked, can fetch emails");
+        if (eSSWindow === 'sortedList') get_sorted_list();
+        if (eSSWindow === 'successfulInterview') InterviewCompletedResultArray();
 
-        }
-
-        if (eSSWindow === 'sortedList') {
-            console.log("sortedList is clicked, can fetch sorted list")
-            get_sorted_list()
-        }
-
-    }, [eSSWindow])
+    }, [eSSWindow]);
 
     async function get_sorted_list() {
         // /owner/fetch/interview/:id/sorted-list
@@ -740,11 +745,11 @@ const ProfileHr = () => {
                                                             <div className='grid grid-cols-1 md:grid-cols-4 gap-3'>
                                                                 <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
                                                                     <div className='text-sm font-semibold text-gray-600 mb-2'>Duration</div>
-                                                                    <div className='text-gray-800'>{interviewDetails.duration} min</div>
+                                                                    <div className='text-gray-800'>{interviewDetails.duration ? `${interviewDetails.duration} min` : 'Not specified'}</div>
                                                                 </div>
                                                                 <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
                                                                     <div className='text-sm font-semibold text-gray-600 mb-2'>Language</div>
-                                                                    <div className='text-gray-800'>{interviewDetails.launguage || 'English'}</div>
+                                                                    <div className='text-gray-800'>{interviewDetails.launguage || 'Not specified'}</div>
                                                                 </div>
                                                                 <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
                                                                     <div className='text-sm font-semibold text-gray-600 mb-2'>Candiate interview completed</div>
@@ -752,7 +757,8 @@ const ProfileHr = () => {
                                                                 </div>
                                                                 <div className='bg-gray-50 p-2 rounded-lg border border-gray-200'>
                                                                     <div className='text-sm font-semibold text-gray-600 mb-2'>Expiry date</div>
-                                                                    <div className='text-gray-800'>{new Date(interviewDetails.expiryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                                                                    {/* add a check if the date is null */}
+                                                                    <div className='text-gray-800'>{interviewDetails.expiryDate ? new Date(interviewDetails.expiryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Not specified'}</div>
                                                                 </div>
                                                             </div>
 
@@ -767,8 +773,8 @@ const ProfileHr = () => {
                                                                     <p className='text-gray-800'>{interviewDetails.minimumQualification || 'Not specified'}</p>
                                                                 </div>
                                                                 <div className='bg-white p-4 rounded-lg border border-gray-200 shadow-sm'>
-                                                                    <h4 className='text-sm font-semibold text-gray-600 mb-2'></h4>
-                                                                    <p className='text-gray-800'>{new Date(interviewDetails.expiryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                                                                    <h4 className='text-sm font-semibold text-gray-600 mb-2'>Minimum Skills</h4>
+                                                                    <p className='text-gray-800'>{interviewDetails.minimumSkills || 'Not specified'}</p>
                                                                 </div>
                                                                 <div className='bg-white p-4 rounded-lg border border-gray-200 shadow-sm md:col-span-2'>
                                                                     <h4 className='text-sm font-semibold text-gray-600 mb-2'>Candidate Sheet</h4>
@@ -876,16 +882,23 @@ const ProfileHr = () => {
                                                         <>
                                                             <hr className='border border-black/10 w-full' />
                                                             <div className='w-full flex flex-col items-center gap-4 bg-rd-300'>
-                                                                <div className='text-xl font-bold w-full'>Successfully Interview Completed</div>
+                                                                <div className='text-xl font-bold w-full ml-10'>Successfully Interview Completed</div>
                                                                 <div className='flex flex-col gap-1 bg-ed-300/20 h-[100%] w-full'>
 
-                                                                    {interviews.map((interview) => (
-                                                                        <div key={interview._id}>
+                                                                    <div className='w-full h-[100%] flex items-center text-black/70 hover:text-black text-xl mt-5'>
+                                                                        <div className='w-full h-[100%] flex items-center text-black hover:text-black text-xl ml-4 mr-[-65px]'>Email</div>
+                                                                        <div className='w-full h-[100%] flex items-center text-black hover:text-black text-xl'>Resume Score</div>
+                                                                        {/* <div className='w-full h-[100%] flex items-center text-black hover:text-black text-xl ml-24'>Match</div> */}
+                                                                    </div>
+                                                                    <hr className='border border-black/20 ' />
+
+                                                                    {completedInterviewCandidateResults.map((user) => (
+                                                                        <div key={user._id}>
                                                                             <div className='w-full flex max-h-8 hover:bg-gray-200/30 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black font-semibold text-lg'>
-                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 text-xl'>{interview.jobPosition || 'Interview'}</div>
-                                                                                {/* set state and log the interview object (not the stale state) */}
-                                                                                <span onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); }} className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
-                                                                                <span className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span>
+                                                                                <div className='w-full h-[100%] flex items-center text-black/90 text-xl'>{user.email || 'Interview'}</div>
+                                                                                <div className='w-full h-[100%] flex items-center text-black/90 text-xl'>{user.interviewResult.feedback.overall_mark || 'Interview'}</div>
+                                                                                <span className='hover:bg-gray-200 p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl mr-3'><FiInfo /></span>
+                                                                                {/* <span className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span> */}
                                                                             </div>
                                                                             <hr className='border border-black/20 ' />
                                                                         </div>

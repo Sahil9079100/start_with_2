@@ -5,6 +5,7 @@ import ProfileHr from './components/hr/ProfileHr.jsx';
 import GIntegrationSuccess from './components/hr/GIntegrationSuccess.jsx';
 import { LoginHr } from './components/hr/LoginHr.jsx';
 import MainPage from './components/MainPage/MainPage.jsx';
+import UpdatedProfile from './components/hr/UpdatedProfile.jsx';
 
 function App() {
 
@@ -16,6 +17,7 @@ function App() {
                 <Route path="/r/o" element={<RegisterOwner />} />
                 <Route path="/l/o" element={<LoginHr />} />
                 <Route path="/p/o/:id" element={<ProfileHr />} />
+                <Route path="/p/:id" element={<UpdatedProfile />} />
                 <Route path="/integrations" element={<GIntegrationSuccess />} />
                 <Route path="/" element={<MainPage />} />
 

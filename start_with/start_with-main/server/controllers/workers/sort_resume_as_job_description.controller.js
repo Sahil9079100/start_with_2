@@ -2,7 +2,46 @@ import { Interview } from "../../models/Interview.model.js";
 import { Candidate } from "../../models/Candidate.model.js";
 import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.model.js";
 import { geminiAPI } from "../../server.js";
-import recruiterEmit from "../../socket/emit/recruiterEmit.js";
+import { APICounter } from "../../models/APICounter.model.js";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const apiKeys = [
+    process.env.G1A, process.env.G1B, process.env.G1C,
+    process.env.G2A, process.env.G2B, process.env.G2C,
+    process.env.G3A, process.env.G3B, process.env.G3C,
+    process.env.G4A, process.env.G4B, process.env.G4C,
+    process.env.G5A, process.env.G5B, process.env.G5C,
+    process.env.G6A, process.env.G6B, process.env.G6C,
+    process.env.G7A, process.env.G7B, process.env.G7C,
+    process.env.G8A, process.env.G8B, process.env.G8C,
+].filter(Boolean);
+
+if (apiKeys.length === 0) {
+    console.error("FATAL: No Gemini API rotation keys provided in environment variables.");
+}
+
+async function getNextSequence(name) {
+    const counter = await APICounter.findOneAndUpdate(
+        { name: name },
+        { $inc: { sequence: 1 } },
+        { new: true, upsert: true }
+    );
+    return counter.sequence;
+}
+
+const getRotatingGeminiAPI = async () => {
+    if (apiKeys.length === 0) {
+        throw new Error("No Gemini API keys available.");
+    }
+    
+    const sequence = await getNextSequence('geminiApiKeyIndex');
+    const currentKeyIndex = (sequence - 1) % apiKeys.length;
+    const apiKey = apiKeys[currentKeyIndex];
+
+    console.log(`Using Gemini API Key index: ${currentKeyIndex}`);
+
+    return new GoogleGenerativeAI(apiKey);
+};
 
 // ⏳ Utility to pause execution
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -75,7 +114,7 @@ export const sort_resume_as_job_description = async (interviewId) => {
             });
 
             // ⏳ Wait 6 seconds between each AI call
-            await sleep(6000);
+            // await sleep(6000);
         }
 
         // 4️⃣ Update interview status
@@ -152,7 +191,8 @@ export const sort_resume_as_job_description = async (interviewId) => {
  */
 export async function resume_sorter_agent({ jobDescription, resumeSummary, jobminimumqualifications, jobminimumskillsrequired }) {
     try {
-        const model = geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const new_geminiAPI = await getRotatingGeminiAPI();
+        const model = new_geminiAPI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
         const prompt = `
 You are an expert technical recruiter with 20+ years of experience.
@@ -200,6 +240,7 @@ Important:
 
         const parsed = JSON.parse(jsonText);
 
+        console.log("Teh AI output: ", parsed)
         if (
             !parsed.matchLevel ||
             typeof parsed.matchScore !== "number" ||

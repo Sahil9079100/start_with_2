@@ -7,6 +7,8 @@ export const createInterview = async (req, res) => {
     try {
         const ownerId = req.user; // contains user id from middleware.
         const data = req.body;
+        console.log(ownerId)
+        console.log(req.body)
         if (!data.candidateSheetId || !data.jobPosition)
             return res.status(400).json({ error: "Missing required fields" });
 

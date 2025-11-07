@@ -1,7 +1,7 @@
 // basic  routes for owner
 import express from "express";
 // import { LoginOwner, RegisterOwner, CreateCompany, getProfile, CreateRecruiter, CreateInterview } from "../controller/owner.controller.js";
-import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates } from "../controllers/owner.controller.js";
+import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI } from "../controllers/owner.controller.js";
 import { ownerTokenAuth } from "../middlewares/ownerTokenAuth.middleware.js";
 import { createInterview } from "../controllers/workers/createInterview.controller.js";
 
@@ -27,6 +27,10 @@ router.post("/owner/create/interview", ownerTokenAuth, createInterview);
 router.post("/owner/fetch/interviews", ownerTokenAuth, FetchAllInterviews);
 router.post("/owner/delete/interview", ownerTokenAuth, DeleteInterviews);
 router.get("/owner/fetch/interview/:id/sorted-list", ownerTokenAuth, FetchSortedListCandidates);
+router.get("/owner/fetch/interview/result/:id", ownerTokenAuth, FetchCandiateCompletedInterviewDetails);
+router.get("/owner/get-skills-ai/:jobPosition", ownerTokenAuth, getSkillsUsingAI);
 
+
+//`/api/owner/get-skills-ai/${jobPosition}`
 // add/recruiter
 export default router;
