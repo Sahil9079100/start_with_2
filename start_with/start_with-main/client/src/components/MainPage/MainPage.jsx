@@ -70,6 +70,7 @@ const MainPage = () => {
         }
     ]
 
+    
     return (
         <div className='w-full min-h-screen bg-[#101111] text-white'>
             <nav className='w-full px-6 py-4 flex justify-between items-center border-b border-gray-800'>
