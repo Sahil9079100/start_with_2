@@ -70,7 +70,7 @@ const MainPage = () => {
         }
     ]
 
-    
+
     return (
         <div className='w-full min-h-screen bg-[#101111] text-white'>
             <nav className='w-full px-6 py-4 flex justify-between items-center border-b border-gray-800'>
@@ -333,16 +333,16 @@ const MainPage = () => {
                         <div>
                             <h4 className='font-semibold text-sm mb-4 text-gray-300'>Legal</h4>
                             <div className='flex flex-col gap-2 text-sm text-gray-400'>
-                                <button onClick={() => navigate('/terms')} className='hover:text-white transition-colors text-left'>Terms and Conditions</button>
-                                <button onClick={() => navigate('/privacy')} className='hover:text-white transition-colors text-left'>Privacy Policy</button>
-                                <button onClick={() => navigate('/cancellation-refund')} className='hover:text-white transition-colors text-left'>Cancellation & Refund</button>
+                                <button className='hover:text-white transition-colors text-left'><a href="https://legal.startwith.live/terms">Terms and Conditions</a></button>
+                                <button className='hover:text-white transition-colors text-left'><a href="https://legal.startwith.live/privacy">Privacy Policy</a></button>
+                                <button className='hover:text-white transition-colors text-left'><a href="https://legal.startwith.live/cancellation">Cancellation & Refund</a></button>
                             </div>
                         </div>
 
                         <div>
                             <h4 className='font-semibold text-sm mb-4 text-gray-300'>Contact</h4>
                             <div className='flex flex-col gap-2 text-sm text-gray-400'>
-                                <button onClick={() => navigate('/contact')} className='hover:text-white transition-colors text-left'>Contact Us</button>
+                                <button className='hover:text-white transition-colors text-left'><a href="https://legal.startwith.live/contact">Contact Us</a></button>
                                 <a href="#" className='hover:text-white transition-colors'>Support</a>
                                 <a href="#" className='hover:text-white transition-colors'>FAQ</a>
                             </div>
