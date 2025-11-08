@@ -4,6 +4,7 @@ import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.mode
 import { geminiAPI } from "../../server.js";
 import { APICounter } from "../../models/APICounter.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 const apiKeys = [
     process.env.G1A, process.env.G1B, process.env.G1C,
