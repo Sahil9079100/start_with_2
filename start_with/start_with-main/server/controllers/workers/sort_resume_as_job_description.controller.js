@@ -34,7 +34,7 @@ const getRotatingGeminiAPI = async () => {
     if (apiKeys.length === 0) {
         throw new Error("No Gemini API keys available.");
     }
-    
+
     const sequence = await getNextSequence('geminiApiKeyIndex');
     const currentKeyIndex = (sequence - 1) % apiKeys.length;
     const apiKey = apiKeys[currentKeyIndex];
@@ -190,7 +190,7 @@ export const sort_resume_as_job_description = async (interviewId) => {
  * 🧠 AI Agent: resume_sorter_agent
  * Evaluates resume vs job description.
  */
-export async function resume_sorter_agent({ jobDescription, resumeSummary, jobminimumqualifications, jobminimumskillsrequired }) {
+export async function resume_sorter_agent({ jobDescription, resumeSummary, jobminimumqualifications, jobminimumskillsrequired }, retries = 3) {
     try {
         const new_geminiAPI = await getRotatingGeminiAPI();
         const model = new_geminiAPI.getGenerativeModel({ model: "gemini-2.5-pro" });
@@ -253,11 +253,18 @@ Important:
 
         return parsed;
     } catch (error) {
-        console.error("[resume_sorter_agent] Error:", error.message);
-        return {
-            matchLevel: "Unqualified",
-            matchScore: 0,
-            error: error.message,
-        };
+        console.error(`[resume_sorter_agent] Error: ${error.message}. Retries left: ${retries}`);
+        if (retries > 0) {
+            console.log("Retrying... (in 1 second)");
+            await sleep(1000); // Wait for 1 second before retrying
+            return resume_sorter_agent({ jobDescription, resumeSummary, jobminimumqualifications, jobminimumskillsrequired }, retries - 1);
+        } else {
+            console.error("[resume_sorter_agent] Max retries reached. Failing.");
+            return {
+                matchLevel: "Unqualified",
+                matchScore: 0,
+                error: error.message,
+            };
+        }
     }
 }

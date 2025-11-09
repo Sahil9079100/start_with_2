@@ -39,6 +39,7 @@ const UpdatedProfile = () => {
     const [sortedListArray, setSortedListArray] = useState([])
     const [completedInterviewCandidateResults, setCompletedInterviewCandidateResults] = useState([])
     const [newSkill, setNewSkill] = useState('');
+    const [interviewFetchLoading, setInterviewFetchLoading] = useState(false);
 
 
     const [interviewForm, setInterviewForm] = useState({
@@ -348,9 +349,11 @@ const UpdatedProfile = () => {
     useEffect(() => {
         const fetchAllInterviews = async () => {
             try {
+                setInterviewFetchLoading(true);
                 const response = await API.post('/api/owner/fetch/interviews');
                 console.log("Fetched interviews:", response.data);
                 setInterviews(response.data.data);
+                setInterviewFetchLoading(false)
             } catch (error) {
                 console.log("Error while fetching all interviews", error)
             }
@@ -645,10 +648,10 @@ const UpdatedProfile = () => {
 
 
 
-            <div className='MAIN-WINDOW h-full bg-purple-600 p-1' style={{ width: `${100 - sidebarWidth - 0.25}%` }}>
+            <div className='MAIN-WINDOW h-full bg-purple-600 p' style={{ width: `${100 - sidebarWidth - 0.25}%` }}>
 
                 { }
-                <div className='w-full h-full bg-white flex flex-col'>
+                <div className='w-full h-[100vh] bg-white flex flex-col'>
                     <div className='HeaderWindow  w-full h-fit flex justify-between pt-7'>
                         <div className=' w-fit h-fit px-16 py-4 text-4xl flex flex-col'>
                             Job Role
@@ -660,7 +663,7 @@ const UpdatedProfile = () => {
                         </div>
                     </div>
 
-                    <div className='ContentWindow  w-full h-full'>
+                    <div className='ContentWindow  w-full h-full overflow-scroll hscroll '>
                         {Object.entries(groupInterviewsByDate()).map(([dateLabel, interviewsGroup]) => (
                             <div key={dateLabel} className='mb-12'>
                                 <div className='px-16 py-2 text-gray-400 text-[15px] mb-[-5px] font-normal'>

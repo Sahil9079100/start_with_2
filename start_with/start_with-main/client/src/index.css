@@ -69,3 +69,12 @@
 .scroll::-webkit-scrollbar {
   display: none;
 }
+
+.hscroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hscroll::-webkit-scrollbar {
+  display: none;
+}
