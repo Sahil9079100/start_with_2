@@ -106,23 +106,37 @@ export const sheet_data_structure_worker = async (interviewId) => {
 
         const sheets = google.sheets({ version: "v4", auth: oAuth2Client });
 
-        // 5️⃣ Discover first sheet title dynamically (avoids 'Unable to parse range')
-        let firstSheetTitle;
+        // 5️⃣ Discover sheet title dynamically (avoids 'Unable to parse range')
+        // Always use the first sheet tab to keep behavior generic across use cases
+        let sheetTitle;
         try {
             const meta = await sheets.spreadsheets.get({
                 spreadsheetId: interview.candidateSheetId,
                 fields: "sheets.properties.title"
             });
-            firstSheetTitle = meta?.data?.sheets?.[0]?.properties?.title;
-            if (!firstSheetTitle) throw new Error("No sheet title found");
+            const sheetsList = meta?.data?.sheets || [];
+            const firstTitle = sheetsList?.[0]?.properties?.title;
+            sheetTitle = firstTitle;
+            if (!sheetTitle) throw new Error("No sheet title found");
         } catch (e) {
             console.warn("⚠️ Failed to fetch sheet metadata, falling back to 'Sheet1' ::", e.message);
-            firstSheetTitle = "Sheet1"; // fallback
+            sheetTitle = "Sheet1"; // fallback
         }
 
         // Build a safe range (quote if spaces or special chars)
-        const needsQuoting = /\s|[!@#$%^&*()+\-={}[\];',.]/.test(firstSheetTitle);
-        const safeTitle = needsQuoting ? `'${firstSheetTitle.replace(/'/g, "''")}'` : firstSheetTitle;
+        const needsQuoting = /\s|[!@#$%^&*()+\-={}[\];',.]/.test(sheetTitle);
+        const safeTitle = needsQuoting ? `'${sheetTitle.replace(/'/g, "''")}'` : sheetTitle;
+
+        // Log which sheet tab we decided to use
+        try {
+            structureDoc.logs.push({ message: `Using sheet tab: ${sheetTitle}`, level: "info" });
+            await structureDoc.save();
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "INFO",
+                step: `Reading from sheet tab: ${sheetTitle}`
+            });
+        } catch (_) {}
 
         let allRows = [];
         try {

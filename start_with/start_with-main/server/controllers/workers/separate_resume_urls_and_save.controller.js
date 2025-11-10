@@ -15,134 +15,160 @@ import recruiterEmit from "../../socket/emit/recruiterEmit.js";
  */
 
 export const separate_resume_urls_and_save = async (interviewId) => {
-    try {
-        console.log(`[Step D] Starting candidate separation for interview: ${interviewId}`);
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const maxAttempts = 3;
 
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            console.log(`[Step D] Attempt ${attempt}/${maxAttempts} - Starting candidate separation for interview: ${interviewId}`);
 
-        const interview = await Interview.findById(interviewId);
-        if (!interview) throw new Error("Interview not found");
-        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-            interview: interviewId,
-            level: "INFO",
-            step: `Starting candidate separation form Google Sheet`
-        });
-
-        const structureDoc = await InterviewGSheetStructure.findOne({ interview: interviewId });
-        if (!structureDoc) throw new Error("Sheet structure not found");
-
-        const extractDoc = await SheetDataExtractJson.findOne({ interview: interviewId });
-        if (!extractDoc || !extractDoc.rows) throw new Error("Extracted sheet data not found");
-
-        structureDoc.logs.push({ message: "Fetched structure & data for candidate separation", level: "info" });
-        await structureDoc.save();
-
-        const sampleRows = extractDoc.rows.slice(0, 5); // first 5 rows as context
-
-
-        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-            interview: interviewId,
-            level: "INFO",
-            step: `AI Agent is analyzing the sheet's rows and columns...`
-        });
-        const columnAnalysis = await which_column_is_which_agent(structureDoc.columnMapping, sampleRows);
-        const { resumeUrlColumn, emailColumn, dynamicColumns } = columnAnalysis;
-
-        if (!resumeUrlColumn || !emailColumn || !dynamicColumns?.length) {
+            const interview = await Interview.findById(interviewId);
+            if (!interview) throw new Error("Interview not found");
             await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                 interview: interviewId,
-                level: "ERROR",
-                step: `Agent failed to identify rows and columns`
-            });
-            throw new Error("Agent failed to identify resume/email/dynamic columns");
-        }
-
-        structureDoc.logs.push({
-            message: `Identified resume column (${resumeUrlColumn}), email column (${emailColumn}), and dynamic columns: ${dynamicColumns.join(", ")}`,
-            level: "success",
-        });
-        await structureDoc.save();
-
-        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-            interview: interviewId,
-            level: "SUCCESS",
-            step: `Agent identified resume column (${resumeUrlColumn}), email column (${emailColumn}), and dynamic columns: ${dynamicColumns.join(", ")}`
-        });
-
-        let savedCount = 0;
-
-        for (let i = 0; i < extractDoc.rows.length; i++) {
-            const row = extractDoc.rows[i];
-            const dynamicData = {};
-
-            Object.entries(structureDoc.columnMapping).forEach(([colLetter, colName]) => {
-                if (colName && dynamicColumns.includes(colName)) {
-                    const colIndex = colLetter.charCodeAt(0) - 65;
-                    dynamicData[colName] = row[colIndex] || "";
-                }
+                level: "INFO",
+                step: `Step D attempt ${attempt}/${maxAttempts}: Starting candidate separation from Google Sheet`
             });
 
-            const resumeIndex = resumeUrlColumn.charCodeAt(0) - 65;
-            const emailIndex = emailColumn.charCodeAt(0) - 65;
+            const structureDoc = await InterviewGSheetStructure.findOne({ interview: interviewId });
+            if (!structureDoc) throw new Error("Sheet structure not found");
 
-            const resumeUrl = row[resumeIndex] || "";
-            const email = row[emailIndex] || "";
-            i
-            if (!resumeUrl) {
-                console.log(`Row ${i + 1}: Missing resume URL, skipping`);
+            const extractDoc = await SheetDataExtractJson.findOne({ interview: interviewId });
+            if (!extractDoc || !extractDoc.rows) throw new Error("Extracted sheet data not found");
+
+            structureDoc.logs.push({ message: `Attempt ${attempt}: Fetched structure & data for candidate separation`, level: "info" });
+            await structureDoc.save();
+
+            const sampleRows = extractDoc.rows.slice(0, 5); // first 5 rows as context
+
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "INFO",
+                step: `Step D attempt ${attempt}: AI Agent is analyzing the sheet's rows and columns...`
+            });
+            const columnAnalysis = await which_column_is_which_agent(structureDoc.columnMapping, sampleRows);
+            const { resumeUrlColumn, emailColumn, dynamicColumns } = columnAnalysis;
+
+            if (!resumeUrlColumn || !emailColumn || !dynamicColumns?.length) {
                 await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                     interview: interviewId,
-                    level: "INFO",
-                    step: `Row ${i + 1}: Missing resume URL, skipping`
+                    level: "ERROR",
+                    step: `Step D attempt ${attempt}: Agent failed to identify rows and columns`
                 });
+                throw new Error("Agent failed to identify resume/email/dynamic columns");
+            }
+
+            structureDoc.logs.push({
+                message: `Attempt ${attempt}: Identified resume column (${resumeUrlColumn}), email column (${emailColumn}), and dynamic columns: ${dynamicColumns.join(", ")}`,
+                level: "success",
+            });
+            await structureDoc.save();
+
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "SUCCESS",
+                step: `Step D attempt ${attempt}: Identified resume column (${resumeUrlColumn}), email column (${emailColumn}), and dynamic columns: ${dynamicColumns.join(", ")}`
+            });
+
+            let savedCount = 0;
+
+            for (let i = 0; i < extractDoc.rows.length; i++) {
+                const row = extractDoc.rows[i];
+                const dynamicData = {};
+
+                Object.entries(structureDoc.columnMapping).forEach(([colLetter, colName]) => {
+                    if (colName && dynamicColumns.includes(colName)) {
+                        const colIndex = colLetter.charCodeAt(0) - 65;
+                        dynamicData[colName] = row[colIndex] || "";
+                    }
+                });
+
+                const resumeIndex = resumeUrlColumn.charCodeAt(0) - 65;
+                const emailIndex = emailColumn.charCodeAt(0) - 65;
+
+                const resumeUrl = row[resumeIndex] || "";
+                const email = row[emailIndex] || "";
+
+                if (!resumeUrl) {
+                    console.log(`Row ${i + 1}: Missing resume URL, skipping`);
+                    await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                        interview: interviewId,
+                        level: "INFO",
+                        step: `Row ${i + 1}: Missing resume URL, skipping`
+                    });
+                    continue;
+                }
+
+                // Avoid duplicates across retries by skipping if candidate already exists for this interview/email/resumeUrl
+                const exists = await Candidate.findOne({ interview: interview._id, email, resumeUrl });
+                if (exists) {
+                    continue;
+                }
+
+                await Candidate.create({
+                    interview: interview._id,
+                    owner: interview.owner,
+                    email,
+                    resumeUrl,
+                    resumeSummary: "",
+                    isResumeScanned: false,
+                    dynamicData,
+                });
+
+                savedCount++;
+                if (savedCount % 10 === 0) {
+                    console.log(`[Step D] Saved ${savedCount} candidates so far...`);
+                    await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                        interview: interviewId,
+                        level: "INFO",
+                        step: `Saved ${savedCount} candidates so far...`
+                    });
+                }
+            }
+
+            console.log(`[Step D] Completed. Total candidates saved: ${savedCount}`);
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "SUCCESS",
+                step: `Total ${savedCount} candidates are saved from sheet`
+            });
+
+            interview.status = "separate_resume_urls_and_save";
+            await interview.save();
+
+            structureDoc.logs.push({
+                message: `Step D completed successfully. ${savedCount} candidates saved.`,
+                level: "success",
+            });
+            await structureDoc.save();
+
+            setTimeout(() => {
+                extract_text_from_resumeurl(interviewId);
+            }, 2000);
+
+            return { success: true, savedCount };
+        } catch (error) {
+            console.error(`[Step D] Attempt ${attempt} failed:`, error.message);
+            // On failure, if more attempts remain, wait and retry; otherwise, return failure
+            if (attempt < maxAttempts) {
+                const backoffMs = 2000 * attempt; // simple linear backoff
+                await recruiterEmit(null, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "ERROR",
+                    step: `Step D attempt ${attempt} failed: ${error.message}. Retrying in ${backoffMs / 1000}s...`
+                }).catch(() => { });
+                await delay(backoffMs);
                 continue;
             }
 
-            await Candidate.create({
-                interview: interview._id,
-                owner: interview.owner,
-                email,
-                resumeUrl,
-                resumeSummary: "",
-                isResumeScanned: false,
-                dynamicData,
-            });
-
-            savedCount++;
-            if (savedCount % 10 === 0) {
-                console.log(`[Step D] Saved ${savedCount} candidates so far...`);
-                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-                    interview: interviewId,
-                    level: "INFO",
-                    step: `Saved ${savedCount} candidates so far...`
-                });
-            }
+            // Final failure
+            await recruiterEmit(null, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "ERROR",
+                step: `Step D failed after ${maxAttempts} attempts: ${error.message}`
+            }).catch(() => { });
+            return { success: false, error: error.message };
         }
-
-        console.log(`[Step D] Completed. Total candidates saved: ${savedCount}`);
-        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-            interview: interviewId,
-            level: "SUCCESS",
-            step: `Total ${savedCount} candidates are saved from sheet`
-        });
-
-        interview.status = "separate_resume_urls_and_save";
-        await interview.save();
-
-        structureDoc.logs.push({
-            message: `Step D completed successfully. ${savedCount} candidates saved.`,
-            level: "success",
-        });
-        await structureDoc.save();
-
-        setTimeout(() => {
-            extract_text_from_resumeurl(interviewId);
-        }, 2000);
-
-        return { success: true, savedCount };
-
-    } catch (error) {
-        console.error(`[Step D] Error in candidate separation:`, error.message);
-        return { success: false, error: error.message };
     }
 };
 
