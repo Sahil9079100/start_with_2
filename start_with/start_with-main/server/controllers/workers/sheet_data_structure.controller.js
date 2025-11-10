@@ -10,11 +10,14 @@ import { extractSheetData } from "./sheet_data_extract_json.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 export async function sheet_structure_finder_agent(sampleRows) {
-    try {
-        const model = geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const MAX_ATTEMPTS = 6;
+    const BASE_DELAY_MS = 1000; // initial backoff delay
+    let lastErr;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            const model = geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        // console.log("okok: ", JSON.stringify(sampleRows, null, 2));
-        const prompt = `
+            const prompt = `
 You are given a set of sample rows from a Google Sheet.
 Your job is to infer what each column represents (e.g., Name, Email, Resume URL, etc.).
 The first row likely contains headers. Use that plus the other rows to decide.
@@ -33,35 +36,45 @@ Example:
 
 Here are the sample rows:
 ${JSON.stringify(sampleRows, null, 2)}
-        `;
+            `;
 
-        // 1️⃣ Ask Gemini
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+            // Ask Gemini
+            const result = await model.generateContent(prompt);
+            const responseText = result.response.text();
 
-        // 2️⃣ Extract JSON between triple backticks
-        const jsonMatch = responseText.match(/```json([\s\S]*?)```/i);
-        if (!jsonMatch) throw new Error("No valid JSON found in Gemini response");
+            // Extract JSON between triple backticks
+            const jsonMatch = responseText.match(/```json([\s\S]*?)```/i);
+            if (!jsonMatch) throw new Error("No valid JSON found in Gemini response");
 
-        const parsed = JSON.parse(jsonMatch[1].trim());
+            const parsed = JSON.parse(jsonMatch[1].trim());
 
-        // 3️⃣ Validate format
-        if (typeof parsed !== "object" || Array.isArray(parsed)) {
-            throw new Error("Invalid format: Expected a JSON object");
+            // Validate format
+            if (typeof parsed !== "object" || Array.isArray(parsed)) {
+                throw new Error("Invalid format: Expected a JSON object");
+            }
+
+            if (attempt > 1) {
+                console.warn(`✅ sheet_structure_finder_agent succeeded on retry attempt ${attempt}`);
+            }
+            return parsed; // success
+        } catch (err) {
+            lastErr = err;
+            console.error(`⚠️ sheet_structure_finder_agent attempt ${attempt} failed:`, err.message);
+            if (attempt < MAX_ATTEMPTS) {
+                // Exponential backoff with jitter
+                const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 200);
+                await new Promise(res => setTimeout(res, delay));
+                continue; // retry
+            }
         }
-
-        // 4️⃣ Return the parsed mapping
-        return parsed;
-    } catch (err) {
-        console.error("❌ sheet_structure_finder_agent failed:", err.message);
-
-        // fallback — helps system continue gracefully
-        return {
-            A: "Name",
-            B: "Resume URL",
-            C: "Email",
-        };
     }
+    // All attempts exhausted
+    console.error("❌ sheet_structure_finder_agent failed after retries:", lastErr?.message);
+    return {
+        A: "Name",
+        B: "Resume URL",
+        C: "Email",
+    };
 }
 
 

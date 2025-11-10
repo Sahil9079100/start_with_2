@@ -115,12 +115,35 @@ export async function TextExtractor(resumeUrl, ownerId) {
 
         if (!resumeUrl) throw new Error("No resume URL provided");
 
+        console.log("Extracting text from resume URL:", resumeUrl);
         let pdfBuffer;
 
+        // Helper: extract Google Drive fileId from various link formats
+        const extractDriveFileId = (url) => {
+            try {
+                // Common patterns:
+                // - https://drive.google.com/file/d/<id>/view
+                // - https://drive.google.com/open?id=<id>
+                // - https://drive.google.com/uc?id=<id>&export=download
+                // - https://docs.google.com/document/d/<id>/edit (Docs export not PDF, but id is extractable)
+                const patterns = [
+                    /\/(?:file|document|presentation|spreadsheets)\/d\/([a-zA-Z0-9_-]+)/, // file/d/<id> or document/d/<id>
+                    /[?&]id=([a-zA-Z0-9_-]+)/, // ...?id=<id>
+                    /\/d\/([a-zA-Z0-9_-]+)/, // generic /d/<id>
+                ];
+                for (const p of patterns) {
+                    const m = url.match(p);
+                    if (m && m[1]) return m[1];
+                }
+                return null;
+            } catch (_) {
+                return null;
+            }
+        };
+
         if (resumeUrl.includes("drive.google.com")) {
-            const fileIdMatch = resumeUrl.match(/\/d\/(.*?)\//);
-            const fileId = fileIdMatch ? fileIdMatch[1] : null;
-            if (!fileId) throw new Error("Invalid Google Drive URL");
+            const fileId = extractDriveFileId(resumeUrl);
+            if (!fileId) throw new Error("Invalid Google Drive URL: unable to parse file id");
 
             const integration = await GoogleIntegration.findOne({ owner: ownerId, provider: "google" });
             if (!integration || !integration.tokens) throw new Error("No Google integration found for this owner");
@@ -135,7 +158,7 @@ export async function TextExtractor(resumeUrl, ownerId) {
             pdfBuffer = Buffer.from(response.data);
         }
         // Handle direct PDF URLs
-        else if (resumeUrl.endsWith(".pdf")) {
+        else if (/\.pdf(\b|[?#])/i.test(resumeUrl)) {
             const response = await axios.get(resumeUrl, { responseType: "arraybuffer" });
             pdfBuffer = Buffer.from(response.data);
         }

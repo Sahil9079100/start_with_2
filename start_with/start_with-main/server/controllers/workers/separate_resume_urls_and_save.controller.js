@@ -14,9 +14,26 @@ import recruiterEmit from "../../socket/emit/recruiterEmit.js";
  * 3. Update interview status -> 'separate_resume_urls_and_save'
  */
 
+// Convert Excel/Sheets column letters (e.g., A, Z, AA, AF) to zero-based index
+// A -> 0, B -> 1, Z -> 25, AA -> 26, AB -> 27, ... AF -> 31
+function columnLetterToIndex(col) {
+    if (!col || typeof col !== "string") return -1;
+    let s = col.trim().toUpperCase();
+    let index = 0;
+    for (let i = 0; i < s.length; i++) {
+        const code = s.charCodeAt(i);
+        if (code < 65 || code > 90) {
+            // Non A-Z character
+            continue;
+        }
+        index = index * 26 + (code - 64); // 'A' -> 1 ... 'Z' -> 26
+    }
+    return index - 1; // convert to zero-based
+}
+
 export const separate_resume_urls_and_save = async (interviewId) => {
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-    const maxAttempts = 3;
+    const maxAttempts = 6;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
@@ -78,16 +95,20 @@ export const separate_resume_urls_and_save = async (interviewId) => {
 
                 Object.entries(structureDoc.columnMapping).forEach(([colLetter, colName]) => {
                     if (colName && dynamicColumns.includes(colName)) {
-                        const colIndex = colLetter.charCodeAt(0) - 65;
+                        const colIndex = columnLetterToIndex(colLetter);
                         dynamicData[colName] = row[colIndex] || "";
                     }
                 });
 
-                const resumeIndex = resumeUrlColumn.charCodeAt(0) - 65;
-                const emailIndex = emailColumn.charCodeAt(0) - 65;
+                const resumeIndex = columnLetterToIndex(resumeUrlColumn);
+                const emailIndex = columnLetterToIndex(emailColumn);
+
+                console.log("RESUME INDEX", resumeIndex, "EMAIL INDEX", emailIndex);
 
                 const resumeUrl = row[resumeIndex] || "";
                 const email = row[emailIndex] || "";
+
+                console.log("@@@@", resumeUrl, email);
 
                 if (!resumeUrl) {
                     console.log(`Row ${i + 1}: Missing resume URL, skipping`);
@@ -179,6 +200,10 @@ export const separate_resume_urls_and_save = async (interviewId) => {
 export async function which_column_is_which_agent(columnMapping, sampleRows) {
     const model = geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+    console.log("##########################################")
+    console.log("which_column_is_which_agent - columnMapping:", columnMapping);
+    console.log("which_column_is_which_agent - sampleRows:", sampleRows);
+    console.log("##########################################")
     const prompt = `
 You are analyzing Google Sheet column mappings and sample rows.
 
@@ -204,6 +229,8 @@ Return ONLY valid JSON in this format:
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     const match = text.match(/```json([\s\S]*?)```/);
+
+    console.log("match", match);
 
     try {
         return JSON.parse(match ? match[1] : text);

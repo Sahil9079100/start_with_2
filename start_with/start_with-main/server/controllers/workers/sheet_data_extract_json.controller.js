@@ -49,6 +49,41 @@ export const extractSheetData = async (interviewId) => {
             step: "Started extracting data from google sheet..."
         });
 
+        // Helper: Convert column letters (A, Z, AA, AF) to zero-based index for comparison
+        function columnLetterToIndex(col) {
+            if (!col || typeof col !== "string") return -1;
+            let s = col.trim().toUpperCase();
+            let index = 0;
+            for (let i = 0; i < s.length; i++) {
+                const code = s.charCodeAt(i);
+                if (code < 65 || code > 90) continue; // skip non A-Z
+                index = index * 26 + (code - 64); // A->1 ... Z->26
+            }
+            return index - 1; // zero-based
+        }
+
+        // Determine the rightmost column to fetch based on structure mapping (fallback to ZZ)
+        const mappingKeys = Object.keys(sheetStructure.columnMapping || {}).map(k => (k || "").toUpperCase());
+        let maxColLetter = "ZZ"; // safe default if mapping is missing or incomplete
+        if (mappingKeys.length) {
+            let maxKey = mappingKeys[0];
+            let maxIdx = columnLetterToIndex(maxKey);
+            for (const k of mappingKeys) {
+                const idx = columnLetterToIndex(k);
+                if (idx > maxIdx) {
+                    maxIdx = idx;
+                    maxKey = k;
+                }
+            }
+            // Ensure we don't accidentally pick something before Z if mapping is tiny
+            const zIdx = columnLetterToIndex("Z");
+            maxColLetter = maxIdx >= zIdx ? maxKey : "Z";
+        }
+
+        console.log(`[Extractor] Using column range A..${maxColLetter} based on structure mapping`);
+        sheetExtract.logs.push({ message: `Using column range A..${maxColLetter} for extraction`, level: "info" });
+        await sheetExtract.save();
+
         // 5️⃣ Fetch rows in buffer
         const bufferSize = 5;
         let startRow = 2; // skip header
@@ -56,7 +91,7 @@ export const extractSheetData = async (interviewId) => {
         let moreRows = true;
 
         while (moreRows) {
-            const range = `A${startRow}:Z${endRow}`; // Z is a large column placeholder
+            const range = `A${startRow}:${maxColLetter}${endRow}`; // dynamic right bound (supports AA/AF/etc.)
             const response = await sheets.spreadsheets.values.get({
                 spreadsheetId: interview.candidateSheetId,
                 range,
