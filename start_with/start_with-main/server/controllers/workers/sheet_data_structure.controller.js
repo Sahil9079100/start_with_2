@@ -66,9 +66,11 @@ ${JSON.stringify(sampleRows, null, 2)}
 
 
 export const sheet_data_structure_worker = async (interviewId) => {
+    // Hoist interview so it's visible in catch for safer error handling
+    let interview;
     try {
         // 1️⃣ Fetch interview
-        const interview = await Interview.findById(interviewId);
+        interview = await Interview.findById(interviewId);
         if (!interview) throw new Error("Interview not found");
 
         // 2️⃣ Get Google integration for the owner
@@ -104,13 +106,46 @@ export const sheet_data_structure_worker = async (interviewId) => {
 
         const sheets = google.sheets({ version: "v4", auth: oAuth2Client });
 
-        // 5️⃣ Fetch top 3–5 rows
-        const sheetResponse = await sheets.spreadsheets.values.get({
-            spreadsheetId: interview.candidateSheetId,
-            range: "Sheet1", // fetch entire used range (auto-detect columns)
-        });
+        // 5️⃣ Discover first sheet title dynamically (avoids 'Unable to parse range')
+        let firstSheetTitle;
+        try {
+            const meta = await sheets.spreadsheets.get({
+                spreadsheetId: interview.candidateSheetId,
+                fields: "sheets.properties.title"
+            });
+            firstSheetTitle = meta?.data?.sheets?.[0]?.properties?.title;
+            if (!firstSheetTitle) throw new Error("No sheet title found");
+        } catch (e) {
+            console.warn("⚠️ Failed to fetch sheet metadata, falling back to 'Sheet1' ::", e.message);
+            firstSheetTitle = "Sheet1"; // fallback
+        }
 
-        const allRows = sheetResponse.data.values || [];
+        // Build a safe range (quote if spaces or special chars)
+        const needsQuoting = /\s|[!@#$%^&*()+\-={}[\];',.]/.test(firstSheetTitle);
+        const safeTitle = needsQuoting ? `'${firstSheetTitle.replace(/'/g, "''")}'` : firstSheetTitle;
+
+        let allRows = [];
+        try {
+            const sheetResponse = await sheets.spreadsheets.values.get({
+                spreadsheetId: interview.candidateSheetId,
+                range: safeTitle, // entire first sheet
+            });
+            allRows = sheetResponse.data.values || [];
+        } catch (e) {
+            console.error("❌ Primary sheet values.get failed:", e.message);
+            // Second attempt: explicit A1 range (broad columns) to mitigate parse issues
+            try {
+                const fallbackRange = `${safeTitle}!A:ZZ`; // wide but bounded
+                const sheetResponse = await sheets.spreadsheets.values.get({
+                    spreadsheetId: interview.candidateSheetId,
+                    range: fallbackRange,
+                });
+                allRows = sheetResponse.data.values || [];
+                console.log("✅ Fallback range succeeded:", fallbackRange);
+            } catch (inner) {
+                throw new Error(`Unable to read sheet data after fallback: ${inner.message}`);
+            }
+        }
 
         if (allRows.length === 0) {
             throw new Error("Google Sheet is empty or inaccessible");
@@ -189,6 +224,7 @@ export const sheet_data_structure_worker = async (interviewId) => {
     } catch (error) {
         console.error(`❌ [Worker] Sheet data structure failed for interview ${interviewId}:`, error.message);
 
+        // Persist failure to interview doc (even if interview fetch failed earlier)
         await Interview.updateOne(
             { _id: interviewId },
             {
@@ -203,11 +239,13 @@ export const sheet_data_structure_worker = async (interviewId) => {
         );
 
         // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
-        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-            interview: interviewId,
-            level: "ERROR",
-            step: "Google Sheet structure processed"
-        });
+        if (interview?.owner) {
+            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "ERROR",
+                step: "Google Sheet structure failed"
+            });
+        }
 
         return false;
     }
