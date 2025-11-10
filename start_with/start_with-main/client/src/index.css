@@ -78,3 +78,18 @@
 .hscroll::-webkit-scrollbar {
   display: none;
 }
+
+::selection {
+  background-color: rgb(46, 46, 46);
+  /* Change to your desired background color */
+  color: white;
+  /* Optional: Change the text color of the selection */
+}
+
+/* For older versions of Firefox (prior to version 62), use ::-moz-selection */
+::-moz-selection {
+  background-color: black;
+  /* Change to your desired background color */
+  color: white;
+  /* Optional: Change the text color of the selection */
+}

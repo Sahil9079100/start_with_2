@@ -12,10 +12,10 @@ export const extract_text_from_resumeurl = async (interviewId) => {
     try {
         console.log("[extract_text_from_resumeurl] Starting for interview:", interviewId);
 
-        
+
         const interview = await Interview.findById(interviewId);
         if (!interview) throw new Error("Interview not found");
-        
+
         await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
             interview: interviewId,
             level: "INFO",
@@ -24,6 +24,7 @@ export const extract_text_from_resumeurl = async (interviewId) => {
         const candidates = await Candidate.find({ interview: interviewId });
         if (!candidates.length) throw new Error("No candidates found for this interview");
 
+        let count = 0
         for (let candidate of candidates) {
             try {
                 if (candidate.isResumeScanned) {
@@ -53,7 +54,10 @@ export const extract_text_from_resumeurl = async (interviewId) => {
                 await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                     interview: interviewId,
                     level: "INFO",
-                    step: `Extracting resume for: ${candidate.email || "unknown"} completed.`
+                    step: `Extracting resume for: ${candidate.email || "unknown"} completed.`,
+                    data: {
+                        resumeCollected: "SUCCESS"
+                    }
                 });
 
                 candidate.resumeSummary = text;
@@ -64,6 +68,10 @@ export const extract_text_from_resumeurl = async (interviewId) => {
                     message: `Extracted resume text for ${candidate.email || "unknown"}`,
                     level: "success",
                 });
+                const i = count;
+                interview.resumeCollected = i + 1;
+                await interview.save();
+                count++;
             } catch (err) {
                 console.error(`Failed to extract resume for ${candidate.email || "unknown"}:`, err.message);
                 interview.logs.push({

@@ -67,7 +67,6 @@ const interviewDetailsSchema = new mongoose.Schema({
     candidateSheetId: { type: String, required: true },
     jobPosition: { type: String, required: true },
     jobDescription: { type: String, required: true },
-    duration: { type: String, required: true },
     useremail: {
         type: [String],
         required: true,
@@ -124,6 +123,19 @@ const interviewDetailsSchema = new mongoose.Schema({
         type: String,
         // required: true
     },
+    minimumExperience: { type: String },
+    resumeCollected: {
+        type: Number,
+        default: 0,
+    },
+    reviewedCandidates: {
+        type: Number,
+        default: 0,
+    },
+    resumeCollected: {
+        type: Number,
+        default: 0,
+    },
     status: {//separate_resume_urls_and_save
         type: String,
         enum: ["initial", "sheet_data_structure", "sheet_data_extract_json", "separate_resume_urls_and_save", "extract_text_from_resumeurl", "sort_resume_as_job_description", "waiting_for_recruiter", "send_email_to_candidates", "interview_successfully_processed"],
@@ -141,6 +153,7 @@ const interviewDetailsSchema = new mongoose.Schema({
             message: String,
             level: { type: String, enum: ["INFO", "ERROR", "SUCCESS"], default: "INFO" },
             timestamp: { type: Date, default: Date.now },
+            data: { type: mongoose.Schema.Types.Mixed }
         },
     ],
     sortedList: [

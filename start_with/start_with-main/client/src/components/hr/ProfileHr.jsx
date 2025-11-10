@@ -232,6 +232,8 @@ const ProfileHr = () => {
             // console.log("📡 Got interview progress update:", data);
             // data = { interview: "123", step: "Sheet structure processed" }
             console.log(data.step);
+            console.log(data.data)
+            console.log(data)
 
             // Add new socket log to combined logs
             const newSocketLog = {

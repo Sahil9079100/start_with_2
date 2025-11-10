@@ -111,8 +111,15 @@ export const sort_resume_as_job_description = async (interviewId) => {
             await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                 interview: interviewId,
                 level: "INFO",
-                step: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`
+                step: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`,
+                data: {
+                    reviewedCandidate: 'SUCCESS'
+                }
             });
+
+            // save the number of reviewed candidates to interview.reviewedCandidates
+            interview.reviewedCandidates = i + 1;
+            await interview.save();
 
             // ⏳ Wait 6 seconds between each AI call
             // await sleep(6000);
@@ -159,10 +166,11 @@ export const sort_resume_as_job_description = async (interviewId) => {
             await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                 interview: interviewId,
                 level: "INFO",
-                step: `${index + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}.`
+                step: `${index + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}.`,
             });
         });
 
+        // save sorted list to interview.sortedList
         interview.sortedList = sortedCandidates.map((candidate) => ({
             candidateId: candidate._id,
             matchLevel: candidate.matchLevel,
@@ -172,10 +180,16 @@ export const sort_resume_as_job_description = async (interviewId) => {
 
         console.log(`Sorted list saved to interview ${interviewId}`);
 
+        await sleep(1000);
+
         await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
             interview: interviewId,
             level: "INFO",
-            step: `Waiting for recruiter to review sorted candidates and allow to send emails...`
+            step: `Waiting for recruiter to review sorted candidates and allow to send emails...`,
+            data: {
+                waitForRecruiter: true,
+                reviewedCandidate: interview.reviewedCandidates
+            }
         });
 
         return { success: true };
