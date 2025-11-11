@@ -1280,3 +1280,5 @@ const UpdatedProfile = () => {
 }
 
 export default UpdatedProfile
+
+
