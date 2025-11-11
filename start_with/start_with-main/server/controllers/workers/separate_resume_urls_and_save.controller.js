@@ -64,9 +64,9 @@ export const separate_resume_urls_and_save = async (interviewId) => {
                 step: `Step D attempt ${attempt}: AI Agent is analyzing the sheet's rows and columns...`
             });
             const columnAnalysis = await which_column_is_which_agent(structureDoc.columnMapping, sampleRows);
-            const { resumeUrlColumn, emailColumn, dynamicColumns } = columnAnalysis;
+            const { resumeUrlColumn, emailColumn, nameColumn, dynamicColumns } = columnAnalysis;
 
-            if (!resumeUrlColumn || !emailColumn || !dynamicColumns?.length) {
+            if (!resumeUrlColumn || !emailColumn || !nameColumn || !dynamicColumns?.length) {
                 await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                     interview: interviewId,
                     level: "ERROR",
@@ -102,13 +102,15 @@ export const separate_resume_urls_and_save = async (interviewId) => {
 
                 const resumeIndex = columnLetterToIndex(resumeUrlColumn);
                 const emailIndex = columnLetterToIndex(emailColumn);
+                const nameIndex = columnLetterToIndex(nameColumn);
 
-                console.log("RESUME INDEX", resumeIndex, "EMAIL INDEX", emailIndex);
+                console.log("RESUME INDEX", resumeIndex, "EMAIL INDEX", emailIndex, "NAME INDEX", nameIndex);
 
                 const resumeUrl = row[resumeIndex] || "";
                 const email = row[emailIndex] || "";
+                const name = row[nameIndex] || "";
 
-                console.log("@@@@", resumeUrl, email);
+                console.log("@@@@", resumeUrl, email, name);
 
                 if (!resumeUrl) {
                     console.log(`Row ${i + 1}: Missing resume URL, skipping`);
@@ -129,6 +131,7 @@ export const separate_resume_urls_and_save = async (interviewId) => {
                 await Candidate.create({
                     interview: interview._id,
                     owner: interview.owner,
+                    name,
                     email,
                     resumeUrl,
                     resumeSummary: "",
@@ -210,7 +213,8 @@ You are analyzing Google Sheet column mappings and sample rows.
 Your task:
 1. Identify which column most likely contains resume URLs (usually has Google Drive, PDF, or CV links).
 2. Identify which column contains email addresses.
-3. Return all *other* columns as dynamic fields.
+3. Identify which column contains names.
+4. Return all *other* columns as dynamic fields.
 
 Column mapping:
 ${JSON.stringify(columnMapping, null, 2)}
@@ -222,7 +226,8 @@ Return ONLY valid JSON in this format:
 {
   "resumeUrlColumn": "D",
   "emailColumn": "B",
-  "dynamicColumns": ["Name", "Phone", "Address", "Age"]
+  "nameColumn": "A",
+  "dynamicColumns": ["Phone", "Address", "Age"]
 }
 `;
 

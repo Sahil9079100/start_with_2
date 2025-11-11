@@ -141,6 +141,7 @@ const interviewDetailsSchema = new mongoose.Schema({
         enum: ["initial", "sheet_data_structure", "sheet_data_extract_json", "separate_resume_urls_and_save", "extract_text_from_resumeurl", "sort_resume_as_job_description", "waiting_for_recruiter", "send_email_to_candidates", "interview_successfully_processed"],
         default: "initial",
     },
+    currentLimit: { type: Number, default: 25 },
     logs: [
         {
             message: String,

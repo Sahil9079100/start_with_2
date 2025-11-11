@@ -223,10 +223,10 @@ export const getSkillsUsingAI = async (req, res) => {
 
         if (!jobPosition) return res.status(400).json({ message: "Job Position is required" });
         // Call to AI service to get skills
-        const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' }); //gemini-2.0-flash-lite
+        const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' }); //gemini-2.0-flash-lite
 
         const prompt = `
-Given the job position of '[${jobPosition}]', please generate a list of 4-5 of the most relevant and essential technical skills or programming languages required for this role. Return the skills as a JSON array of strings.
+Given the job position of '[${jobPosition}]', please generate a list of 4-5 of the most relevant and essential skills required for this role. Return the skills as a JSON array of strings. keey the skills name short and 1-2 words each.
 
 For example, if the job position is 'Senior Backend Developer', the output should be:
 ["Node.js", "Express.js", "MongoDB", "RESTful APIs", "GraphQL"]
@@ -363,6 +363,7 @@ export const FetchSortedListCandidates = async (req, res) => {
         const sortedCandidates = await Candidate.find({ interview: interviewId })
             .sort({ matchScore: -1 });
 
+        // console.log("sorted candidates", sortedCandidates)
         res.status(200).json({ message: "Sorted list fetched successfully", data: { sortedCandidates } });
     } catch (error) {
         console.log("fetch sorted list error", error);

@@ -84,10 +84,14 @@ const UpdatedProfile = () => {
     const [completedInterviewCandidateResults, setCompletedInterviewCandidateResults] = useState([])
     const [newSkill, setNewSkill] = useState('');
     const [interviewFetchLoading, setInterviewFetchLoading] = useState(false);
+    const [reviewedCandidateFetchLoading, setReviewedCandidateFetchLoading] = useState(false);
     const [detailsSmallWindow, setDetailsSmallWindow] = useState(false);
     const [reviewedCandidatesLiveCount, setReviewedCandidatesLiveCount] = useState(0);
     const [resumeCollectedLiveCount, setResumeCollectedLiveCount] = useState(0);
     const [createInterviewLoading, setCreateInterviewLoading] = useState(false);
+    const [candidateResumeDetailsWindow, setCandidateResumeDetailsWindow] = useState(false);
+    const [currentcandidateResumeDetailsID, setCurrentcandidateResumeDetailsID] = useState('');
+
 
     // Latest activity message: prefer live combinedLogs, fallback to last user log on reload
     const latestActivityMessage = useMemo(() => {
@@ -162,7 +166,6 @@ const UpdatedProfile = () => {
     //         console.log("Connecting Google Sheets")
     //     }
     // }
-
 
     const [interviewQuestions, setInterviewQuestions] = useState(['']);
 
@@ -392,11 +395,20 @@ const UpdatedProfile = () => {
         if (!isConnected) return;
 
         const handleProgress = (data) => {
+            // Ensure we only process socket events for the currently selected interview
+            const currentInterviewId = interviewDetails?._id;
+            const incomingInterviewId = data?.interview;
+
+            // If there's no selected interview or the IDs don't match, ignore this event
+            if (!currentInterviewId || !incomingInterviewId || String(incomingInterviewId) !== String(currentInterviewId)) {
+                return;
+            }
+
             // console.log("Got interview progress update:", data);
             // data = { interview: "123", step: "Sheet structure processed" }
             console.log(data.step);
             console.log(data.data)
-            console.log(data)
+            // console.log(data)
 
             // Add new socket log to combined logs
             const newSocketLog = {
@@ -426,7 +438,7 @@ const UpdatedProfile = () => {
         return () => {
             SocketService.off("INTERVIEW_PROGRESS_LOG", handleProgress);
         };
-    }, [isConnected]);
+    }, [isConnected, interviewDetails?._id]);
 
     useEffect(() => {
         if (hasFetchedProfile.current) return;
@@ -536,11 +548,23 @@ const UpdatedProfile = () => {
         }
     }, [interviewForm.jobDescription]);
 
-    async function get_sorted_list() {
-        // /owner/fetch/interview/:id/sorted-list
-        const response = await API.get(`/api/owner/fetch/interview/${interviewDetails._id}/sorted-list`);
-        console.log("sorted list response: ", response.data);
-        setSortedListArray(response.data.data.sortedCandidates);
+    async function get_sorted_list(interviewId) {
+
+        if (sortedListArray.length > 0) {
+            console.log("Sorted list array is alreayd there");
+            return;
+        }
+        try {
+            setReviewedCandidateFetchLoading(true);
+            const response = await API.get(`/api/owner/fetch/interview/${interviewId}/sorted-list`);
+            console.log("sorted list response: ", response.data);
+            setSortedListArray(response.data.data.sortedCandidates);
+            setReviewedCandidateFetchLoading(false);
+        } catch (error) {
+            console.log("Error fetching sorted list:", error);
+
+            // get_sorted_list();
+        }
     }
 
 
@@ -604,7 +628,7 @@ const UpdatedProfile = () => {
     return (
         <>
             {profile ? (<>
-                <div className='w-full h-[100vh] flex relative' onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+                <div className='w-full h-[100vh] flex relative overflow-hidden' onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
 
                     {interviewCreateWindow &&
                         <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
@@ -895,7 +919,7 @@ const UpdatedProfile = () => {
                                                         </div>
                                                         {interviewsGroup.map((interview) => (
                                                             <div key={interview._id} className='w-full'>
-                                                                <div onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); setESSWindow('details'); setActivePage('Each Interview Detail'); }}
+                                                                <div onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); get_sorted_list(interview._id); setActivePage('Each Interview Detail'); }}
                                                                     className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
                                                                     <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
                                                                     <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /> </span>
@@ -977,12 +1001,12 @@ const UpdatedProfile = () => {
                                                     <div className='text-xl text-gray-400'>›</div>
                                                 </div>
 
-                                                <div className='rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
+                                                <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate'); }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                     <div>
                                                         <div className='text-sm text-gray-400'>Reviewed Candidate</div>
-                                                        <div className='text-2xl font-medium'>{reviewedCandidatesLiveCount ?? 'N/A'}</div>
+                                                        <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div>
                                                     </div>
-                                                    <div className='text-xl text-gray-400'>›</div>
+                                                    <div className='text-3xl  '>›</div>
                                                 </div>
                                             </div>
 
@@ -1036,13 +1060,221 @@ const UpdatedProfile = () => {
 
                         </div>}
 
+
+                    {/* Each Interview Reviewed Candidate */}
+                    {activePage == 'Each_Interview_Reviewed_Candidate' && interviewDetails &&
+                        <div className='INTERVIEW_DETAILS_EACH   h-full bg-purple-600 p' style={{ width: `${100 - sidebarWidth - 0.25}%` }}>
+
+                            <div className='w-full h-[100vh] bg-white flex flex-col'>
+                                <div className='HeaderWindow  w-full h-fit flex justify-between pt-7'>
+                                    <div className=' w-fit h-fit px-16 py-4 text-4xl flex flex-col'>
+                                        <div className='text-gray-400/90 text-[16px] mt-[-8px] flex items-center gap relative'>
+                                            <div onClick={() => { setActivePage('Home'); setSortedListArray([]); setSortedListArray([]); }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>Job Positions</div>
+                                            <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
+                                            <div onClick={() => { setActivePage('Each Interview Detail'); get_sorted_list(interviewDetails._id) }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>Job detail</div>
+                                            <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
+                                            <div className='text-gray-500'>Reviewed Candidate</div>
+                                        </div>
+                                        Reviewed Candidate
+                                        <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
+                                    </div>
+                                    <div className='flex items-center gap-2 mr-10 bg-red-500'>
+                                        {/* <div onClick={() => { setInterviewCreateWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div> */}
+                                        {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
+                                        {/* <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
+
+                                            <BsThreeDotsVertical />
+
+                                            {detailsSmallWindow &&
+                                                <div className='absolute bg-gray-400 rounded-[5px] flex flex-col items-center justify-center p-1 top-7 right-0  shadow-md'>
+                                                    <div className='bg-red-100 border border-red-400 text-red-400 px-2 py-1 rounded-[4px]'>Delete</div>
+                                                </div>
+                                            }
+                                        </div> */}
+
+                                    </div>
+                                </div>
+
+                                <div className='w-full text-gray-400 text-[14px] pr-[130px]'>
+                                    <div className='relative w-full flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[16px] pr-3 rounded-sm justify-center items-center flex-nowrap'>
+                                        <div className='bg-gree-300/20 bg-yellow-00 w-full h-[100%] flex items-center'>
+                                            Name
+                                        </div>
+
+                                        <div className='bg-gree-300/20 bg-red-00 w-full h-[100%] flex items-center'>
+                                            Score
+                                        </div>
+                                        <div className='bg-gree-300/20 bg-green-00 w-full h-[100%] flex items-center'>
+                                            Match
+                                        </div>
+                                        <div className='bg-gree-300/20 bg-orange-00 w-fit   h-[100%] flex items-center'>
+                                            {/* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; */}
+                                            {/* &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; */}
+                                            {/* Hello */}
+                                        </div>
+
+                                    </div>
+                                </div>
+
+
+                                {reviewedCandidateFetchLoading !== true ? (
+                                    <>
+                                        <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
+                                            {/*  */}
+                                            {sortedListArray.map((interview, idx) => (
+                                                <>
+                                                    <div key={interview._id} className='w-full'>
+                                                        <div onClick={() => {
+                                                            if (currentcandidateResumeDetailsID === interview._id) {
+                                                                setCandidateResumeDetailsWindow(prev => !prev);
+                                                            } else {
+                                                                setCurrentcandidateResumeDetailsID(interview._id);
+                                                                setCandidateResumeDetailsWindow(true);
+                                                            }
+                                                        }}
+                                                            className='relative w-full flex max-h-8  pr-[130px] mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr- rounded-sm justify-center items-center flex-nowrap text-black text-lg'>
+                                                            {/* <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'></div> */}
+                                                            {/* <span className="text-[15px] text-gray-400 absolute left-[-10px]">{idx}</span> */}
+                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
+                                                                <span className="text-[15px] text-gray-400 absolute left-[-35px]">{idx}</span>
+                                                                {interview?.name || interview.dynamicData?.Name || interview.dynamicData?.name}
+                                                            </div>
+
+                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
+                                                                {interview?.matchScore}
+                                                            </div>
+
+                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-[18px]'>
+
+                                                                {interview?.matchLevel == 'High Match' ? (
+                                                                    <div className='bg-green-300/30 text-green-700 w-[150px] rounded-full flex items-start justify-center border border-green-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'Medium Match' ? (
+                                                                    <div className='bg-yellow-300/30 text-yellow-700 w-[150px] flex rounded-full items-start justify-center border border-yellow-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'Low Match' ? (
+                                                                    <div className='bg-orange-300/30 text-orange-700 w-[150px] flex rounded-full items-start justify-center border border-orange-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'Unqualified' ? (
+                                                                    <div className='bg-red-300/30 text-red-700 w-[150px] flex rounded-full items-start justify-center border border-red-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className='bg-red-300/30 text-red-700 w-[150px] flex rounded-full items-start justify-center border border-red-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div className={`w-fit justify-end h-[100%] flex  text-black/90 hover:text-black text-xl`}>
+                                                                <RiArrowLeftSLine className={`${(currentcandidateResumeDetailsID === interview._id && candidateResumeDetailsWindow) ? '-rotate-90' : 'rotate-180'} transition-all duration-50`} />
+                                                            </div>
+
+                                                        </div>
+                                                        {candidateResumeDetailsWindow === true && currentcandidateResumeDetailsID === interview._id && (
+                                                            <div className='w-full transition-all duration-300 bg-red-300'>
+                                                                <div className='w-full bg-yellow-300'>
+                                                                    <div className='w-full px-[67px] bg-white shadow-sm flex flex-col gap-8'>
+                                                                        {/* Info + Actions (no duplicate name/score/match) */}
+                                                                        <div className='grid md:grid-cols-2 gap-8'>
+                                                                            {/* Contact & Resume */}
+                                                                            <div className='space-y-2'>
+                                                                                <div>
+                                                                                    <div className='text-sm text-gray-400 uppercase tracking-wide'>Email</div>
+                                                                                    <div className='text-sm text-black break-all mt-1'>{interview.email || '—'}</div>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <div className='text-sm text-gray-400 uppercase tracking-wide'>Resume</div>
+                                                                                    <div className='mt-2 flex gap-3'>
+                                                                                        {interview.resumeUrl && (
+                                                                                            <a
+                                                                                                href={interview.resumeUrl}
+                                                                                                target='_blank'
+                                                                                                rel='noopener noreferrer'
+                                                                                                className='px-4 py-2 rounded-md bg-white border border-gray-300 text-black text-sm hover:bg-gray-50 transition-colors'
+                                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                            >
+                                                                                                Preview
+                                                                                            </a>
+                                                                                        )}
+                                                                                        <button
+                                                                                            type='button'
+                                                                                            className='px-4 py-2 rounded-md bg-gray-200 text-black text-sm hover:bg-gray-300 transition-colors'
+                                                                                            onClick={(e) => { e.stopPropagation(); /* TODO: implement preview modal */ }}
+                                                                                        >
+                                                                                            Download
+                                                                                        </button>
+
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* AI Note */}
+                                                                            <div className='space-y-1'>
+                                                                                <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Note</div>
+                                                                                <div className='text-sm leading-relaxed text-black'>
+                                                                                    {interview.resumeSumary || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
+                                                                                </div>
+                                                                                <div className='flex flex-col gap-2 mt-2'>
+                                                                                    <div className='flex items-center gap-2 text-sm text-black/80'>
+                                                                                        <span className='text-green-600'>✓</span> LinkedIn Profile
+                                                                                    </div>
+                                                                                    <div className='flex items-center gap-2 text-sm text-black/80'>
+                                                                                        <span className='text-green-600'>✓</span> Github Profile
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Flags / Questions */}
+                                                                        <div className='flex flex-col gap-3 mb-3'>
+                                                                            <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
+                                                                            <div className='flex flex-wrap gap-3'>
+                                                                                <div className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                    {(interview.dynamicData?.questions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
+                                                                                </div>
+                                                                                <div className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                    {(interview.dynamicData?.importantQuestions?.length || interview.dynamicData?.ImportantQuestions?.length || 0)} Important Question
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <hr className='border border-black/30 mx-[52px]' />
+                                                    </div >
+
+                                                </>
+                                            ))}
+
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className='ContentWindow w-full h-full overflow-scroll hscroll flex pt-10 items-start justify-center text-gray-400 text-lg'>
+                                            <Spinner />
+                                            Loading Reviewed Candidate details...
+                                        </div>
+                                    </>
+                                )}
+
+                            </div >
+
+                        </div>}
+
+
                 </div >
             </>) : (<>
                 <div className='w-full h-full overflow-scroll hscroll flex pt-10 items-start justify-center text-gray-400 text-lg'>
                     <Spinner />
                     Loading Profile...
                 </div>
-            </>)}
+            </>)
+            }
         </>
     )
 }

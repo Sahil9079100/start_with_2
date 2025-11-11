@@ -111,7 +111,11 @@ const userSchema = new Schema({
         type: Number,
         min: 0,
         max: 100,
-        default: 0,
+        default: null,
+    },
+    name: {
+        type: String,
+        default: ""
     },
     dynamicData: {
         type: mongoose.Schema.Types.Mixed,

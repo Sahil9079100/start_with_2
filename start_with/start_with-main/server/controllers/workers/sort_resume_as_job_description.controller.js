@@ -207,7 +207,7 @@ export const sort_resume_as_job_description = async (interviewId) => {
 export async function resume_sorter_agent({ jobDescription, resumeSummary, jobminimumqualifications, jobminimumskillsrequired }, retries = 3) {
     try {
         const new_geminiAPI = await getRotatingGeminiAPI();
-        const model = new_geminiAPI.getGenerativeModel({ model: "gemini-2.5-pro" });
+        const model = new_geminiAPI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `
 You are an expert technical recruiter with 20+ years of experience.
