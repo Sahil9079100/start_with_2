@@ -1,11 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import API from '../../axios.config';
+import SocketService from '../../socket/socketService';
+import { OrbitProgress } from 'react-loading-indicators';
+
+
+const Spinner = React.memo(() => (
+    <div className='scale-[45%] mt-[-15px] mr-[-10px]'>
+        <OrbitProgress variant="spokes" dense color="#ffffff" size="small" text="" textColor="" />
+    </div>
+));
 
 
 export const LoginHr = () => {
     const navigate = useNavigate();
     const [form, setForm] = useState({ email: '@gmail.com', password: '' });
-    const API = '';
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -14,6 +24,8 @@ export const LoginHr = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         console.log('Login details:', form);
+        setIsLoading(true);
+
         try {
             const response = await API.post('/api/owner/login', form);
             console.log("owner login response", response);
@@ -32,6 +44,8 @@ export const LoginHr = () => {
         } catch (error) {
             console.log("login owner error", error);
             navigate('/r/o');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -66,7 +80,7 @@ export const LoginHr = () => {
                 </div>
 
                 {/* Google Sign In Button */}
-                <button
+                {/* <button
                     type="button"
                     onClick={handleGoogleSignIn}
                     className="w-full bg-white border border-gray-300 rounded py-2.5 px-4 mb-6 flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
@@ -78,7 +92,7 @@ export const LoginHr = () => {
                         <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
                     </svg>
                     <span className="text-gray-700 text-sm font-medium">Continue with Google</span>
-                </button>
+                </button> */}
 
                 <form onSubmit={handleSubmit}>
                     {/* Email Field */}
@@ -129,9 +143,19 @@ export const LoginHr = () => {
                     {/* Continue Button */}
                     <button
                         type="submit"
-                        className="w-full bg-gray-200 text-gray-700 rounded py-2.5 px-4 mb-4 font-medium text-sm hover:bg-gray-300 transition-colors"
+                        disabled={isLoading}
+                        className="relative w-full bg-black py-4 text-white rounded px-4 mb-4 font-medium text-sm hover:bg-gray-800 transition-colors flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                        Sign In
+                        {isLoading ? (
+                            <>
+                                <div className="absolute top-2.5 left-[130px]" >
+                                    <Spinner />
+                                </div>
+                                <span>Signing In...</span>
+                            </>
+                        ) : (
+                            'Sign In'
+                        )}
                     </button>
                 </form>
 

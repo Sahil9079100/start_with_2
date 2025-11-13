@@ -49,7 +49,7 @@ export const LoginOwner = async (req, res) => {
     try {
         const { email, password, secretKey } = req.body;
 
-        if (!secretKey == process.env.SECRET_KEY_OWNER) return res.status(401).json({ message: "secret key not matched" })
+        // if (!secretKey == process.env.SECRET_KEY_OWNER) return res.status(401).json({ message: "secret key not matched" })
 
         const owner = await Owner.findOne({ email });
         if (!owner) {
