@@ -35,40 +35,40 @@ export default function StartwithSignup() {
 
         setIsLoading(true);
 
-        // try {
-        //     const response = await API.post('/api/owner/register', {
-        //         name: `${firstName} ${lastName}`,
-        //         email,
-        //         password,
-        //     });
+        try {
+            const response = await API.post('/api/owner/register', {
+                name: `${firstName} ${lastName}`,
+                email,
+                password,
+            });
 
-        //     console.log(response.data);
-        //     console.log(response.data.owner);
-        //     console.log(response.data.token);
+            console.log(response.data);
+            console.log(response.data.owner);
+            console.log(response.data.token);
 
-        //     if (response.data.token) {
-        //         localStorage.setItem('otoken', response.data.token);
-        //         console.log('🔐Token saved in localStorage:', response.data.token);
+            if (response.data.token) {
+                localStorage.setItem('otoken', response.data.token);
+                console.log('🔐Token saved in localStorage:', response.data.token);
 
-        //         setSuccess('Registration successful!');
-        //         setFirstName('');
-        //         setLastName('');
-        //         setEmail('');
-        //         setPassword('');
+                setSuccess('Registration successful!');
+                setFirstName('');
+                setLastName('');
+                setEmail('');
+                setPassword('');
 
-        //         // Navigate to owner dashboard
-        //         navigate(`/p/o/${response.data.owner}`);
-        //     } else {
-        //         console.error('❌ No token received from server');
-        //         setError('Registration failed. No token received.');
-        //     }
-        // } catch (error) {
-        //     console.error(error);
-        //     setError('Registration failed. Please try again.');
-        //     setSuccess('');
-        // } finally {
-        //     setIsLoading(false);
-        // }
+                // Navigate to owner dashboard
+                navigate(`/p/o/${response.data.owner}`);
+            } else {
+                console.error('❌ No token received from server');
+                setError('Registration failed. No token received.');
+            }
+        } catch (error) {
+            console.error(error);
+            setError('Registration failed. Please try again.');
+            setSuccess('');
+        } finally {
+            setIsLoading(false);
+        }
 
         setIsLoading(false);
     };
