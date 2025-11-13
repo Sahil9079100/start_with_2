@@ -371,6 +371,41 @@ export const FetchSortedListCandidates = async (req, res) => {
     }
 }
 
+export const SendEmailToCandidates = async (req, res) => {
+    try {
+        // i will recive an array of object like this { interviewId, candidateEmails, emailSubject, emailBody } in req.body
+        const data = req.body;
+        // foreach loop on data array
+        for (const item of data) {
+            const { interviewId, candidateEmails, emailSubject, emailBody } = item;
+
+            // send a post request to email service
+            const response = await fetch(`${process.env.EMAIL_SERVICE_URL}/send/interview`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    interviewId,
+                    candidateEmails,
+                    emailSubject,
+                    emailBody
+                })
+            });
+
+            const result = await response.json();
+            console.log("email service response", result);
+        }
+
+        res.status(200).json({ message: "Emails sent to candidates successfully" });
+        // const { interviewId, candidateEmails, emailSubject, emailBody } = req.body;
+
+    } catch (error) {
+        console.log("send email to candidates error", error);
+        res.status(500).json({ message: "send email to candidates error" });
+    }
+}
+
 export const FetchCandiateCompletedInterviewDetails = async (req, res) => {
     try {
         const interviewId = req.params.id;
