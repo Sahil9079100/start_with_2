@@ -716,7 +716,7 @@ const ProfileHr = () => {
                             <div className='bg-white w-[70vw] flex flex-col px-8 py-6 rounded-lg shadow-lg '>
                                 <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
                                     <div>Create a Job Role</div>
-                                    <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); setFormErrors([])}} className='hover:cursor-pointer'><IoCloseOutline /></div>
+                                    <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); setFormErrors([]) }} className='hover:cursor-pointer'><IoCloseOutline /></div>
                                 </div>
                                 <hr className='border border-gray-300 mb-6' />
 
