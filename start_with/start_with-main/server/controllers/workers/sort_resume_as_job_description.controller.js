@@ -6,15 +6,20 @@ import { APICounter } from "../../models/APICounter.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
+// const apiKeys = [
+//     process.env.G1A, process.env.G1B, process.env.G1C,
+//     process.env.G2A, process.env.G2B, process.env.G2C,
+//     process.env.G3A, process.env.G3B, process.env.G3C,
+//     process.env.G4A, process.env.G4B, process.env.G4C,
+//     process.env.G5A, process.env.G5B, process.env.G5C,
+//     process.env.G6A, process.env.G6B, process.env.G6C,
+//     process.env.G7A, process.env.G7B, process.env.G7C,
+//     process.env.G8A, process.env.G8B, process.env.G8C,
+// ].filter(Boolean);
+
+
 const apiKeys = [
-    process.env.G1A, process.env.G1B, process.env.G1C,
-    process.env.G2A, process.env.G2B, process.env.G2C,
-    process.env.G3A, process.env.G3B, process.env.G3C,
-    process.env.G4A, process.env.G4B, process.env.G4C,
-    process.env.G5A, process.env.G5B, process.env.G5C,
-    process.env.G6A, process.env.G6B, process.env.G6C,
-    process.env.G7A, process.env.G7B, process.env.G7C,
-    process.env.G8A, process.env.G8B, process.env.G8C,
+    process.env.G1A, process.env.G1B, process.env.G1C
 ].filter(Boolean);
 
 if (apiKeys.length === 0) {

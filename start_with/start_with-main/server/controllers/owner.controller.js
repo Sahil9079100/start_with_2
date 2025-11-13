@@ -14,9 +14,9 @@ import { IntreviewResult } from "../models/IntreviewResult.model.js";
 
 export const RegisterOwner = async (req, res) => {
     try {
-        const { name, email, phone, password, secretKey } = req.body
+        const { name, email, password } = req.body
 
-        if (!secretKey == process.env.SECRET_KEY_OWNER) return res.status(401).json({ message: "secret key not matched" })
+        // if (!secretKey == process.env.SECRET_KEY_OWNER) return res.status(401).json({ message: "secret key not matched" })
 
         const newOwnerExists = await Owner.findOne({ email });
         if (newOwnerExists) {
@@ -25,7 +25,7 @@ export const RegisterOwner = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newowner = new Owner({ name, email, phone, password: hashedPassword, secretKey });
+        const newowner = new Owner({ name, email, password: hashedPassword });
         await newowner.save();
 
         const token = jwt.sign({ id: newowner._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
@@ -223,7 +223,7 @@ export const getSkillsUsingAI = async (req, res) => {
 
         if (!jobPosition) return res.status(400).json({ message: "Job Position is required" });
         // Call to AI service to get skills
-        const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' }); //gemini-2.0-flash-lite
+        const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' }); //gemini-2.0-flash-lite
 
         const prompt = `
 Given the job position of '[${jobPosition}]', please generate a list of 4-5 of the most relevant and essential skills required for this role. Return the skills as a JSON array of strings. keey the skills name short and 1-2 words each.

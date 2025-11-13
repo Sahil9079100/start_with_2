@@ -13,7 +13,7 @@ const ownerSchema = new mongoose.Schema({
     },
     phone: {
         type: String,
-        required: true
+        // required: true
     },
     company: [{
         type: mongoose.Schema.Types.ObjectId,
@@ -29,7 +29,7 @@ const ownerSchema = new mongoose.Schema({
     },
     secretKey: {
         type: String,
-        required: true
+        // required: true
     },
     googleSheetsConnected: {
         type: Boolean,
