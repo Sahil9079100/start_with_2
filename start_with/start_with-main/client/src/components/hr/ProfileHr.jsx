@@ -95,6 +95,7 @@ const ProfileHr = () => {
     const [currentcandidateResumeDetailsID, setCurrentcandidateResumeDetailsID] = useState('');
     const [interviewSheduleWindow, setInterviewSheduleWindow] = useState(false);
     const [interviewSheduleLoading, setInterviewSheduleLoading] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
     // const [intervie
 
     // Schedule interview form state
@@ -139,6 +140,10 @@ const ProfileHr = () => {
                 minimumSkills: [...prev.minimumSkills, skillToAdd]
             }));
             setNewSkill(''); // Clear input after adding
+            // Clear error when skill is added
+            if (formErrors.minimumSkills) {
+                setFormErrors(prev => ({ ...prev, minimumSkills: false }));
+            }
         }
     };
 
@@ -213,6 +218,50 @@ const ProfileHr = () => {
     const createinterview = async () => {
         try {
             setCreateInterviewLoading(true);
+            setErrorMessage('');
+            let sahil = false
+            let emptyItems = []
+            const errors = {};
+
+            // Validate required fields
+            if (!interviewForm.jobPosition?.trim()) {
+                errors.jobPosition = true;
+                sahil = true;
+                emptyItems.push('Job Position');
+            }
+            if (!interviewForm.jobDescription?.trim()) {
+                errors.jobDescription = true;
+                sahil = true;
+                emptyItems.push('Job Description');
+            }
+            if (!interviewForm.minimumQualification?.trim()) {
+                errors.minimumQualification = true;
+                sahil = true;
+                emptyItems.push('Minimum Qualification');
+            }
+            if (!interviewForm.minimumExperience?.trim()) {
+                errors.minimumExperience = true;
+                sahil = true;
+                emptyItems.push('Minimum Experience');
+            }
+            if (!interviewForm.minimumSkills || interviewForm.minimumSkills.length === 0) {
+                errors.minimumSkills = true;
+                sahil = true;
+                emptyItems.push('Required Skills');
+            }
+            if (!interviewForm.candidateSheetId) {
+                errors.candidateSheetId = true;
+                sahil = true;
+                emptyItems.push('Candidate Sheet');
+            }
+
+            setFormErrors(errors);
+
+            if (sahil == true) {
+                setCreateInterviewLoading(false);
+                setErrorMessage(`Please fill: ${emptyItems.join(', ')}`);
+                return 0
+            }
             // Send minimumSkills as a comma-separated string (do not change UI state)
             const minSkillsString = Array.isArray(interviewForm.minimumSkills)
                 ? interviewForm.minimumSkills.join(', ')
@@ -667,7 +716,7 @@ const ProfileHr = () => {
                             <div className='bg-white w-[70vw] flex flex-col px-8 py-6 rounded-lg shadow-lg '>
                                 <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
                                     <div>Create a Job Role</div>
-                                    <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); }} className='hover:cursor-pointer'><IoCloseOutline /></div>
+                                    <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); setFormErrors([])}} className='hover:cursor-pointer'><IoCloseOutline /></div>
                                 </div>
                                 <hr className='border border-gray-300 mb-6' />
 
@@ -675,11 +724,17 @@ const ProfileHr = () => {
                                     <label className='text-gray-600 text-sm mb-2 block'>Job Position</label>
                                     <input
                                         type='text'
+                                        required
                                         name='jobPosition'
                                         value={interviewForm.jobPosition}
-                                        onChange={handleInterviewChange}
+                                        onChange={(e) => {
+                                            handleInterviewChange(e);
+                                            if (formErrors.jobPosition) {
+                                                setFormErrors(prev => ({ ...prev, jobPosition: false }));
+                                            }
+                                        }}
                                         placeholder='Ex: Content Writing, Laravel Developer'
-                                        className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                        className={`w-full px-4 py-3 border ${formErrors.jobPosition ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobPosition ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
                                     />
                                 </div>
 
@@ -697,15 +752,19 @@ const ProfileHr = () => {
                                     <textarea
                                         ref={textareaRef}
                                         name='jobDescription'
+                                        required
                                         value={interviewForm.jobDescription}
                                         onChange={(e) => {
                                             handleInterviewChange(e);
+                                            if (formErrors.jobDescription) {
+                                                setFormErrors(prev => ({ ...prev, jobDescription: false }));
+                                            }
                                             e.target.style.height = 'auto';
                                             e.target.style.height = e.target.scrollHeight + 'px';
                                         }}
                                         rows={3}
                                         placeholder='Type your job description here...'
-                                        className='w-full resize-none px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 scroll'
+                                        className={`w-full resize-none px-4 py-3 border ${formErrors.jobDescription ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobDescription ? 'focus:ring-red-400' : 'focus:ring-gray-400'} scroll`}
                                     />
                                 </div>
 
@@ -714,29 +773,41 @@ const ProfileHr = () => {
                                         <label className='text-gray-600 text-sm mb-2 block'>Minimum Qualification</label>
                                         <input
                                             type='text'
+                                            required
                                             name='minimumQualification'
                                             value={interviewForm.minimumQualification}
-                                            onChange={handleInterviewChange}
+                                            onChange={(e) => {
+                                                handleInterviewChange(e);
+                                                if (formErrors.minimumQualification) {
+                                                    setFormErrors(prev => ({ ...prev, minimumQualification: false }));
+                                                }
+                                            }}
                                             placeholder='Bachelor or Masters'
-                                            className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                            className={`w-full px-4 py-3 border ${formErrors.minimumQualification ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumQualification ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
                                         />
                                     </div>
                                     <div className='flex-1'>
                                         <label className='text-gray-600 text-sm mb-2 block'>Minimum Experience</label>
                                         <input
                                             type='text'
+                                            required
                                             name='minimumExperience'
                                             value={interviewForm.minimumExperience}
-                                            onChange={handleInterviewChange}
+                                            onChange={(e) => {
+                                                handleInterviewChange(e);
+                                                if (formErrors.minimumExperience) {
+                                                    setFormErrors(prev => ({ ...prev, minimumExperience: false }));
+                                                }
+                                            }}
                                             placeholder='1 year+'
-                                            className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                            className={`w-full px-4 py-3 border ${formErrors.minimumExperience ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumExperience ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
                                         />
                                     </div>
                                 </div>
 
                                 <div className='mb-4'>
                                     <label className='text-gray-600 text-sm mb-2 block'>Required Skills</label>
-                                    <div className='flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-md'>
+                                    <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.minimumSkills ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.minimumSkills ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
                                         {interviewForm.minimumSkills.map((skill, index) => (
                                             <div key={index} className='bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center gap-2'>
                                                 {skill}
@@ -748,7 +819,13 @@ const ProfileHr = () => {
                                         <input
                                             type='text'
                                             value={newSkill}
-                                            onChange={(e) => setNewSkill(e.target.value)}
+                                            required
+                                            onChange={(e) => {
+                                                setNewSkill(e.target.value);
+                                                if (formErrors.minimumSkills && interviewForm.minimumSkills.length > 0) {
+                                                    setFormErrors(prev => ({ ...prev, minimumSkills: false }));
+                                                }
+                                            }}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
                                                     e.preventDefault();
@@ -772,7 +849,7 @@ const ProfileHr = () => {
 
                                 <div className='mb-6'>
                                     <label className='text-gray-600 text-sm mb-2 block'>Allowed Candidates Sheet</label>
-                                    <div className='flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-md'>
+                                    <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
 
                                         {/* <input
                                             type='text'
@@ -783,9 +860,15 @@ const ProfileHr = () => {
                                         /> */}
                                         <select
                                             name='candidateSheetId'
+                                            required
                                             value={interviewForm.candidateSheetId}
-                                            onChange={handleInterviewChange}
-                                            className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                            onChange={(e) => {
+                                                handleInterviewChange(e);
+                                                if (formErrors.candidateSheetId) {
+                                                    setFormErrors(prev => ({ ...prev, candidateSheetId: false }));
+                                                }
+                                            }}
+                                            className='w-full px-2 py-2 border-none rounded-md focus:outline-none focus:ring-0'
                                         >
                                             <option value=''>Select a Google Sheet</option>
                                             {sheetsNames.map((sheet) => (
@@ -814,15 +897,15 @@ const ProfileHr = () => {
                                         </button>
                                     </>) : (<>
                                         <button
-                                            onClick={createinterview}
-                                            className='bg-black transistion-all duration-300 text-white px-6 py-2 rounded-full hover:bg-black/90 transition-colors flex'
+                                            onClick={() => { createinterview(); }}
+                                            className='bg-black h-fit transistion-all duration-300 text-white px-6 py-2 rounded-full hover:bg-black/90 transition-colors flex'
                                         >
                                             Create
                                         </button>
                                     </>)}
 
                                     {errorMessage != '' &&
-                                        <div className='w-full flex justify-center items-center font-Manrope text-red-500 text-sm'>
+                                        <div className='w-full pl-3 flex justify-center items-center font-Manrope text-red-500 text-sm'>
                                             <div className='bg-red-100 px-2 py-1 border-[1px] border-red-300 rounded-[4px] font-medium'>
                                                 {errorMessage}
                                             </div>
