@@ -1265,9 +1265,9 @@ const ProfileHr = () => {
                                     </div>
                                     {interviewDetails.isSheduled == true ? (<>
                                         <div className='flex items-center gap-2 mr-10'>
-                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[10ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
-                                                <span className='transition-all duration-[10ms] ease-in-out'>Email Panel</span>
-                                                <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[10ms] ease-in-out'>
+                                            <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate_EmailPanel') }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[50ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
+                                                <span className='transition-all duration-[40ms] ease-in-out'>Email Panel</span>
+                                                <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
                                                     <IoIosSend />
                                                 </div>
                                             </div>
@@ -1454,6 +1454,88 @@ const ProfileHr = () => {
                                         <div className='ContentWindow w-full h-full overflow-scroll hscroll flex pt-10 items-start justify-center text-gray-400 text-lg'>
                                             <Spinner />
                                             Loading Reviewed Candidate details...
+                                        </div>
+                                    </>
+                                )}
+
+                            </div >
+
+                        </div>}
+
+
+                    {activePage == 'Each_Interview_Reviewed_Candidate_EmailPanel' && interviewDetails &&
+                        <div className='INTERVIEW_DETAILS_EACH   h-full bg-purple-600 p' style={{ width: `${100 - sidebarWidth - 0.25}%` }}>
+
+                            <div className='w-full h-[100vh] bg-white flex flex-col'>
+                                <div className='HeaderWindow  w-full h-fit flex justify-between pt-7'>
+                                    <div className=' w-fit h-fit px-16 py-4 text-4xl flex flex-col'>
+                                        <div className='text-gray-400/90 text-[16px] mt-[-8px] flex items-center gap relative'>
+                                            <div onClick={() => { setActivePage('Home'); setSortedListArray([]); setSortedListArray([]); }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>Job Positions</div>
+                                            <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
+                                            <div onClick={() => { setActivePage('Each Interview Detail'); get_sorted_list(interviewDetails._id) }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>Job detail</div>
+                                            <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
+                                            <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate'); }} className='hover:cursor-pointer hover:underline hover:decoration-dotted' > Reviewed Candidate</div>
+                                            <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
+                                            <div className='text-gray-500'>Email Panel</div>
+                                        </div>
+                                        Reviewed Candidate
+                                        <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
+                                    </div>
+                                    <div className='flex items-center gap-2 mr-10'>
+                                        <div onClick={() => { console.log("Hello") }} className='group flex bg-black border hover:bg-whit hover:text-blac transition-all duration-[50ms] ease-in-out border-black text-white text-[16px] rounded-full px-4 py-[6px] font-medium hover:cursor-pointer overflow-hidden'>
+                                            <span className='transition-all duration-[40ms] ease-in-out'>Send Invite</span>
+                                            <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
+                                                <IoIosSend />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* {interviewDetails.isSheduled == true ? (<>
+                                        <div className='flex items-center gap-2 mr-10'>
+                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[50ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
+                                                <span className='transition-all duration-[40ms] ease-in-out'>Email Panel</span>
+                                                <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
+                                                    <IoIosSend />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>) : (<>
+                                        <div className='flex items-center gap-2 mr-10'>
+                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Schedule Interview</div>
+                                        </div>
+                                    </>)} */}
+                                </div>
+
+                                {/* <div className='w-full text-gray-400 text-[14px] pr-[130px]'>
+                                    <div className='relative w-full flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[16px] pr-3 rounded-sm justify-center items-center flex-nowrap'>
+                                        <div className='bg-gree-300/20 bg-yellow-00 w-full h-[100%] flex items-center'>
+                                            Name
+                                        </div>
+
+                                        <div className='bg-gree-300/20 bg-red-00 w-full h-[100%] flex items-center'>
+                                            Score
+                                        </div>
+                                        <div className='bg-gree-300/20 bg-green-00 w-full h-[100%] flex items-center'>
+                                            Match
+                                        </div>
+                                        <div className='bg-gree-300/20 bg-orange-00 w-fit   h-[100%] flex items-center'>
+                                        </div>
+
+                                    </div>
+                                </div> */}
+
+
+                                {reviewedCandidateFetchLoading !== true ? (
+                                    <>
+                                        <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
+
+
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className='ContentWindow w-full h-full overflow-scroll hscroll flex pt-10 items-start justify-center text-gray-400 text-lg'>
+                                            <Spinner />
+                                            Loading Reviewed Candidate Email Panel...
                                         </div>
                                     </>
                                 )}
