@@ -1,5 +1,6 @@
 // server/controllers/workers/createInterview.controller.js
 
+// import { schedule } from "node-cron";
 import { Interview } from "../../models/Interview.model.js";
 import { sheet_data_structure_worker } from "./sheet_data_structure.controller.js";
 
@@ -57,6 +58,49 @@ export const createInterview = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to create interview",
+            error: error.message,
+        });
+    }
+}
+
+
+export const scheduleInterview = async (req, res) => {
+    try {
+        console.log("Schedule Interview called with body:", req.body);
+        const { interviewId, expiryDate, duration, questions } = req.body;
+
+        if (!interviewId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing required filed: interviewID",
+            })
+        }
+
+        const findInterview = await Interview.findById(interviewId)
+        if (!findInterview) return res.status(404).json({
+            success: false,
+            message: "Interview not found"
+        });
+
+
+        findInterview.questions = questions
+        findInterview.duration = duration
+        findInterview.expiryDate = expiryDate
+        findInterview.isSheduled = true
+
+        await findInterview.save();
+
+        // const 
+        res.status(200).json({
+            success: true,
+            message: "Interview scheduled successfully",
+            data: findInterview
+        });
+    } catch (error) {
+        console.log("Error in scheduling interview:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to schedule interview",
             error: error.message,
         });
     }

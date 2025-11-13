@@ -168,6 +168,7 @@ const interviewDetailsSchema = new mongoose.Schema({
         },
     ],
     totalCandidates: { type: Number, default: 0 },
+    isSheduled: { type: Boolean, default: false }
 },
     { timestamps: true }
 );

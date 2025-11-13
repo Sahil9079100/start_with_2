@@ -1073,15 +1073,16 @@ const UpdatedProfile = () => {
                                             <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
                                             <div onClick={() => { setActivePage('Each Interview Detail'); get_sorted_list(interviewDetails._id) }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>Job detail</div>
                                             <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
-                                            <div className='text-gray-500'>Reviewed Candidate</div>
+                                            <div className='text-gray-500'>Reviewed Candidat</div>
                                         </div>
-                                        Reviewed Candidate
+                                        Reviewed Candidateeee
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
                                     </div>
-                                    <div className='flex items-center gap-2 mr-10 bg-red-500'>
-                                        {/* <div onClick={() => { setInterviewCreateWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div> */}
-                                        {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
-                                        {/* <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
+                                    {/* <div className='flex items-center gap-2 mr-10 bg-red-500'>
+                                        hello
+                                        <div onClick={() => { setInterviewCreateWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div>
+                                        <div className='w-7 h-7 rounded-full bg-gray-400'></div>
+                                        <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
 
                                             <BsThreeDotsVertical />
 
@@ -1090,9 +1091,9 @@ const UpdatedProfile = () => {
                                                     <div className='bg-red-100 border border-red-400 text-red-400 px-2 py-1 rounded-[4px]'>Delete</div>
                                                 </div>
                                             }
-                                        </div> */}
+                                        </div>
 
-                                    </div>
+                                    </div> */}
                                 </div>
 
                                 <div className='w-full text-gray-400 text-[14px] pr-[130px]'>
@@ -1282,3 +1283,27 @@ const UpdatedProfile = () => {
 export default UpdatedProfile
 
 
+/*
+{interviewSheduleWindow &&
+                        <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
+                            <div className='bg-white w-[40vw] flex flex-col px-8 py-6 rounded-lg shadow-lg '>
+                                <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
+                                    <div>Schedule Interview</div>
+                                    <div onClick={() => { setInterviewSheduleWindow(false); }} className='hover:cursor-pointer'><IoCloseOutline /></div>
+                                </div>
+                                <hr className='border border-gray-300 mb-6' />
+
+                                <div className='mb-4'>
+                                    <label className='text-gray-600 text-sm mb-2 block'>Interview Date & Time</label>
+                                    <input
+                                        type='datetime-local'
+                                        name='interviewDateTime'
+                                        // value={interviewScheduleForm.interviewDateTime}
+                                        // onChange={handleInterviewScheduleChange}
+                                        className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    }
+*/

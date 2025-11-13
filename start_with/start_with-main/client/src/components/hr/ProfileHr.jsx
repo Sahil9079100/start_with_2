@@ -12,6 +12,8 @@ import { LuListCheck } from "react-icons/lu";
 import { MdDelete } from "react-icons/md";
 import { IoCloseOutline } from "react-icons/io5";
 import { OrbitProgress } from 'react-loading-indicators'
+import { IoIosSend } from "react-icons/io";
+
 
 
 // Memoized spinner to avoid remounting/restarting the animation on parent re-renders
@@ -91,7 +93,18 @@ const ProfileHr = () => {
     const [createInterviewLoading, setCreateInterviewLoading] = useState(false);
     const [candidateResumeDetailsWindow, setCandidateResumeDetailsWindow] = useState(false);
     const [currentcandidateResumeDetailsID, setCurrentcandidateResumeDetailsID] = useState('');
+    const [interviewSheduleWindow, setInterviewSheduleWindow] = useState(false);
+    const [interviewSheduleLoading, setInterviewSheduleLoading] = useState(false);
+    // const [intervie
 
+    // Schedule interview form state
+    const [scheduleForm, setScheduleForm] = useState({
+        language: 'English',
+        duration: '12',
+        questions: ['How do you manage a product?', 'How do you collab with other brands to manage there product?'],
+        // addProfileScreening: 'Yes',
+        expiryDate: ''
+    });
 
     // Latest activity message: prefer live combinedLogs, fallback to last user log on reload
     const latestActivityMessage = useMemo(() => {
@@ -388,6 +401,25 @@ const ProfileHr = () => {
         }
     }
 
+    async function SheduleInterviewSend() {
+        try {
+            setInterviewSheduleLoading(true);
+            // await new Promise(resolve => setTimeout(resolve, 2000));
+            const payload = {
+                interviewId: interviewDetails._id,
+                ...scheduleForm
+            };
+            console.log("Scheduling interview with payload:", payload);
+            const response = await API.post('/api/owner/schedule/interview', payload);
+            console.log("Interview scheduled successfully:", response.data);
+            setInterviewSheduleLoading(false);
+        }
+        catch (error) {
+            console.log("Error scheduling interview:", error);
+            setErrorMessage(error?.response?.data?.message)
+            setInterviewSheduleLoading(false);
+        }
+    }
 
     useEffect(() => {
         setSocketConnected(isConnected);
@@ -776,12 +808,14 @@ const ProfileHr = () => {
                                             <div className='absolute top-[4px] left-[-8px]'>
                                                 <Spinner />
                                             </div>
-                                            Create
+                                            <div className=''>
+                                                Creating...
+                                            </div>
                                         </button>
                                     </>) : (<>
                                         <button
                                             onClick={createinterview}
-                                            className='bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex'
+                                            className='bg-black transistion-all duration-300 text-white px-6 py-2 rounded-full hover:bg-black/90 transition-colors flex'
                                         >
                                             Create
                                         </button>
@@ -826,6 +860,157 @@ const ProfileHr = () => {
                         </div>
                     }
 
+                    {interviewSheduleWindow &&
+                        <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
+                            <div className='bg-white w-[40vw] flex flex-col px-8 py-6 rounded-lg shadow-lg max-h-[90vh] overflow-y-auto'>
+                                <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
+                                    <div>Schedule Interview</div>
+                                    <div onClick={() => {
+                                        setInterviewSheduleWindow(false);
+                                        setScheduleForm({
+                                            language: 'English',
+                                            duration: '10',
+                                            questions: [''],
+                                            addProfileScreening: 'Yes',
+                                            expiryDate: ''
+                                        });
+                                    }} className='hover:cursor-pointer'><IoCloseOutline /></div>
+                                </div>
+                                <hr className='border border-gray-300 mb-6' />
+
+                                <div className='mb-4'>
+                                    <label className='text-gray-600 text-sm mb-2 block'>Language</label>
+                                    <select
+                                        name='language'
+                                        value={scheduleForm.language}
+                                        onChange={(e) => setScheduleForm(prev => ({ ...prev, language: e.target.value }))}
+                                        className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                    >
+                                        <option value='English'>English</option>
+                                        {/* <option value='Spanish'>Spanish</option> */}
+                                        {/* <option value='French'>French</option> */}
+                                        {/* <option value='German'>German</option> */}
+                                        <option value='Hindi'>Hindi</option>
+                                    </select>
+                                </div>
+
+                                <div className='mb-4'>
+                                    <label className='text-gray-600 text-sm mb-2 block'>Duration (minutes)</label>
+                                    <input
+                                        type='number'
+                                        name='duration'
+                                        value={scheduleForm.duration}
+                                        onChange={(e) => setScheduleForm(prev => ({ ...prev, duration: e.target.value }))}
+                                        placeholder='10'
+                                        className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                    />
+                                </div>
+
+                                <div className='mb-4'>
+                                    <div className='flex justify-between items-center mb-2'>
+                                        <label className='text-gray-600 text-sm'>Interview Questions</label>
+                                        <button
+                                            onClick={() => setScheduleForm(prev => ({ ...prev, questions: [...prev.questions, ''] }))}
+                                            className='text-gray-500 text-sm hover:text-gray-700'
+                                        >
+                                            + Add question
+                                        </button>
+                                    </div>
+                                    {scheduleForm.questions.map((question, index) => (
+                                        <div key={index} className='mb-2 flex gap-'>
+                                            <input
+                                                type='text'
+                                                value={question}
+                                                onChange={(e) => {
+                                                    const newQuestions = [...scheduleForm.questions];
+                                                    newQuestions[index] = e.target.value;
+                                                    setScheduleForm(prev => ({ ...prev, questions: newQuestions }));
+                                                }}
+                                                placeholder={`Q.${index + 1}`}
+                                                className='flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                            />
+                                            {scheduleForm.questions.length > 1 && (
+                                                <button
+                                                    onClick={() => {
+                                                        const newQuestions = scheduleForm.questions.filter((_, i) => i !== index);
+                                                        setScheduleForm(prev => ({ ...prev, questions: newQuestions.length ? newQuestions : [''] }));
+                                                    }}
+                                                    className=' py-2  text-red-600 rounded-md'
+                                                >
+                                                    <IoCloseOutline className='text-xl' />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <button
+                                        onClick={() => setScheduleForm(prev => ({ ...prev, questions: [...prev.questions, ''] }))}
+                                        className='mt-2 px-4 py-[2px] bg-gray-700 text-white rounded-full text-sm hover:bg-gray-800 flex items-center gap-1'
+                                    >
+                                        <span className='text-lg'>+</span> Add
+                                    </button>
+                                </div>
+
+                                {/* Add Profile Screening */}
+                                {/* <div className='mb-4'>
+                                    <label className='text-gray-600 text-sm mb-2 block'>Would you like to add profile screening questions?</label>
+                                    <select
+                                        name='addProfileScreening'
+                                        value={scheduleForm.addProfileScreening}
+                                        onChange={(e) => setScheduleForm(prev => ({ ...prev, addProfileScreening: e.target.value }))}
+                                        className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                    >
+                                        <option value='Yes'>Yes</option>
+                                        <option value='No'>No</option>
+                                    </select>
+                                </div> */}
+
+                                <div className='mb-6'>
+                                    <label className='text-gray-600 text-sm mb-2 block'>Expiry date</label>
+                                    <input
+                                        type='date'
+                                        name='expiryDate'
+                                        value={scheduleForm.expiryDate}
+                                        onChange={(e) => setScheduleForm(prev => ({ ...prev, expiryDate: e.target.value }))}
+                                        className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
+                                    />
+                                </div>
+
+                                <div className='flex justify-start '>
+                                    {interviewSheduleLoading == true ? (<>
+                                        <button disabled className='relative bg-black hover:cursor-not-allowed text-white pl-8 pr-4 py-2 rounded-full hover:bg-black/90 transition-colors'
+                                        >
+                                            <div className='absolute top-[4px] left-[-8px]'>
+                                                <Spinner />
+                                            </div>
+                                            <div className='pl-2'>
+                                                Sending...
+                                            </div>
+                                        </button>
+                                    </>) : (<>
+                                        <button
+                                            onClick={() => { SheduleInterviewSend(interviewDetails._id) }}
+                                            className='bg-black text-white px-8 py-2 rounded-full hover:bg-gray-800 transition-colors'
+                                        >
+                                            Send
+                                        </button>
+                                    </>)}
+
+                                    <div className="w-full flex justify-center items-center">
+                                        {/* <div className='bg-red-'>
+                                            Error message is this
+                                        </div> */}
+                                        {errorMessage != '' &&
+                                            <div className='w-full flex justify-center ml-3 items-center font-Manrope text-red-500 text-[13px]'>
+                                                <div className='bg-red-100 w-fit flex justify-center items-center text-center px-1 py-1 border-[1px] border-red-300 rounded-[4px] font-medium'>
+                                                    {errorMessage}
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
 
 
 
@@ -1078,21 +1263,32 @@ const ProfileHr = () => {
                                         Reviewed Candidate
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
                                     </div>
-                                    <div className='flex items-center gap-2 mr-10 bg-red-500'>
-                                        {/* <div onClick={() => { setInterviewCreateWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div> */}
-                                        {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
-                                        {/* <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
-
-                                            <BsThreeDotsVertical />
-
-                                            {detailsSmallWindow &&
-                                                <div className='absolute bg-gray-400 rounded-[5px] flex flex-col items-center justify-center p-1 top-7 right-0  shadow-md'>
-                                                    <div className='bg-red-100 border border-red-400 text-red-400 px-2 py-1 rounded-[4px]'>Delete</div>
+                                    {interviewDetails.isSheduled == true ? (<>
+                                        <div className='flex items-center gap-2 mr-10'>
+                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[10ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
+                                                <span className='transition-all duration-[10ms] ease-in-out'>Email Panel</span>
+                                                <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[10ms] ease-in-out'>
+                                                    <IoIosSend />
                                                 </div>
-                                            }
-                                        </div> */}
+                                            </div>
+                                        </div>
+                                    </>) : (<>
+                                        <div className='flex items-center gap-2 mr-10'>
+                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Schedule Interview</div>
+                                            {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
+                                            {/* <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
 
-                                    </div>
+<BsThreeDotsVertical />
+
+{detailsSmallWindow &&
+<div className='absolute bg-gray-400 rounded-[5px] flex flex-col items-center justify-center p-1 top-7 right-0  shadow-md'>
+<div className='bg-red-100 border border-red-400 text-red-400 px-2 py-1 rounded-[4px]'>Delete</div>
+</div>
+}
+</div> */}
+
+                                        </div>
+                                    </>)}
                                 </div>
 
                                 <div className='w-full text-gray-400 text-[14px] pr-[130px]'>

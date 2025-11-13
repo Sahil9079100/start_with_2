@@ -223,7 +223,7 @@ export const getSkillsUsingAI = async (req, res) => {
 
         if (!jobPosition) return res.status(400).json({ message: "Job Position is required" });
         // Call to AI service to get skills
-        const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' }); //gemini-2.0-flash-lite
+        const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' }); //gemini-2.0-flash-lite
 
         const prompt = `
 Given the job position of '[${jobPosition}]', please generate a list of 4-5 of the most relevant and essential skills required for this role. Return the skills as a JSON array of strings. keey the skills name short and 1-2 words each.
