@@ -1159,10 +1159,12 @@ const ProfileHr = () => {
                                         Job Positions
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>{interviews.length || 0} job position created</div>
                                     </div>
-                                    <div className='flex items-center gap-2 mr-10'>
-                                        <div onClick={() => { setInterviewCreateWindow(true); getSheetsNames(); }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div>
-                                        <div className='w-7 h-7 rounded-full bg-gray-400'></div>
-                                    </div>
+                                    {interviews.length !== 0 &&
+                                        <div className='flex items-center gap-2 mr-10'>
+                                            <div onClick={() => { setInterviewCreateWindow(true); getSheetsNames(); }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div>
+                                            <div className='w-7 h-7 rounded-full bg-gray-400'></div>
+                                        </div>
+                                    }
                                 </div>
 
 
