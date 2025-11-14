@@ -88,6 +88,7 @@ const userSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Interview",
         required: true,
+        index: true
     },
     resumeUrl: {
         type: String,
@@ -113,6 +114,11 @@ const userSchema = new Schema({
         max: 100,
         default: null,
     },
+    emailStatus: {
+        type: String,
+        enum: ['NONE', 'PROCESSING', 'SUCCESS', 'ERROR'],
+        default: 'NONE',
+    },
     name: {
         type: String,
         default: ""
@@ -121,6 +127,7 @@ const userSchema = new Schema({
         type: mongoose.Schema.Types.Mixed,
         default: {},
     },
+
 
 
 },

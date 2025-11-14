@@ -315,9 +315,36 @@ export const FetchAllInterviews = async (req, res) => {
     try {
         const ownerid = req.user;
 
-        const interviews = await Interview.find({ owner: ownerid }).select('-questions');
+        // Get page and limit from query parameters, with defaults
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 15;
+        const skip = (page - 1) * limit;
 
-        res.status(200).json({ message: "Interviews fetched successfully", data: interviews })
+        // Get total count of interviews for this owner
+        const totalInterviews = await Interview.countDocuments({ owner: ownerid });
+
+        // Fetch paginated interviews
+        const interviews = await Interview.find({ owner: ownerid })
+            .select('-questions')
+            .sort({ createdAt: -1 }) // Sort by newest first
+            .skip(skip)
+            .limit(limit);
+
+        // Calculate total pages
+        const totalPages = Math.ceil(totalInterviews / limit);
+
+        res.status(200).json({
+            message: "Interviews fetched successfully",
+            data: interviews,
+            pagination: {
+                currentPage: page,
+                totalPages: totalPages,
+                totalInterviews: totalInterviews,
+                limit: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            }
+        });
     } catch (error) {
         console.log("fetch all interviews error", error)
         res.status(500).json({ message: "fetch all interviews error" })
@@ -360,11 +387,19 @@ export const DeleteInterviews = async (req, res) => {
 export const FetchSortedListCandidates = async (req, res) => {
     try {
         const interviewId = req.params.id;
-        const sortedCandidates = await Candidate.find({ interview: interviewId })
-            .sort({ matchScore: -1 });
+        const sortedCandidates = await Candidate.find({ interview: interviewId }).sort({ matchScore: -1 });
+
+        const findInterview = await Interview.findById(interviewId);
+        if (!findInterview) return res.status(404).json({ message: "Interview not found" });
 
         // console.log("sorted candidates", sortedCandidates)
-        res.status(200).json({ message: "Sorted list fetched successfully", data: { sortedCandidates } });
+        res.status(200).json({
+            message: "Sorted list fetched successfully",
+            data: { sortedCandidates },
+            resumeC: findInterview.resumeCollected,
+            reviewedC: findInterview.reviewedCandidates,
+            userlogs: findInterview.userlogs
+        });
     } catch (error) {
         console.log("fetch sorted list error", error);
         res.status(500).json({ message: "fetch sorted list error" });
@@ -422,7 +457,10 @@ export const FetchCandiateCompletedInterviewDetails = async (req, res) => {
                 });
             }
         }
-        res.status(200).json({ message: "Candidate completed interview details fetched successfully", data: { sortedCandidateInterviews } });
+        res.status(200).json({
+            message: "Candidate completed interview details fetched successfully",
+            data: { sortedCandidateInterviews },
+        });
     } catch (error) {
         console.log("fetch candiate completed interview details error", error);
         res.status(500).json({ message: "fetch candiate completed interview details error" });

@@ -78,6 +78,12 @@ export const sort_resume_as_job_description = async (interviewId) => {
             level: "INFO",
             step: `Processing ${candidates.length} candidates for matching...`
         });
+        // Persist initial processing log to DB to maintain ordering
+        await InterviewGSheetStructure.findOneAndUpdate(
+            { interview: interviewId },
+            { $push: { logs: { step: 'processing_candidates', message: `Processing ${candidates.length} candidates for matching...`, level: 'INFO', timestamp: new Date() } } },
+            { upsert: true }
+        );
 
         // 3️⃣ Sequential processing (so delay actually works)
         for (let i = 0; i < candidates.length; i++) {
@@ -95,6 +101,12 @@ export const sort_resume_as_job_description = async (interviewId) => {
                 level: "INFO",
                 step: `🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate.email}`
             });
+            // Persist candidate sorting log to DB so DB log order follows emitted order
+            await InterviewGSheetStructure.findOneAndUpdate(
+                { interview: interviewId },
+                { $push: { logs: { step: 'candidate_sorting', message: `🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate.email}`, level: 'INFO', timestamp: new Date() } } },
+                { upsert: true }
+            );
 
             const aiResult = await resume_sorter_agent({
                 jobDescription,
@@ -121,6 +133,12 @@ export const sort_resume_as_job_description = async (interviewId) => {
                     reviewedCandidate: 'SUCCESS'
                 }
             });
+            // Persist candidate result log
+            await InterviewGSheetStructure.findOneAndUpdate(
+                { interview: interviewId },
+                { $push: { logs: { step: 'candidate_result', message: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`, level: 'INFO', timestamp: new Date() } } },
+                { upsert: true }
+            );
 
             // save the number of reviewed candidates to interview.reviewedCandidates
             interview.reviewedCandidates = i + 1;
@@ -164,16 +182,24 @@ export const sort_resume_as_job_description = async (interviewId) => {
 
         // console log all candiates with their score from highest to lowest
         console.log("Sorted Candidates by Match Score:");
-        sortedCandidates.forEach(async (candidate, index) => {
+        // Emit and persist sorted candidate logs sequentially to guarantee ordering
+        for (let idx = 0; idx < sortedCandidates.length; idx++) {
+            const candidate = sortedCandidates[idx];
             console.log(
-                `${index + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}`
+                `${idx + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}`
             );
             await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                 interview: interviewId,
                 level: "INFO",
-                step: `${index + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}.`,
+                step: `${idx + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}.`,
             });
-        });
+            // Persist this sorted-candidate log into DB
+            await InterviewGSheetStructure.findOneAndUpdate(
+                { interview: interviewId },
+                { $push: { logs: { step: 'sorted_candidate_entry', message: `${idx + 1}. Candidate ID: ${candidate.email}, Match Level: ${candidate.matchLevel}, Match Score: ${candidate.matchScore}.`, level: 'INFO', timestamp: new Date() } } },
+                { upsert: true }
+            );
+        }
 
         // save sorted list to interview.sortedList
         interview.sortedList = sortedCandidates.map((candidate) => ({
@@ -188,6 +214,17 @@ export const sort_resume_as_job_description = async (interviewId) => {
         await sleep(1000);
 
         await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+            interview: interviewId,
+            level: "INFO",
+            step: `Waiting for recruiter to review sorted candidates and allow to send emails...`,
+            data: {
+                waitForRecruiter: true,
+                reviewedCandidate: interview.reviewedCandidates,
+                sortedListArray: interview.sortedList
+            }
+        });
+
+        console.log({
             interview: interviewId,
             level: "INFO",
             step: `Waiting for recruiter to review sorted candidates and allow to send emails...`,

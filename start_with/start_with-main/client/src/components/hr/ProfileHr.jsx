@@ -14,6 +14,12 @@ import { IoCloseOutline } from "react-icons/io5";
 import { OrbitProgress } from 'react-loading-indicators'
 import { IoIosSend } from "react-icons/io";
 
+import { GoXCircle } from "react-icons/go"; // if there is a error
+import { GoCheckCircle } from "react-icons/go"; // if there is a success
+import { GoCircle } from "react-icons/go"; // unselected emails
+import { FaRegDotCircle } from "react-icons/fa"; // selected emails
+
+
 
 
 // Memoized spinner to avoid remounting/restarting the animation on parent re-renders
@@ -96,6 +102,29 @@ const ProfileHr = () => {
     const [interviewSheduleWindow, setInterviewSheduleWindow] = useState(false);
     const [interviewSheduleLoading, setInterviewSheduleLoading] = useState(false);
     const [formErrors, setFormErrors] = useState({});
+
+    // Selected candidates (for sending invites). Stores candidate IDs that are selected by the user.
+    // Only candidates with emailStatus 'NONE' (GoCircle) should be selectable.
+    const [selectedCandidates, setSelectedCandidates] = useState([]);
+
+    const toggleSelectedCandidate = (candidateId) => {
+        console.log(candidateId);
+        console.log(selectedCandidates);
+        setSelectedCandidates(prev => {
+            if (!candidateId) return prev;
+            if (prev.includes(candidateId)) return prev.filter(id => id !== candidateId);
+            // console.log()
+            return [...prev, candidateId];
+        });
+    };
+
+
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalInterviews, setTotalInterviews] = useState(0);
+    const [interviewsPerPage] = useState(15);
     // const [intervie
 
     // Schedule interview form state
@@ -116,7 +145,7 @@ const ProfileHr = () => {
         if (Array.isArray(logs) && logs.length > 0) {
             return logs[logs.length - 1]?.message;
         }
-        return 'Waiting for recruiter to review sorted candidates and allow to send emails...';
+        return '-Waiting for recruiter to review sorted candidates and allow to send emails...';
     }, [combinedLogs, interviewDetails]);
 
 
@@ -278,6 +307,13 @@ const ProfileHr = () => {
             setInterviewCreateWindow(false);
             console.log("interview details each: ", response.data.Interview)
             setInterviewDetails(response.data.Interview);
+
+            // Add the newly created interview to the interviews array
+            setInterviews(prev => [response.data.Interview, ...prev]);
+
+            // Update total interviews count
+            setTotalInterviews(prev => prev + 1);
+
             setActivePage('Each Interview Detail');
             setCreateInterviewLoading(false);
             // setShowLogsModal(true)
@@ -462,6 +498,7 @@ const ProfileHr = () => {
             const response = await API.post('/api/owner/schedule/interview', payload);
             console.log("Interview scheduled successfully:", response.data);
             setInterviewSheduleLoading(false);
+            setInterviewSheduleWindow(false);
         }
         catch (error) {
             console.log("Error scheduling interview:", error);
@@ -469,6 +506,31 @@ const ProfileHr = () => {
             setInterviewSheduleLoading(false);
         }
     }
+
+    // Pagination handler
+    const handlePageChange = async (page) => {
+        if (page < 1 || page > totalPages) return;
+
+        try {
+            setInterviewFetchLoading(false);
+            const response = await API.post(`/api/owner/fetch/interviews?page=${page}&limit=${interviewsPerPage}`);
+            console.log("Fetched interviews for page", page, ":", response.data);
+
+            setInterviews(response.data.data);
+
+            // Update pagination state
+            if (response.data.pagination) {
+                setCurrentPage(response.data.pagination.currentPage);
+                setTotalPages(response.data.pagination.totalPages);
+                setTotalInterviews(response.data.pagination.totalInterviews);
+            }
+
+            setInterviewFetchLoading(true);
+        } catch (error) {
+            console.log("Error while fetching interviews for page", page, error);
+            setInterviewFetchLoading(true);
+        }
+    };
 
     useEffect(() => {
         setSocketConnected(isConnected);
@@ -484,12 +546,27 @@ const ProfileHr = () => {
             if (!currentInterviewId || !incomingInterviewId || String(incomingInterviewId) !== String(currentInterviewId)) {
                 return;
             }
+            /*
+            data: {
+                waitForRecruiter: true,
+                reviewedCandidate: interview.reviewedCandidates
+            }
+                data.data.waitForRecruiter
+                sortedListArray
+            */
 
             // console.log("Got interview progress update:", data);
             // data = { interview: "123", step: "Sheet structure processed" }
-            console.log(data.step);
-            console.log(data.data)
+            // console.log(data.step);
+            // console.log(data.data)
+            // console.log(data.data?.sortedListArray);
+            // console.log(data.data?.waitForRecruiter)
+            if (data.data?.waitForRecruiter) { get_sorted_list(data.interview) }
+            // console.log("###############")
             // console.log(data)
+            // console.log("###############")
+            // console.log(data)
+            // if (data.data?.sortedListArray) { setSortedListArray(data.data.sortedListArray) }
 
             // Add new socket log to combined logs
             const newSocketLog = {
@@ -503,6 +580,7 @@ const ProfileHr = () => {
             // undefined "data" or undefined nested "data" object. If any part is
             // missing, the expression short-circuits to undefined and the comparison
             // simply fails; no runtime error will occur.
+            //setReviewedCandidatesLiveCount setResumeCollectedLiveCount
             if (data?.data?.reviewedCandidate === 'SUCCESS') {
                 setReviewedCandidatesLiveCount(prev => prev + 1);
             }
@@ -554,20 +632,28 @@ const ProfileHr = () => {
         if (hasFetchedInterviews.current) return;
         hasFetchedInterviews.current = true;
 
-        const fetchAllInterviews = async () => {
+        const fetchAllInterviews = async (page = 1) => {
             try {
-                const response = await API.post('/api/owner/fetch/interviews');
+                setInterviewFetchLoading(false);
+                const response = await API.post(`/api/owner/fetch/interviews?page=${page}&limit=${interviewsPerPage}`);
                 console.log("Fetched interviews:", response.data);
-                // Set interviews from response (uncomment the line below if desired)
+
                 setInterviews(response.data.data);
-                // setInterviews([]);
+
+                // Update pagination state
+                if (response.data.pagination) {
+                    setCurrentPage(response.data.pagination.currentPage);
+                    setTotalPages(response.data.pagination.totalPages);
+                    setTotalInterviews(response.data.pagination.totalInterviews);
+                }
+
                 setInterviewFetchLoading(true);
             } catch (error) {
                 console.log("Error while fetching all interviews", error);
-                // setInterviewFetchLoading(false)
+                setInterviewFetchLoading(true);
             }
         }
-        fetchAllInterviews();
+        fetchAllInterviews(currentPage);
     }, [profile])
 
     useEffect(() => {
@@ -638,9 +724,38 @@ const ProfileHr = () => {
         try {
             setReviewedCandidateFetchLoading(true);
             const response = await API.get(`/api/owner/fetch/interview/${interviewId}/sorted-list`);
+            console.log(response)
             console.log("sorted list response: ", response.data);
+            console.log("resume: ", response.data.resumeC);
+            console.log("reviewed: ", response.data.reviewedC);
+            console.log("logs: ", response.data.userlogs);
             setSortedListArray(response.data.data.sortedCandidates);
             setReviewedCandidateFetchLoading(false);
+
+            // Normalize logs: prefer response.data.userlogs, fallback to response.data.data.userlogs
+            const responseLogs = response.data.userlogs || (response.data.data && response.data.data.userlogs) || [];
+            // Ensure we always store an array of logs
+            if (Array.isArray(responseLogs)) {
+                setCombinedLogs(responseLogs);
+            } else if (typeof responseLogs === 'string') {
+                try {
+                    const parsed = JSON.parse(responseLogs);
+                    if (Array.isArray(parsed)) setCombinedLogs(parsed);
+                    else setCombinedLogs([]);
+                } catch (e) {
+                    // couldn't parse, ignore and set empty
+                    setCombinedLogs([]);
+                }
+            } else {
+                setCombinedLogs([]);
+            }
+
+            // Convert to numbers to avoid NaN or N/A issues
+            const resumeCount = parseInt(response.data.resumeC) || 0;
+            const reviewedCount = parseInt(response.data.reviewedC) || 0;
+
+            setResumeCollectedLiveCount(resumeCount);
+            setReviewedCandidatesLiveCount(reviewedCount);
         } catch (error) {
             console.log("Error fetching sorted list:", error);
 
@@ -713,204 +828,213 @@ const ProfileHr = () => {
 
                     {interviewCreateWindow &&
                         <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
-                            <div className='bg-white w-[70vw] flex flex-col px-8 py-6 rounded-lg shadow-lg '>
-                                <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
-                                    <div>Create a Job Role</div>
-                                    <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); setFormErrors([]) }} className='hover:cursor-pointer'><IoCloseOutline /></div>
-                                </div>
-                                <hr className='border border-gray-300 mb-6' />
-
-                                <div className='mb-4'>
-                                    <label className='text-gray-600 text-sm mb-2 block'>Job Position</label>
-                                    <input
-                                        type='text'
-                                        required
-                                        name='jobPosition'
-                                        value={interviewForm.jobPosition}
-                                        onChange={(e) => {
-                                            handleInterviewChange(e);
-                                            if (formErrors.jobPosition) {
-                                                setFormErrors(prev => ({ ...prev, jobPosition: false }));
-                                            }
-                                        }}
-                                        placeholder='Ex: Content Writing, Laravel Developer'
-                                        className={`w-full px-4 py-3 border ${formErrors.jobPosition ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobPosition ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
-                                    />
-                                </div>
-
-                                <div className='mb-4'>
-                                    <div className='flex justify-between items-center mb-2'>
-                                        <label className='text-gray-600 text-sm'>Job Description</label>
-                                        <button
-                                            onClick={enhanceWithAI}
-                                            disabled={isEnhancing}
-                                            className='text-gray-500 text-sm flex items-center gap-1 hover:text-gray-700'
-                                        >
-                                            <span className='text-lg'>↻</span> {isEnhancing ? 'Improving...' : 'Improve through AI'}
-                                        </button>
+                            <div className='bg-white w-[70vw] max-h-[90vh] flex flex-col rounded-lg shadow-lg'>
+                                {/* Fixed Header */}
+                                <div className='px-8 pt-6 pb-4'>
+                                    <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
+                                        <div>Create a Job Role</div>
+                                        <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); setFormErrors([]) }} className='hover:cursor-pointer'><IoCloseOutline /></div>
                                     </div>
-                                    <textarea
-                                        ref={textareaRef}
-                                        name='jobDescription'
-                                        required
-                                        value={interviewForm.jobDescription}
-                                        onChange={(e) => {
-                                            handleInterviewChange(e);
-                                            if (formErrors.jobDescription) {
-                                                setFormErrors(prev => ({ ...prev, jobDescription: false }));
-                                            }
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                        }}
-                                        rows={3}
-                                        placeholder='Type your job description here...'
-                                        className={`w-full resize-none px-4 py-3 border ${formErrors.jobDescription ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobDescription ? 'focus:ring-red-400' : 'focus:ring-gray-400'} scroll`}
-                                    />
+                                    <hr className='border border-gray-300' />
                                 </div>
 
-                                <div className='flex gap-4 mb-4'>
-                                    <div className='flex-1'>
-                                        <label className='text-gray-600 text-sm mb-2 block'>Minimum Qualification</label>
+                                {/* Scrollable Content */}
+                                <div className='flex-1 overflow-y-auto px-8 hscroll'>
+                                    <div className='mb-4'>
+                                        <label className='text-gray-600 text-sm mb-2 block'>Job Position</label>
                                         <input
                                             type='text'
                                             required
-                                            name='minimumQualification'
-                                            value={interviewForm.minimumQualification}
+                                            name='jobPosition'
+                                            value={interviewForm.jobPosition}
                                             onChange={(e) => {
                                                 handleInterviewChange(e);
-                                                if (formErrors.minimumQualification) {
-                                                    setFormErrors(prev => ({ ...prev, minimumQualification: false }));
+                                                if (formErrors.jobPosition) {
+                                                    setFormErrors(prev => ({ ...prev, jobPosition: false }));
                                                 }
                                             }}
-                                            placeholder='Bachelor or Masters'
-                                            className={`w-full px-4 py-3 border ${formErrors.minimumQualification ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumQualification ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
+                                            placeholder='Ex: Content Writing, Laravel Developer'
+                                            className={`w-full px-4 py-3 border ${formErrors.jobPosition ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobPosition ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
                                         />
                                     </div>
-                                    <div className='flex-1'>
-                                        <label className='text-gray-600 text-sm mb-2 block'>Minimum Experience</label>
-                                        <input
-                                            type='text'
-                                            required
-                                            name='minimumExperience'
-                                            value={interviewForm.minimumExperience}
-                                            onChange={(e) => {
-                                                handleInterviewChange(e);
-                                                if (formErrors.minimumExperience) {
-                                                    setFormErrors(prev => ({ ...prev, minimumExperience: false }));
-                                                }
-                                            }}
-                                            placeholder='1 year+'
-                                            className={`w-full px-4 py-3 border ${formErrors.minimumExperience ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumExperience ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
-                                        />
-                                    </div>
-                                </div>
 
-                                <div className='mb-4'>
-                                    <label className='text-gray-600 text-sm mb-2 block'>Required Skills</label>
-                                    <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.minimumSkills ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.minimumSkills ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
-                                        {interviewForm.minimumSkills.map((skill, index) => (
-                                            <div key={index} className='bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center gap-2'>
-                                                {skill}
-                                                <button onClick={() => handleRemoveSkill(skill)} className='text-red-500 hover:text-red-700'>
-                                                    <IoCloseOutline />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        <input
-                                            type='text'
-                                            value={newSkill}
-                                            required
-                                            onChange={(e) => {
-                                                setNewSkill(e.target.value);
-                                                if (formErrors.minimumSkills && interviewForm.minimumSkills.length > 0) {
-                                                    setFormErrors(prev => ({ ...prev, minimumSkills: false }));
-                                                }
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    handleAddSkill(newSkill);
-                                                }
-                                            }}
-                                            placeholder='Add a skill and press Enter'
-                                            className='flex-grow px-2 py-1 border-none focus:outline-none focus:ring-0'
-                                        />
-                                    </div>
-                                    <div className='flex gap-2 mt-3'>
-                                        {skillsListArray.map((skill, idx) => {
-                                            return (
-                                                <span key={idx} onClick={() => handleAddSkill(skill)} className='bg-gray-600 hover:bg-gray-800/90 hover:cursor-pointer text-white px-3 py-1 rounded-md text-sm flex items-center gap-1'>
-                                                    + {skill}
-                                                </span>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div className='mb-6'>
-                                    <label className='text-gray-600 text-sm mb-2 block'>Allowed Candidates Sheet</label>
-                                    <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
-
-                                        {/* <input
-                                            type='text'
-                                            value={newSkill}
-                                            onChange={(e) => setNewSkill(e.target.value)}
-                                            placeholder='Add a skill and press Enter'
-                                            className='flex-grow px-2 py-1 border-none focus:outline-none focus:ring-0'
-                                        /> */}
-                                        <select
-                                            name='candidateSheetId'
-                                            required
-                                            value={interviewForm.candidateSheetId}
-                                            onChange={(e) => {
-                                                handleInterviewChange(e);
-                                                if (formErrors.candidateSheetId) {
-                                                    setFormErrors(prev => ({ ...prev, candidateSheetId: false }));
-                                                }
-                                            }}
-                                            className='w-full px-2 py-2 border-none rounded-md focus:outline-none focus:ring-0'
-                                        >
-                                            <option value=''>Select a Google Sheet</option>
-                                            {sheetsNames.map((sheet) => (
-                                                <option key={sheet.id} value={sheet.id}>
-                                                    {sheet.name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                    </div>
-                                </div>
-
-                                <div className='flex justify-between'>
-                                    {createInterviewLoading ? (<>
-                                        <button
-                                            onClick={createinterview}
-                                            disabled
-                                            className='bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex relative pl-[42px] cursor-not-allowed'
-                                        >
-                                            <div className='absolute top-[4px] left-[-8px]'>
-                                                <Spinner />
-                                            </div>
-                                            <div className=''>
-                                                Creating...
-                                            </div>
-                                        </button>
-                                    </>) : (<>
-                                        <button
-                                            onClick={() => { createinterview(); }}
-                                            className='bg-black h-fit transistion-all duration-300 text-white px-6 py-2 rounded-full hover:bg-black/90 transition-colors flex'
-                                        >
-                                            Create
-                                        </button>
-                                    </>)}
-
-                                    {errorMessage != '' &&
-                                        <div className='w-full pl-3 flex justify-center items-center font-Manrope text-red-500 text-sm'>
-                                            <div className='bg-red-100 px-2 py-1 border-[1px] border-red-300 rounded-[4px] font-medium'>
-                                                {errorMessage}
-                                            </div>
+                                    <div className='mb-4'>
+                                        <div className='flex justify-between items-center mb-2'>
+                                            <label className='text-gray-600 text-sm'>Job Description</label>
+                                            <button
+                                                onClick={enhanceWithAI}
+                                                disabled={isEnhancing}
+                                                className='text-gray-500 text-sm flex items-center gap-1 hover:text-gray-700'
+                                            >
+                                                <span className='text-lg'>↻</span> {isEnhancing ? 'Improving...' : 'Improve through AI'}
+                                            </button>
                                         </div>
-                                    }
+                                        <textarea
+                                            ref={textareaRef}
+                                            name='jobDescription'
+                                            required
+                                            value={interviewForm.jobDescription}
+                                            onChange={(e) => {
+                                                handleInterviewChange(e);
+                                                if (formErrors.jobDescription) {
+                                                    setFormErrors(prev => ({ ...prev, jobDescription: false }));
+                                                }
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            rows={3}
+                                            placeholder='Type your job description here...'
+                                            className={`w-full resize-none px-4 py-3 border ${formErrors.jobDescription ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobDescription ? 'focus:ring-red-400' : 'focus:ring-gray-400'} scroll`}
+                                        />
+                                    </div>
+
+                                    <div className='flex gap-4 mb-4'>
+                                        <div className='flex-1'>
+                                            <label className='text-gray-600 text-sm mb-2 block'>Minimum Qualification</label>
+                                            <input
+                                                type='text'
+                                                required
+                                                name='minimumQualification'
+                                                value={interviewForm.minimumQualification}
+                                                onChange={(e) => {
+                                                    handleInterviewChange(e);
+                                                    if (formErrors.minimumQualification) {
+                                                        setFormErrors(prev => ({ ...prev, minimumQualification: false }));
+                                                    }
+                                                }}
+                                                placeholder='Bachelor or Masters'
+                                                className={`w-full px-4 py-3 border ${formErrors.minimumQualification ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumQualification ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
+                                            />
+                                        </div>
+                                        <div className='flex-1'>
+                                            <label className='text-gray-600 text-sm mb-2 block'>Minimum Experience</label>
+                                            <input
+                                                type='text'
+                                                required
+                                                name='minimumExperience'
+                                                value={interviewForm.minimumExperience}
+                                                onChange={(e) => {
+                                                    handleInterviewChange(e);
+                                                    if (formErrors.minimumExperience) {
+                                                        setFormErrors(prev => ({ ...prev, minimumExperience: false }));
+                                                    }
+                                                }}
+                                                placeholder='1 year+'
+                                                className={`w-full px-4 py-3 border ${formErrors.minimumExperience ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumExperience ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className='mb-4'>
+                                        <label className='text-gray-600 text-sm mb-2 block'>Required Skills</label>
+                                        <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.minimumSkills ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.minimumSkills ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
+                                            {interviewForm.minimumSkills.map((skill, index) => (
+                                                <div key={index} className='bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center gap-2'>
+                                                    {skill}
+                                                    <button onClick={() => handleRemoveSkill(skill)} className='text-red-500 hover:text-red-700'>
+                                                        <IoCloseOutline />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <input
+                                                type='text'
+                                                value={newSkill}
+                                                required
+                                                onChange={(e) => {
+                                                    setNewSkill(e.target.value);
+                                                    if (formErrors.minimumSkills && interviewForm.minimumSkills.length > 0) {
+                                                        setFormErrors(prev => ({ ...prev, minimumSkills: false }));
+                                                    }
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleAddSkill(newSkill);
+                                                    }
+                                                }}
+                                                placeholder='Add a skill and press Enter'
+                                                className='flex-grow px-2 py-1 border-none focus:outline-none focus:ring-0'
+                                            />
+                                        </div>
+                                        <div className='flex gap-2 mt-3'>
+                                            {skillsListArray.map((skill, idx) => {
+                                                return (
+                                                    <span key={idx} onClick={() => handleAddSkill(skill)} className='bg-gray-600 hover:bg-gray-800/90 hover:cursor-pointer text-white px-3 py-1 rounded-md text-sm flex items-center gap-1'>
+                                                        + {skill}
+                                                    </span>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className='mb-4'>
+                                        <label className='text-gray-600 text-sm mb-2 block'>Allowed Candidates Sheet</label>
+                                        <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
+
+                                            {/* <input
+                                                type='text'
+                                                value={newSkill}
+                                                onChange={(e) => setNewSkill(e.target.value)}
+                                                placeholder='Add a skill and press Enter'
+                                                className='flex-grow px-2 py-1 border-none focus:outline-none focus:ring-0'
+                                            /> */}
+                                            <select
+                                                name='candidateSheetId'
+                                                required
+                                                value={interviewForm.candidateSheetId}
+                                                onChange={(e) => {
+                                                    handleInterviewChange(e);
+                                                    if (formErrors.candidateSheetId) {
+                                                        setFormErrors(prev => ({ ...prev, candidateSheetId: false }));
+                                                    }
+                                                }}
+                                                className='w-full px-2 py-2 border-none rounded-md focus:outline-none focus:ring-0'
+                                            >
+                                                <option value=''>Select a Google Sheet</option>
+                                                {sheetsNames.map((sheet) => (
+                                                    <option key={sheet.id} value={sheet.id}>
+                                                        {sheet.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Fixed Footer */}
+                                <div className='px-8 py-6 border-t border-gray-200'>
+                                    <div className='flex justify-between items-center'>
+                                        {createInterviewLoading ? (<>
+                                            <button
+                                                onClick={createinterview}
+                                                disabled
+                                                className='bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex relative pl-[42px] cursor-not-allowed'
+                                            >
+                                                <div className='absolute top-[4px] left-[-8px]'>
+                                                    <Spinner />
+                                                </div>
+                                                <div className=''>
+                                                    Creating...
+                                                </div>
+                                            </button>
+                                        </>) : (<>
+                                            <button
+                                                onClick={() => { createinterview(); }}
+                                                className='bg-black h-fit transistion-all duration-300 text-white px-6 py-2 rounded-full hover:bg-black/90 transition-colors flex'
+                                            >
+                                                Create
+                                            </button>
+                                        </>)}
+
+                                        {errorMessage != '' &&
+                                            <div className='w-full pl-3 flex justify-center items-center font-Manrope text-red-500 text-sm'>
+                                                <div className='bg-red-100 px-2 py-1 border-[1px] border-red-300 rounded-[4px] font-medium'>
+                                                    {errorMessage}
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1157,7 +1281,7 @@ const ProfileHr = () => {
                                 <div className='HeaderWindow  w-full h-fit flex justify-between pt-7'>
                                     <div className=' w-fit h-fit px-16 py-4 text-4xl flex flex-col'>
                                         Job Positions
-                                        <div className='text-gray-400 text-[16px] mt-[-8px]'>{interviews.length || 0} job position created</div>
+                                        <div className='text-gray-400 text-[16px] mt-[-8px]'>{totalInterviews || 0} job position{totalInterviews !== 1 ? 's' : ''} created</div>
                                     </div>
                                     {interviews.length !== 0 &&
                                         <div className='flex items-center gap-2 mr-10'>
@@ -1209,6 +1333,85 @@ const ProfileHr = () => {
                                             </>
                                         )}
 
+                                        {/* Pagination Controls */}
+                                        {interviews.length > 0 && totalPages > 1 && (
+                                            <div className='flex justify-center items-center gap-2 py-8 px-16'>
+                                                {/* Previous Button */}
+                                                <button
+                                                    onClick={() => handlePageChange(currentPage - 1)}
+                                                    disabled={currentPage === 1}
+                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentPage === 1
+                                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                        : 'bg-black text-white hover:bg-gray-800'
+                                                        }`}
+                                                >
+                                                    Previous
+                                                </button>
+
+                                                {/* Page Numbers */}
+                                                <div className='flex gap-2'>
+                                                    {/* First Page */}
+                                                    {currentPage > 3 && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handlePageChange(1)}
+                                                                className='px-3 py-2 rounded-md text-sm font-medium bg-gray-200 hover:bg-gray-300 text-black'
+                                                            >
+                                                                1
+                                                            </button>
+                                                            {currentPage > 4 && <span className='px-2 py-2 text-gray-400'>...</span>}
+                                                        </>
+                                                    )}
+
+                                                    {/* Page numbers around current page */}
+                                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                                        .filter(page => {
+                                                            return page === currentPage ||
+                                                                page === currentPage - 1 ||
+                                                                page === currentPage + 1 ||
+                                                                page === currentPage - 2 ||
+                                                                page === currentPage + 2;
+                                                        })
+                                                        .map(page => (
+                                                            <button
+                                                                key={page}
+                                                                onClick={() => handlePageChange(page)}
+                                                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${page === currentPage
+                                                                    ? 'bg-black text-white'
+                                                                    : 'bg-gray-200 hover:bg-gray-300 text-black'
+                                                                    }`}
+                                                            >
+                                                                {page}
+                                                            </button>
+                                                        ))}
+
+                                                    {/* Last Page */}
+                                                    {currentPage < totalPages - 2 && (
+                                                        <>
+                                                            {currentPage < totalPages - 3 && <span className='px-2 py-2 text-gray-400'>...</span>}
+                                                            <button
+                                                                onClick={() => handlePageChange(totalPages)}
+                                                                className='px-3 py-2 rounded-md text-sm font-medium bg-gray-200 hover:bg-gray-300 text-black'
+                                                            >
+                                                                {totalPages}
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                {/* Next Button */}
+                                                <button
+                                                    onClick={() => handlePageChange(currentPage + 1)}
+                                                    disabled={currentPage === totalPages}
+                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${currentPage === totalPages
+                                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                        : 'bg-black text-white hover:bg-gray-800'
+                                                        }`}
+                                                >
+                                                    Next
+                                                </button>
+                                            </div>
+                                        )}
 
                                     </div>
                                 </>) : (<>
@@ -1231,7 +1434,7 @@ const ProfileHr = () => {
                                 <div className='HeaderWindow  w-full h-fit flex justify-between pt-7'>
                                     <div className=' w-fit h-fit px-16 py-4 text-4xl flex flex-col'>
                                         <div className='text-gray-400/90 text-[16px] mt-[-8px] flex items-center gap relative'>
-                                            <div onClick={() => { setActivePage('Home'); }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>Job Positions</div>
+                                            <div onClick={() => { setActivePage('Home'); setSortedListArray([]); }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>Job Positions</div>
                                             <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
                                             <div className='text-gray-500'>Job detail</div>
                                         </div>
@@ -1300,6 +1503,40 @@ const ProfileHr = () => {
                                                 </div>
                                             </div>
 
+                                            {interviewDetails?.isSheduled ? (
+                                                <div className='rounded-2xl border border-gray-400 p-4 mb-6'>
+                                                    <div className='text-sm text-gray-400 mb-1'>Interview URL</div>
+                                                    {interviewDetails?.interviewUrl ? (
+                                                        <div className='flex items-center gap-3'>
+                                                            <a
+                                                                href={interviewDetails.interviewUrl}
+                                                                target='_blank'
+                                                                rel='noopener noreferrer'
+                                                                className='text-blue-600 underline break-all'
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                {interviewDetails.interviewUrl}
+                                                            </a>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    try {
+                                                                        navigator.clipboard?.writeText(interviewDetails.interviewUrl);
+                                                                    } catch (err) {
+                                                                        // ignore
+                                                                    }
+                                                                }}
+                                                                className='px-2 py-1 bg-gray-200 rounded-md text-sm hover:bg-gray-300'
+                                                            >
+                                                                Copy
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className='text-sm text-gray-600'>Link not available</div>
+                                                    )}
+                                                </div>
+                                            ) : null}
+
                                             <hr className='border-t border-gray-500 my-6' />
 
                                             {/* Activity pill */}
@@ -1330,7 +1567,6 @@ const ProfileHr = () => {
                         </div>}
 
 
-                    {/* Each Interview Reviewed Candidate */}
                     {activePage == 'Each_Interview_Reviewed_Candidate' && interviewDetails &&
                         <div className='INTERVIEW_DETAILS_EACH   h-full bg-purple-600 p' style={{ width: `${100 - sidebarWidth - 0.25}%` }}>
 
@@ -1359,17 +1595,6 @@ const ProfileHr = () => {
                                     </>) : (<>
                                         <div className='flex items-center gap-2 mr-10'>
                                             <div onClick={() => { setInterviewSheduleWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Schedule Interview</div>
-                                            {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
-                                            {/* <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
-
-<BsThreeDotsVertical />
-
-{detailsSmallWindow &&
-<div className='absolute bg-gray-400 rounded-[5px] flex flex-col items-center justify-center p-1 top-7 right-0  shadow-md'>
-<div className='bg-red-100 border border-red-400 text-red-400 px-2 py-1 rounded-[4px]'>Delete</div>
-</div>
-}
-</div> */}
 
                                         </div>
                                     </>)}
@@ -1426,7 +1651,11 @@ const ProfileHr = () => {
 
                                                             <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-[18px]'>
 
-                                                                {interview?.matchLevel == 'High Match' ? (
+                                                                {interview?.matchLevel === '' ? (
+                                                                    <div className='w-[150px] text-gray-600 flex items-start justify-center'>
+                                                                        Need review
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'High Match' ? (
                                                                     <div className='bg-green-300/30 text-green-700 w-[150px] rounded-full flex items-start justify-center border border-green-500'>
                                                                         {interview?.matchLevel}
                                                                     </div>
@@ -1562,7 +1791,7 @@ const ProfileHr = () => {
                                             <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
                                             <div className='text-gray-500'>Email Panel</div>
                                         </div>
-                                        Reviewed Candidate
+                                        Email Panel
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
                                     </div>
                                     <div className='flex items-center gap-2 mr-10'>
@@ -1573,23 +1802,9 @@ const ProfileHr = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    {/* {interviewDetails.isSheduled == true ? (<>
-                                        <div className='flex items-center gap-2 mr-10'>
-                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[50ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
-                                                <span className='transition-all duration-[40ms] ease-in-out'>Email Panel</span>
-                                                <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
-                                                    <IoIosSend />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </>) : (<>
-                                        <div className='flex items-center gap-2 mr-10'>
-                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Schedule Interview</div>
-                                        </div>
-                                    </>)} */}
                                 </div>
 
-                                {/* <div className='w-full text-gray-400 text-[14px] pr-[130px]'>
+                                <div className='w-full text-gray-400 text-[14px] pr-[130px]'>
                                     <div className='relative w-full flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[16px] pr-3 rounded-sm justify-center items-center flex-nowrap'>
                                         <div className='bg-gree-300/20 bg-yellow-00 w-full h-[100%] flex items-center'>
                                             Name
@@ -1603,15 +1818,176 @@ const ProfileHr = () => {
                                         </div>
                                         <div className='bg-gree-300/20 bg-orange-00 w-fit   h-[100%] flex items-center'>
                                         </div>
-
                                     </div>
-                                </div> */}
-
+                                </div>
 
                                 {reviewedCandidateFetchLoading !== true ? (
                                     <>
                                         <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
+                                            {sortedListArray.map((interview, idx) => (
+                                                <>
+                                                    <div key={interview._id} className='w-full'>
+                                                        <div onClick={() => {
+                                                            if (currentcandidateResumeDetailsID === interview._id) {
+                                                                setCandidateResumeDetailsWindow(prev => !prev);
+                                                            } else {
+                                                                setCurrentcandidateResumeDetailsID(interview._id);
+                                                                setCandidateResumeDetailsWindow(true);
+                                                            }
+                                                        }}
+                                                            className='relative w-full flex max-h-8  pr-[130px] mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr- rounded-sm justify-center items-center flex-nowrap text-black text-lg'>
+                                                            {/* <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'></div> */}
+                                                            {/* <span className="text-[15px] text-gray-400 absolute left-[-10px]">{idx}</span> */}
+                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
+                                                                {
+                                                                    // Clickable icon area. Only allow selection when candidate's emailStatus is 'NONE'.
+                                                                }
+                                                                <span
+                                                                    className="text-[15px] absolute left-[-35px] top-[14px] inline-flex items-center justify-center"
+                                                                    onClick={(e) => {
+                                                                        // Prevent parent onClick (which opens details) from firing when toggling selection
+                                                                        e.stopPropagation();
+                                                                        const status = (interview?.emailStatus || '').toString().toUpperCase();
+                                                                        if (status !== 'NONE') return; // only selectable when NONE
+                                                                        toggleSelectedCandidate(interview._id);
+                                                                    }}
+                                                                >
+                                                                    {
+                                                                        (() => {
+                                                                            const status = (interview?.emailStatus || '').toString().toUpperCase();
+                                                                            const isSelectable = status === 'NONE';
+                                                                            const isSelected = selectedCandidates.includes(interview._id);
+                                                                            const baseClass = isSelectable ? 'cursor-pointer' : '';
 
+                                                                            if (status === 'NONE') {
+                                                                                return isSelected
+                                                                                    ? <FaRegDotCircle className={`${baseClass} text-black-600 text-xl`} />
+                                                                                    : <GoCircle className={`${baseClass} text-gray-400 text-xl`} />;
+                                                                            }
+                                                                            if (status === 'PROCESSING') return <Spinner />;
+                                                                            if (status === 'SUCCESS') return <GoCheckCircle className="text-green-600" />;
+                                                                            if (status === 'ERROR') return <GoXCircle className="text-red-600" />;
+                                                                            return null;
+                                                                        })()
+                                                                    }
+                                                                </span>
+                                                                {interview?.name || interview.dynamicData?.Name || interview.dynamicData?.name}
+                                                            </div>
+
+                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
+                                                                {interview?.matchScore}
+                                                            </div>
+
+                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-[18px]'>
+
+                                                                {interview?.matchLevel === '' ? (
+                                                                    <div className='w-[150px] text-gray-600 flex items-start justify-center'>
+                                                                        Need review
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'High Match' ? (
+                                                                    <div className='bg-green-300/30 text-green-700 w-[150px] rounded-full flex items-start justify-center border border-green-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'Medium Match' ? (
+                                                                    <div className='bg-yellow-300/30 text-yellow-700 w-[150px] flex rounded-full items-start justify-center border border-yellow-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'Low Match' ? (
+                                                                    <div className='bg-orange-300/30 text-orange-700 w-[150px] flex rounded-full items-start justify-center border border-orange-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : interview?.matchLevel == 'Unqualified' ? (
+                                                                    <div className='bg-red-300/30 text-red-700 w-[150px] flex rounded-full items-start justify-center border border-red-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className='bg-red-300/30 text-red-700 w-[150px] flex rounded-full items-start justify-center border border-red-500'>
+                                                                        {interview?.matchLevel}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div className={`w-fit justify-end h-[100%] flex  text-black/90 hover:text-black text-xl`}>
+                                                                <RiArrowLeftSLine className={`${(currentcandidateResumeDetailsID === interview._id && candidateResumeDetailsWindow) ? '-rotate-90' : 'rotate-180'} transition-all duration-50`} />
+                                                            </div>
+
+                                                        </div>
+                                                        {candidateResumeDetailsWindow === true && currentcandidateResumeDetailsID === interview._id && (
+                                                            <div className='w-full transition-all duration-300 bg-red-300'>
+                                                                <div className='w-full bg-yellow-300'>
+                                                                    <div className='w-full px-[67px] bg-white shadow-sm flex flex-col gap-8'>
+                                                                        {/* Info + Actions (no duplicate name/score/match) */}
+                                                                        <div className='grid md:grid-cols-2 gap-8'>
+                                                                            {/* Contact & Resume */}
+                                                                            <div className='space-y-2'>
+                                                                                <div>
+                                                                                    <div className='text-sm text-gray-400 uppercase tracking-wide'>Email</div>
+                                                                                    <div className='text-sm text-black break-all mt-1'>{interview.email || '—'}</div>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <div className='text-sm text-gray-400 uppercase tracking-wide'>Resume</div>
+                                                                                    <div className='mt-2 flex gap-3'>
+                                                                                        {interview.resumeUrl && (
+                                                                                            <a
+                                                                                                href={interview.resumeUrl}
+                                                                                                target='_blank'
+                                                                                                rel='noopener noreferrer'
+                                                                                                className='px-4 py-2 rounded-md bg-white border border-gray-300 text-black text-sm hover:bg-gray-50 transition-colors'
+                                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                            >
+                                                                                                Preview
+                                                                                            </a>
+                                                                                        )}
+                                                                                        <button
+                                                                                            type='button'
+                                                                                            className='px-4 py-2 rounded-md bg-gray-200 text-black text-sm hover:bg-gray-300 transition-colors'
+                                                                                            onClick={(e) => { e.stopPropagation(); /* TODO: implement preview modal */ }}
+                                                                                        >
+                                                                                            Download
+                                                                                        </button>
+
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* AI Note */}
+                                                                            <div className='space-y-1'>
+                                                                                <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Note</div>
+                                                                                <div className='text-sm leading-relaxed text-black'>
+                                                                                    {interview.resumeSumary || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
+                                                                                </div>
+                                                                                <div className='flex flex-col gap-2 mt-2'>
+                                                                                    <div className='flex items-center gap-2 text-sm text-black/80'>
+                                                                                        <span className='text-green-600'>✓</span> LinkedIn Profile
+                                                                                    </div>
+                                                                                    <div className='flex items-center gap-2 text-sm text-black/80'>
+                                                                                        <span className='text-green-600'>✓</span> Github Profile
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Flags / Questions */}
+                                                                        <div className='flex flex-col gap-3 mb-3'>
+                                                                            <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
+                                                                            <div className='flex flex-wrap gap-3'>
+                                                                                <div className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                    {(interview.dynamicData?.questions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
+                                                                                </div>
+                                                                                <div className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                    {(interview.dynamicData?.importantQuestions?.length || interview.dynamicData?.ImportantQuestions?.length || 0)} Important Question
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <hr className='border border-black/30 mx-[52px]' />
+                                                    </div >
+
+                                                </>
+                                            ))}
 
                                         </div>
                                     </>
