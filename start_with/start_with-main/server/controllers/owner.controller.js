@@ -7,6 +7,8 @@ import SheetDataExtractJsonModel from "../models/SheetDataExtractJson.model.js";
 import InterviewGSheetStructureModel from "../models/InterviewGSheetStructure.model.js";
 import { Candidate } from "../models/Candidate.model.js";
 import { IntreviewResult } from "../models/IntreviewResult.model.js";
+import axios from "axios";
+import recruiterEmit from "../socket/emit/recruiterEmit.js";
 // import Company from "../model/company.model.js";
 // import Recruiter from "../model/recruiter.model.js";
 // import Interview from "../model/interview.model.js";
@@ -409,32 +411,83 @@ export const FetchSortedListCandidates = async (req, res) => {
 export const SendEmailToCandidates = async (req, res) => {
     try {
         // i will recive an array of object like this { interviewId, candidateEmails, emailSubject, emailBody } in req.body
-        const data = req.body;
-        // foreach loop on data array
-        for (const item of data) {
-            const { interviewId, candidateEmails, emailSubject, emailBody } = item;
+        // const reqbody = req.body;
+        // console.log(req.body)
+        console.log(req.user)
 
-            // send a post request to email service
-            const response = await fetch(`${process.env.EMAIL_SERVICE_URL}/send/interview`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    interviewId,
-                    candidateEmails,
-                    emailSubject,
-                    emailBody
-                })
+        const ownerId = req.user;
+        const roomId = `owner:${ownerId}`;
+        const interviewId = req.body.interviewId;
+
+        const findInterview = await Interview.findById(interviewId);
+        if (!findInterview) return res.status(404).json({ message: "Interview not found" });
+
+        let data = {};
+
+
+
+        for (const item of req.body.candidateIds) {
+            console.log(item)
+            const candidate = await Candidate.findById(item);
+            if (!candidate) {
+                console.log(`Candidate with ID ${item} not found`);
+                continue;
+            }
+
+            const expiryDateFormet = new Date(findInterview.expiryDate);
+            const to = candidate.email;
+            const subject = 'Interview Detaisls';
+            // html - a basic message like " Here is your interview link *Url* ". Make a nice templete, that looks good in email and professinol.
+            const html = `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2 style="color: #4CAF50;">Interview Details</h2>
+                <p>Dear ${candidate.name},</p>
+                <p>We are pleased to invite you to an interview for the ${findInterview.jobPosition} you applied for. Below are the details:</p>
+                <ul>
+                    <li><strong>Interview Link:</strong> <a href="${findInterview.interviewUrl}" target="_blank">Click here to join your interview</a></li>
+                    <li><strong>Expiry Date and Time:</strong> ${expiryDateFormet}</li>
+                    <li><strong>Duration:</strong> ${findInterview.duration ? findInterview.duration : '10'} minutes</li>
+                </ul>
+                <p>Please make sure to join the interview on time. If you have any questions, feel free to reach out.</p>
+                <p>Best regards,<br/>The Recruitment Team</p>
+            </div>
+            `;
+            const senderName = 'StartWith Team';
+            const senderEmail = 'interview@startwith.live'
+
+            data = { to, subject, html, senderName, senderEmail };
+
+            const response = await axios.post(`${process.env.EMAIL_SERVICE_URL}/send/interview`, {
+                ownerId,
+                roomId,
+                interviewId,
+                data
             });
 
-            const result = await response.json();
-            console.log("email service response", result);
+            // the email service is ending me somethign like this in reply if the emaill is added in queue successfully "res.status(202).json({ queued: true });", now i want to check this with a if else command
+            if (response.data.queued) {
+                candidate.emailStatus = 'PROCESSING';
+                await candidate.save();
+
+                await recruiterEmit(findInterview.owner, "EMAIL_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "SUCCESS",
+                    step: `Email queued successfully for candidate: ${candidate.email}`,
+                    data: {
+                        emailSent: true,
+                        candidate_id: candidate._id,
+                        // sortedListArray: findInterview.sortedList
+                    }
+                });
+
+                console.log(`Email queued successfully for candidate: ${candidate.email}`);
+            } else {
+                console.log(`Failed to queue email for candidate: ${candidate.email}`);
+            }
         }
 
-        res.status(200).json({ message: "Emails sent to candidates successfully" });
-        // const { interviewId, candidateEmails, emailSubject, emailBody } = req.body;
 
+        res.status(200).json({ message: "All emails sent to candidates successfully" });
     } catch (error) {
         console.log("send email to candidates error", error);
         res.status(500).json({ message: "send email to candidates error" });

@@ -102,10 +102,12 @@ const ProfileHr = () => {
     const [interviewSheduleWindow, setInterviewSheduleWindow] = useState(false);
     const [interviewSheduleLoading, setInterviewSheduleLoading] = useState(false);
     const [formErrors, setFormErrors] = useState({});
+    // const []
 
     // Selected candidates (for sending invites). Stores candidate IDs that are selected by the user.
     // Only candidates with emailStatus 'NONE' (GoCircle) should be selectable.
     const [selectedCandidates, setSelectedCandidates] = useState([]);
+    const [sendEmailLoading, setSendEmailLoading] = useState(false)
 
     const toggleSelectedCandidate = (candidateId) => {
         console.log(candidateId);
@@ -592,10 +594,49 @@ const ProfileHr = () => {
             setCombinedLogs(prev => [...prev, newSocketLog]);
         };
 
+        const handleProgressEmail = (data) => {
+            const currentInterviewId = interviewDetails?._id;
+            const incomingInterviewId = data?.interview;
+
+            if (!currentInterviewId || !incomingInterviewId || String(incomingInterviewId) !== String(currentInterviewId)) {
+                return;
+            }
+
+            /*
+            await recruiterEmit(findInterview.owner, "EMAIL_PROGRESS_LOG", {
+                                interview: interviewId,
+                                level: "SUCCESS",
+                                step: `Email queued successfully for candidate: ${candidate.email}`,
+                                data: {
+                                    emailSent: true,
+                                    candidate_id: candidate._id,
+                                }
+                            });
+            I am getting somethin like this form the backend and i want to consolelog the , candidate_id, so hwo can i do this
+            console.log(data.data?.candidate_id)
+            */
+
+            console.log(data.data?.emailSent)
+            console.log(data.data?.candidate_id)
+
+            // Add new socket log to combined logs
+            const newSocketLog = {
+                message: data.step,
+                level: 'INFO',
+                timestamp: new Date().toISOString(),
+                _id: `socket_${Date.now()}_${Math.random()}` // Unique ID for socket logs
+            };
+
+
+            setCombinedLogs(prev => [...prev, newSocketLog]);
+        };
+
         SocketService.on("INTERVIEW_PROGRESS_LOG", handleProgress);
+        SocketService.on("EMAIL_PROGRESS_LOG", handleProgressEmail);
 
         return () => {
             SocketService.off("INTERVIEW_PROGRESS_LOG", handleProgress);
+            SocketService.off("EMAIL_PROGRESS_LOG", handleProgress);
         };
     }, [isConnected, interviewDetails?._id]);
 
@@ -763,6 +804,20 @@ const ProfileHr = () => {
         }
     }
 
+    async function send_email_array() {
+        try {
+            setSendEmailLoading(true)
+
+            console.log({ interviewId: interviewDetails._id, candidateIds: selectedCandidates })
+            const response = await API.post("/api/owner/send/email", { interviewId: interviewDetails._id, candidateIds: selectedCandidates })
+            console.log("Send email response: ", response);
+
+            setSendEmailLoading(false)
+        } catch (error) {
+            console.log(error)
+            setSendEmailLoading(false)
+        }
+    }
 
     const [recruiterCreateWindow, setRecruiterCreateWindow] = useState(false);
     const [companyCreateWindow, setCompanyCreateWindow] = useState(false);
@@ -1294,7 +1349,6 @@ const ProfileHr = () => {
 
                                 {interviewFetchLoading == true ? (<>
 
-
                                     <div className='ContentWindow  w-full h-full overflow-scroll hscroll '>
 
                                         {interviews.length === 0 ? (
@@ -1333,10 +1387,8 @@ const ProfileHr = () => {
                                             </>
                                         )}
 
-                                        {/* Pagination Controls */}
                                         {interviews.length > 0 && totalPages > 1 && (
                                             <div className='flex justify-center items-center gap-2 py-8 px-16'>
-                                                {/* Previous Button */}
                                                 <button
                                                     onClick={() => handlePageChange(currentPage - 1)}
                                                     disabled={currentPage === 1}
@@ -1348,9 +1400,7 @@ const ProfileHr = () => {
                                                     Previous
                                                 </button>
 
-                                                {/* Page Numbers */}
                                                 <div className='flex gap-2'>
-                                                    {/* First Page */}
                                                     {currentPage > 3 && (
                                                         <>
                                                             <button
@@ -1363,7 +1413,6 @@ const ProfileHr = () => {
                                                         </>
                                                     )}
 
-                                                    {/* Page numbers around current page */}
                                                     {Array.from({ length: totalPages }, (_, i) => i + 1)
                                                         .filter(page => {
                                                             return page === currentPage ||
@@ -1385,7 +1434,6 @@ const ProfileHr = () => {
                                                             </button>
                                                         ))}
 
-                                                    {/* Last Page */}
                                                     {currentPage < totalPages - 2 && (
                                                         <>
                                                             {currentPage < totalPages - 3 && <span className='px-2 py-2 text-gray-400'>...</span>}
@@ -1399,7 +1447,6 @@ const ProfileHr = () => {
                                                     )}
                                                 </div>
 
-                                                {/* Next Button */}
                                                 <button
                                                     onClick={() => handlePageChange(currentPage + 1)}
                                                     disabled={currentPage === totalPages}
@@ -1426,7 +1473,6 @@ const ProfileHr = () => {
                         </div>}
 
 
-                    {/* Each Interview Panel */}
                     {activePage == 'Each Interview Detail' && interviewDetails &&
                         <div className='INTERVIEW_DETAILS_EACH   h-full bg-purple-600 p' style={{ width: `${100 - sidebarWidth - 0.25}%` }}>
 
@@ -1462,7 +1508,6 @@ const ProfileHr = () => {
                                 {interviewFetchLoading == true ? (
                                     <>
                                         <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll px-16 pt-5'>
-                                            {/* Stats row */}
                                             <div className='grid grid-cols-2 gap-4 mb-6'>
                                                 <div className='rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                     <div>
@@ -1481,7 +1526,6 @@ const ProfileHr = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Job description card */}
                                             <div className='rounded-2xl border border-gray-400 p-6 mb-6'>
                                                 <div className='text-sm text-gray-400 mb-2'>Job Description</div>
                                                 <div className='text-gray-800 leading-6 text-sm'>
@@ -1489,7 +1533,6 @@ const ProfileHr = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Qualification and Skills */}
                                             <div className='grid grid-cols-2 gap-4 mb-6'>
                                                 <div className='rounded-2xl border border-gray-400 p-4'>
                                                     <div className='text-sm text-gray-400'>Minimum Qualification</div>
@@ -1538,7 +1581,6 @@ const ProfileHr = () => {
 
                                             <hr className='border-t border-gray-500 my-6' />
 
-                                            {/* Activity pill */}
                                             <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between'>
                                                 <div className='text-sm text-gray-700'>
                                                     <div className='text-xs text-gray-400 mb-1'>Activity</div>
@@ -1686,9 +1728,7 @@ const ProfileHr = () => {
                                                             <div className='w-full transition-all duration-300 bg-red-300'>
                                                                 <div className='w-full bg-yellow-300'>
                                                                     <div className='w-full px-[67px] bg-white shadow-sm flex flex-col gap-8'>
-                                                                        {/* Info + Actions (no duplicate name/score/match) */}
                                                                         <div className='grid md:grid-cols-2 gap-8'>
-                                                                            {/* Contact & Resume */}
                                                                             <div className='space-y-2'>
                                                                                 <div>
                                                                                     <div className='text-sm text-gray-400 uppercase tracking-wide'>Email</div>
@@ -1720,7 +1760,6 @@ const ProfileHr = () => {
                                                                                 </div>
                                                                             </div>
 
-                                                                            {/* AI Note */}
                                                                             <div className='space-y-1'>
                                                                                 <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Note</div>
                                                                                 <div className='text-sm leading-relaxed text-black'>
@@ -1737,7 +1776,6 @@ const ProfileHr = () => {
                                                                             </div>
                                                                         </div>
 
-                                                                        {/* Flags / Questions */}
                                                                         <div className='flex flex-col gap-3 mb-3'>
                                                                             <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
                                                                             <div className='flex flex-wrap gap-3'>
@@ -1794,12 +1832,21 @@ const ProfileHr = () => {
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
                                     </div>
                                     <div className='flex items-center gap-2 mr-10'>
-                                        <div onClick={() => { console.log("Hello") }} className='group flex bg-black border hover:bg-whit hover:text-blac transition-all duration-[50ms] ease-in-out border-black text-white text-[16px] rounded-full px-4 py-[6px] font-medium hover:cursor-pointer overflow-hidden'>
-                                            <span className='transition-all duration-[40ms] ease-in-out'>Send Invite</span>
-                                            <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
-                                                <IoIosSend />
+                                        {sendEmailLoading == true ? (<>
+                                            <div className='relative group flex bg-black border hover:bg-whit hover:text-blac transition-all duration-[50ms] ease-in-out border-black text-white text-[16px] rounded-full px-4 py-[6px] font-medium hover:cursor-not-allowed overflow-hidden'>
+                                                <span className='transition-all duration-[40ms] ease-in-out mr-6 text-white/90'>Sending...</span>
+                                                <div className=' absolute top-[2px] right-0 text-[20px] flex justify-center items-centeropacity-100 transition-all duration-[300ms] ease-in-out'>
+                                                    <Spinner />
+                                                </div>
                                             </div>
-                                        </div>
+                                        </>) : (<>
+                                            <div onClick={() => { send_email_array() }} className='group flex bg-black border hover:bg-whit hover:text-blac transition-all duration-[50ms] ease-in-out border-black text-white text-[16px] rounded-full px-4 py-[6px] font-medium hover:cursor-pointer overflow-hidden'>
+                                                <span className='transition-all duration-[40ms] ease-in-out'>Send Invite</span>
+                                                <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
+                                                    <IoIosSend />
+                                                </div>
+                                            </div>
+                                        </>)}
                                     </div>
                                 </div>
 
@@ -1839,15 +1886,15 @@ const ProfileHr = () => {
                                                             {/* <span className="text-[15px] text-gray-400 absolute left-[-10px]">{idx}</span> */}
                                                             <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
                                                                 {
-                                                                    // Clickable icon area. Only allow selection when candidate's emailStatus is 'NONE'.
+                                                                    // candidate's emailStatus is 'NONE'.
                                                                 }
                                                                 <span
                                                                     className="text-[15px] absolute left-[-35px] top-[14px] inline-flex items-center justify-center"
                                                                     onClick={(e) => {
-                                                                        // Prevent parent onClick (which opens details) from firing when toggling selection
                                                                         e.stopPropagation();
                                                                         const status = (interview?.emailStatus || '').toString().toUpperCase();
-                                                                        if (status !== 'NONE') return; // only selectable when NONE
+                                                                        if (status !== 'NONE') return; //only when NONE
+                                                                        //sortedListArray.data.sortedCandidates[].emailStatus --> for future refrence
                                                                         toggleSelectedCandidate(interview._id);
                                                                     }}
                                                                 >
@@ -1863,9 +1910,9 @@ const ProfileHr = () => {
                                                                                     ? <FaRegDotCircle className={`${baseClass} text-black-600 text-xl`} />
                                                                                     : <GoCircle className={`${baseClass} text-gray-400 text-xl`} />;
                                                                             }
-                                                                            if (status === 'PROCESSING') return <Spinner />;
-                                                                            if (status === 'SUCCESS') return <GoCheckCircle className="text-green-600" />;
-                                                                            if (status === 'ERROR') return <GoXCircle className="text-red-600" />;
+                                                                            if (status === 'PROCESSING') return <div className='absolute bottom-[-45px] flex justify-center items-center'><Spinner className='' /></div>;
+                                                                            if (status === 'SUCCESS') return <GoCheckCircle className="text-green-600 text-xl" />;
+                                                                            if (status === 'ERROR') return <GoXCircle className="text-red-600  text-xl" />;
                                                                             return null;
                                                                         })()
                                                                     }
