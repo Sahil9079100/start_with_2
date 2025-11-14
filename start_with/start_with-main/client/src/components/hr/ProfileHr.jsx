@@ -1300,7 +1300,7 @@ const ProfileHr = () => {
                                         {interviews.length === 0 ? (
                                             <div className='w-full h-full flex flex-col items-center justify-start pt-20 gap-4 text-gray-400'>
                                                 <div className='text-xl'>No Job Roles Created Yet</div>
-                                                <div onClick={() => { setInterviewCreateWindow(true) }} className=' bg-black text-white text-[12px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div>
+                                                <div onClick={() => { setInterviewCreateWindow(true); getSheetsNames(); }} className=' bg-black text-white text-[12px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div>
                                             </div>
                                         ) : (
                                             <>
@@ -1457,7 +1457,6 @@ const ProfileHr = () => {
 
                                     </div>
                                 </div>
-
 
 
                                 {interviewFetchLoading == true ? (
