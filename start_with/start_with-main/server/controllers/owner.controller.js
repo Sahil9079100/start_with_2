@@ -434,24 +434,154 @@ export const SendEmailToCandidates = async (req, res) => {
                 continue;
             }
 
-            const expiryDateFormet = new Date(findInterview.expiryDate);
             const to = candidate.email;
-            const subject = 'Interview Detaisls';
-            // html - a basic message like " Here is your interview link *Url* ". Make a nice templete, that looks good in email and professinol.
+            const subject = 'Your AI Interview is Ready';
+
+            // Derive first name and expiration in days for dynamic template values
+            const candidateName = (candidate?.name && String(candidate.name).trim())
+                ? String(candidate.name).trim()
+                : String(candidate.email).split('@')[0];
+            const now = new Date();
+            const expiryDateObj = new Date(findInterview.expiryDate);
+            const msLeft = Math.max(0, expiryDateObj.getTime() - now.getTime());
+            const expiresInDays = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+            const durationMins = findInterview?.duration || 20;
+            const year = new Date().getFullYear();
+
+            // Responsive, inline-styled email (table layout for wide client support)
             const html = `
-            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <h2 style="color: #4CAF50;">Interview Details</h2>
-                <p>Dear ${candidate.name},</p>
-                <p>We are pleased to invite you to an interview for the ${findInterview.jobPosition} you applied for. Below are the details:</p>
-                <ul>
-                    <li><strong>Interview Link:</strong> <a href="${findInterview.interviewUrl}" target="_blank">Click here to join your interview</a></li>
-                    <li><strong>Expiry Date and Time:</strong> ${expiryDateFormet}</li>
-                    <li><strong>Duration:</strong> ${findInterview.duration ? findInterview.duration : '10'} minutes</li>
-                </ul>
-                <p>Please make sure to join the interview on time. If you have any questions, feel free to reach out.</p>
-                <p>Best regards,<br/>The Recruitment Team</p>
-            </div>
-            `;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Your AI Interview is Good to Go!</title>
+    <style>
+        /* Fallback styles for clients that honor <style> */
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; }
+            .content { padding: 20px !important; }
+            .cta { width: 100% !important; display: block !important; }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; background:#f5f7fb; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f7fb;">
+        <tr>
+            <td align="center" style="padding:24px 12px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="container" style="width:600px; max-width:600px; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(20,20,43,0.06);">
+
+                    <!-- Header / Brand -->
+                    <tr>
+                        <td style="padding:24px 24px 0 24px;">
+                            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:16px; color:#0a2540; display:flex; align-items:center;">
+                                <span style="display:inline-block; width:8px; height:8px; background:#0a2540; border-radius:50%; margin-right:8px;"></span>
+                                <span style="font-weight:700;">Startwith.</span>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Hero Title -->
+                    <tr>
+                        <td style="padding:16px 24px 8px 24px;">
+                            <h1 style="margin:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:28px; line-height:1.3; color:#0a2540;">
+                                Your AI Interview is<br/>
+                                <span style="font-weight:800;">Good to Go!</span>
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <!-- Body copy -->
+                    <tr>
+                        <td style="padding:8px 24px 0 24px;">
+                            <p style="margin:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:16px; line-height:1.6; color:#334155;">
+                                Hi <strong>${candidateName}</strong>,
+                            </p>
+                            <p style="margin:12px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:16px; line-height:1.7; color:#334155;">
+                                We were impressed by your background and would love to learn more about you through our AI‑assisted interview process.
+                            </p>
+                            <p style="margin:12px 0 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:16px; line-height:1.7; color:#334155;">
+                                This personalized interview will take about ${durationMins} minutes and you can complete it at your convenience.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- CTA Button -->
+                    <tr>
+                        <td style="padding:20px 24px 0 24px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left">
+                                <tr>
+                                    <td style="border-radius:10px; background:#0a2540;">
+                                        <a href="${findInterview.interviewUrl}"
+                                             target="_blank"
+                                             style="display:inline-block; padding:12px 18px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:16px; color:#ffffff; text-decoration:none; border-radius:10px;">
+                                            Start Interview
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Expiry hint -->
+                    <tr>
+                        <td style="padding:10px 24px 0 24px;">
+                            <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:13px; color:#64748b;">
+                                Link expires in ${expiresInDays} day${expiresInDays === 1 ? '' : 's'}
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Details callout -->
+                    <tr>
+                        <td style="padding:20px 24px 0 24px;">
+                            <table width="100%" role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid #e2e8f0; background:#f8fafc; border-radius:6px;">
+                                <tr>
+                                    <td style="padding:12px 16px;">
+                                        <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:14px; color:#0f172a; font-weight:600;">Interview details:</p>
+                                        <p style="margin:4px 0 0 0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:14px; color:#334155;">
+                                            Duration: ${durationMins} minutes • Format: AI‑assisted
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Help text -->
+                    <tr>
+                        <td style="padding:20px 24px 0 24px;">
+                            <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:14px; color:#334155;">
+                                Questions? Reply to this email and we'll help you out.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding:16px 24px 24px 24px;">
+                            <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:14px; color:#334155;">
+                                Best regards,<br/>
+                                <strong>Startwith.live Team</strong>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background:#f8fafc; padding:16px 24px; border-top:1px solid #eef2f7;">
+                            <p style="margin:0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Helvetica Neue', sans-serif; font-size:12px; color:#94a3b8; text-align:left;">
+                                © ${year} Startwith.live. All rights reserved. | <a href="https://startwith.live/privacy" target="_blank" style="color:#94a3b8; text-decoration:underline;">Privacy</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
             const senderName = 'StartWith Team';
             const senderEmail = 'interview@startwith.live'
             const candidateId = candidate._id;
@@ -482,7 +612,7 @@ export const SendEmailToCandidates = async (req, res) => {
                     }
                 });
 
-                console.log(`Email queued successfully for candidate: ${candidate.email}`);
+                // console.log(`Email queued successfully for candidate: ${candidate.email}`);
             } else {
                 console.log(`Failed to queue email for candidate: ${candidate.email}`);
             }

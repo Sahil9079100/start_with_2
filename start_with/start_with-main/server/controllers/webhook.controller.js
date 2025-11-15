@@ -5,7 +5,7 @@ export const _WEBHOOK_EmailStatus = async (req, res) => {
     try {
         const { ownerId, roomId, interviewId, candidateId, data } = req.body;
 
-        console.log("Webhook Email Status Received:", req.body);
+        // console.log("Webhook Email Status Received:", req.body);
 
 
         // if (global.io && roomId) {
