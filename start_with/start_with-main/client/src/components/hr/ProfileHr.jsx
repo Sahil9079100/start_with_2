@@ -107,6 +107,14 @@ const ProfileHr = () => {
     // Selected candidates (for sending invites). Stores candidate IDs that are selected by the user.
     // Only candidates with emailStatus 'NONE' (GoCircle) should be selectable.
     const [selectedCandidates, setSelectedCandidates] = useState([]);
+
+    // Ref that always holds the latest sortedListArray so socket callbacks can read
+    // the current list without being affected by stale closures.
+    const sortedListRef = useRef([]);
+
+    useEffect(() => {
+        sortedListRef.current = sortedListArray;
+    }, [sortedListArray]);
     const [sendEmailLoading, setSendEmailLoading] = useState(false)
 
     const toggleSelectedCandidate = (candidateId) => {
@@ -534,6 +542,77 @@ const ProfileHr = () => {
         }
     };
 
+    // __________________________________________________________________________________________________________________________________________________________
+    // __________________________________________________________________________________________________________________________________________________________
+    async function handleProgressEmail(data) {
+        const currentInterviewId = interviewDetails?._id;
+        const incomingInterviewId = data?.interview;
+
+        if (!currentInterviewId || !incomingInterviewId || String(incomingInterviewId) !== String(currentInterviewId)) {
+            return;
+        }
+        // console.log("emailsent: ", data.data?.emailSent)
+        // console.log("candidate_id: ", data.data?.candidate_id)
+
+        const list = sortedListRef.current || [];
+        console.log("sorted list array (from ref): ", list);
+        for (const item of list) {
+            console.log(item._id);
+            console.log(item);
+            if (String(item._id) === String(data.data?.candidate_id)) {
+                item.emailStatus = 'PROCESSING';
+                setSortedListArray([...list]);
+                console.log("[CHANGED]", item._id, "OK", item.emailStatus);
+                setSelectedCandidates(prev => prev.filter(id => id !== item._id));
+                break;
+            }
+        }
+
+        const newSocketLog = {
+            message: data.step,
+            level: 'INFO',
+            timestamp: new Date().toISOString(),
+            _id: `socket_${Date.now()}_${Math.random()}` // Unique ID for socket logs
+        };
+
+
+        setCombinedLogs(prev => [...prev, newSocketLog]);
+    }
+    // __________________________________________________________________________________________________________________________________________________________
+
+
+    async function handleProgressEmailSuccess(data) {
+        // Support both payload shapes: { interview: id } and { interviewId: id }
+        const currentInterviewId = interviewDetails?._id;
+        const incomingInterviewId = data?.interview || data?.interviewId;
+
+        if (!currentInterviewId || !incomingInterviewId || String(incomingInterviewId) !== String(currentInterviewId)) {
+            return;
+        }
+
+        // Normalize candidateId and status from the incoming payload
+        const candidateId = data?.candidateId || data?.data?.candidate_id || data?.data?.candidateId;
+        const status = (data?.data?.emailStatus || 'SUCCESS').toString().toUpperCase();
+
+        const list = sortedListRef.current || [];
+        for (const item of list) {
+            if (String(item._id) === String(candidateId)) {
+                item.emailStatus = status; // typically 'SUCCESS'
+                setSortedListArray([...list]);
+                setSelectedCandidates(prev => prev.filter(id => id !== item._id));
+                break;
+            }
+        }
+
+        const newSocketLog = {
+            message: data?.data?.message || data?.step || 'Email sent successfully',
+            level: status === 'SUCCESS' ? 'SUCCESS' : 'INFO',
+            timestamp: new Date().toISOString(),
+            _id: `socket_${Date.now()}_${Math.random()}` // Unique ID for socket logs
+        };
+        setCombinedLogs(prev => [...prev, newSocketLog]);
+    }
+
     useEffect(() => {
         setSocketConnected(isConnected);
         console.log("Socket connection status changed:", isConnected);
@@ -594,49 +673,14 @@ const ProfileHr = () => {
             setCombinedLogs(prev => [...prev, newSocketLog]);
         };
 
-        const handleProgressEmail = (data) => {
-            const currentInterviewId = interviewDetails?._id;
-            const incomingInterviewId = data?.interview;
-
-            if (!currentInterviewId || !incomingInterviewId || String(incomingInterviewId) !== String(currentInterviewId)) {
-                return;
-            }
-
-            /*
-            await recruiterEmit(findInterview.owner, "EMAIL_PROGRESS_LOG", {
-                                interview: interviewId,
-                                level: "SUCCESS",
-                                step: `Email queued successfully for candidate: ${candidate.email}`,
-                                data: {
-                                    emailSent: true,
-                                    candidate_id: candidate._id,
-                                }
-                            });
-            I am getting somethin like this form the backend and i want to consolelog the , candidate_id, so hwo can i do this
-            console.log(data.data?.candidate_id)
-            */
-
-            console.log(data.data?.emailSent)
-            console.log(data.data?.candidate_id)
-
-            // Add new socket log to combined logs
-            const newSocketLog = {
-                message: data.step,
-                level: 'INFO',
-                timestamp: new Date().toISOString(),
-                _id: `socket_${Date.now()}_${Math.random()}` // Unique ID for socket logs
-            };
-
-
-            setCombinedLogs(prev => [...prev, newSocketLog]);
-        };
-
         SocketService.on("INTERVIEW_PROGRESS_LOG", handleProgress);
         SocketService.on("EMAIL_PROGRESS_LOG", handleProgressEmail);
+        SocketService.on("EMAIL_SUCCESS_PROGRESS_LOG", handleProgressEmailSuccess);
 
         return () => {
             SocketService.off("INTERVIEW_PROGRESS_LOG", handleProgress);
-            SocketService.off("EMAIL_PROGRESS_LOG", handleProgress);
+            SocketService.off("EMAIL_PROGRESS_LOG", handleProgressEmail);
+            SocketService.off("EMAIL_SUCCESS_PROGRESS_LOG", handleProgressEmailSuccess);
         };
     }, [isConnected, interviewDetails?._id]);
 
@@ -808,9 +852,15 @@ const ProfileHr = () => {
         try {
             setSendEmailLoading(true)
 
+            console.log("int heblack: ", sortedListArray)
+
             console.log({ interviewId: interviewDetails._id, candidateIds: selectedCandidates })
             const response = await API.post("/api/owner/send/email", { interviewId: interviewDetails._id, candidateIds: selectedCandidates })
             console.log("Send email response: ", response);
+
+            // for (const item of sortedListArray) {
+
+            // }
 
             setSendEmailLoading(false)
         } catch (error) {

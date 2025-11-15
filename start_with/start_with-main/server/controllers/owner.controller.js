@@ -454,6 +454,7 @@ export const SendEmailToCandidates = async (req, res) => {
             `;
             const senderName = 'StartWith Team';
             const senderEmail = 'interview@startwith.live'
+            const candidateId = candidate._id;
 
             data = { to, subject, html, senderName, senderEmail };
 
@@ -461,6 +462,7 @@ export const SendEmailToCandidates = async (req, res) => {
                 ownerId,
                 roomId,
                 interviewId,
+                candidateId,
                 data
             });
 
