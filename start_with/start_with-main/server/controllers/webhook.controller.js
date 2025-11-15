@@ -23,6 +23,7 @@ export const _WEBHOOK_EmailStatus = async (req, res) => {
         }
 
         findCandidate.emailStatus = 'SUCCESS';
+        await findCandidate.save()
 
         await recruiterEmit(ownerId, "EMAIL_SUCCESS_PROGRESS_LOG", {
             interview: interviewId,
