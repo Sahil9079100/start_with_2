@@ -109,8 +109,10 @@ export const sort_resume_as_job_description = async (interviewId) => {
             );
 
             const aiResult = await resume_sorter_agent({
+                jobPosition: interview.jobPosition,
                 jobDescription,
                 resumeSummary: candidate.resumeSummary,
+                dynamicData: interview.dynamicData,
                 jobminimumqualifications,
                 jobminimumskillsrequired
             });
@@ -118,6 +120,9 @@ export const sort_resume_as_job_description = async (interviewId) => {
             if (aiResult?.matchScore && aiResult?.matchLevel) {
                 candidate.matchScore = aiResult.matchScore;
                 candidate.matchLevel = aiResult.matchLevel;
+                candidate.aiReviewComment = aiResult.error ? "" : aiResult.reviewComment || "";
+                candidate.aiQuestions = aiResult.error ? [] : aiResult.questions || [];
+                candidate.aiImportantQuestions = aiResult.error ? [] : aiResult.importantQuestions || [];
                 await candidate.save();
             }
 
@@ -144,15 +149,15 @@ export const sort_resume_as_job_description = async (interviewId) => {
             interview.reviewedCandidates = i + 1;
             await interview.save();
 
-            // ⏳ Wait 6 seconds between each AI call
+            // Wait 6 seconds between each AI call
             // await sleep(6000);
         }
 
-        // 4️⃣ Update interview status
+        // Update interview status
         interview.status = "sort_resume_as_job_description";
         await interview.save();
 
-        // 5️⃣ Log progress
+        // Log progress
         await InterviewGSheetStructure.findOneAndUpdate(
             { interview: interviewId },
             {
@@ -246,7 +251,7 @@ export const sort_resume_as_job_description = async (interviewId) => {
  * 🧠 AI Agent: resume_sorter_agent
  * Evaluates resume vs job description.
  */
-export async function resume_sorter_agent({ jobDescription, resumeSummary, jobminimumqualifications, jobminimumskillsrequired }, retries = 3) {
+export async function resume_sorter_agent({ jobPosition, jobDescription, resumeSummary, dynamicData, jobminimumqualifications, jobminimumskillsrequired }, retries = 3) {
     try {
         const new_geminiAPI = await getRotatingGeminiAPI();
         const model = new_geminiAPI.getGenerativeModel({ model: "gemini-2.5-pro" });
@@ -255,7 +260,10 @@ export async function resume_sorter_agent({ jobDescription, resumeSummary, jobmi
 You are an expert technical recruiter with 20+ years of experience.
 Your job: Evaluate how well a candidate's resume matches a given job description.
 
-Analyze these two inputs carefully:
+Analyze these inputs carefully:
+
+---JOB POSOTION---
+${jobPosition}
 
 --- JOB DESCRIPTION ---
 ${jobDescription}
@@ -264,16 +272,27 @@ ${jobDescription}
 Minimum Qualifications: ${jobminimumqualifications}
 Minimum Skills Required: ${jobminimumskillsrequired}
 
---- RESUME TEXT ---
+--- CANDIDATE RESUME TEXT ---
 ${resumeSummary}
+
+--- CANDIDATE DETAILS ---
+${JSON.stringify(dynamicData)}
 
 Now determine the candidate's suitability with very high accuracy.
 
+If the job position does not patch with the job that candidate has applied for, mark the candidate as Unqualified with a score of 0, if not proceed to evaluate the resume against the job description.
+
+Also give a small review comment (2-3 sentences) on why you rated the candidate that way.
+Give 9-10 questions that you would ask the candidate in an interview based on their resume and the job description.
+Give 3-4 important questions that the candidate must be able to answer based on the job description and resume.
 Your output *must* be strictly valid JSON in this format:
 \`\`\`json
 {
   "matchLevel": "High Match" | "Medium Match" | "Low Match" | "Unqualified",
-  "matchScore": number (0 to 100)
+  "matchScore": number (0 to 100),
+    "reviewComment": "string providing brief review comment",
+    "questions": ["array of 9-10 questions based on resume and job description"],
+    "importantQuestions": ["array of 3-4 important questions based on job description and resume"]
 }
 \`\`\`
 

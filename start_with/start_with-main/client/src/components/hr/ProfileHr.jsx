@@ -110,6 +110,9 @@ const ProfileHr = () => {
     const [interviewSheduleWindow, setInterviewSheduleWindow] = useState(false);
     const [interviewSheduleLoading, setInterviewSheduleLoading] = useState(false);
     const [formErrors, setFormErrors] = useState({});
+    const [isSheadule, setIsSheadule] = useState(false);
+    const [questionsWindow, setQuestionsWindow] = useState(false);
+    const [impquestionsWindow, setImpQuestionsWindow] = useState(false);
     const [pdfDataExtractLoading, setPdfDataExtractLoading] = useState(false);
 
     // Selected candidates (for sending invites). Stores candidate IDs that are selected by the user.
@@ -517,6 +520,7 @@ const ProfileHr = () => {
             console.log("Interview scheduled successfully:", response.data);
             setInterviewSheduleLoading(false);
             setInterviewSheduleWindow(false);
+            setIsSheadule(true);
         }
         catch (error) {
             console.log("Error scheduling interview:", error);
@@ -701,6 +705,7 @@ const ProfileHr = () => {
                 const response = await API.get('/api/owner/profile');
                 if (response.status === 401) return navigate("/o/l")
                 setProfile(response.data.owner);
+                setIsSheadule(response.data.owner.isSheadule);
                 setIsChecked(response.data.owner.googleSheetsConnected);
                 localStorage.setItem('umid', response.data.owner._id);
 
@@ -1976,7 +1981,7 @@ const ProfileHr = () => {
                                         Reviewed Candidate
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
                                     </div>
-                                    {interviewDetails.isSheduled == true ? (<>
+                                    {isSheadule == true ? (<>
                                         <div className='flex items-center gap-2 mr-10'>
                                             <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate_EmailPanel') }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[50ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
                                                 <span className='transition-all duration-[40ms] ease-in-out'>Email Panel</span>
@@ -2131,7 +2136,7 @@ const ProfileHr = () => {
                                                                         <div className='flex flex-col gap-3 mb-3'>
                                                                             <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
                                                                             <div className='flex flex-wrap gap-3'>
-                                                                                <div className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                <div onClick={() => { setQuestionsWindow(true) }} className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
                                                                                     {(interview.dynamicData?.questions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
                                                                                 </div>
                                                                                 <div className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
@@ -2370,10 +2375,10 @@ const ProfileHr = () => {
                                                                             <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
                                                                             <div className='flex flex-wrap gap-3'>
                                                                                 <div className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
-                                                                                    {(interview.dynamicData?.questions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
+                                                                                    {(interview?.aiQuestions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
                                                                                 </div>
                                                                                 <div className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
-                                                                                    {(interview.dynamicData?.importantQuestions?.length || interview.dynamicData?.ImportantQuestions?.length || 0)} Important Question
+                                                                                    {(interview?.aiImportantQuestions?.length || interview.dynamicData?.ImportantQuestions?.length || 0)} Important Question
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -2402,6 +2407,12 @@ const ProfileHr = () => {
 
                         </div>}
 
+
+                    {/* <div className='QUESTIONS WINDOW absolute flex justify-center items-center w-full h-full'>
+                        <div onClick={() => setQuestionsWindow(false)} className="hover:cursor-pointer bg-yellow-500 w-fit h-fit p-2">
+                            Close Questions Window
+                        </div>
+                    </div> */}
 
                 </div >
             </>) : (<>

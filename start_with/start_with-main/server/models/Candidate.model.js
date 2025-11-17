@@ -114,6 +114,18 @@ const userSchema = new Schema({
         max: 100,
         default: null,
     },
+    aiReviewComment: {
+        type: String,
+        default: ""
+    },
+    aiQuestions: {
+        type: Array,
+        default: []
+    },
+    aiImportantQuestions: {
+        type: Array,
+        default: []
+    },
     emailStatus: {
         type: String,
         enum: ['NONE', 'PROCESSING', 'SUCCESS', 'ERROR'],
