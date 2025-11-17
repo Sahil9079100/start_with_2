@@ -17,7 +17,7 @@ function App() {
                 <Route path="/r/o" element={<RegisterOwner />} />
                 <Route path="/l/o" element={<LoginHr />} />
                 <Route path="/p/o/:id" element={<ProfileHr />} />
-                <Route path="/p/:id" element={<UpdatedProfile />} />
+                {/* <Route path="/p/:id" element={<UpdatedProfile />} /> */}
                 <Route path="/integrations" element={<GIntegrationSuccess />} />
                 <Route path="/" element={<MainPage />} />
 

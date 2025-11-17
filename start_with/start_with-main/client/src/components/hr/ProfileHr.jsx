@@ -4,6 +4,7 @@ import { useContext } from "react";
 import { SocketContext } from "../../socket/SocketProvider.jsx";
 import { useEffect } from 'react';
 import SocketService from '../../socket/socketService.js';
+import { useNavigate } from "react-router-dom"
 
 import { FiInfo } from "react-icons/fi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -13,6 +14,10 @@ import { MdDelete } from "react-icons/md";
 import { IoCloseOutline } from "react-icons/io5";
 import { OrbitProgress } from 'react-loading-indicators'
 import { IoIosSend } from "react-icons/io";
+import { createAvatar } from "@dicebear/core";
+import { initials } from '@dicebear/collection';
+import { Upload } from 'lucide-react';
+
 
 import { GoXCircle } from "react-icons/go"; // if there is a error
 import { GoCheckCircle } from "react-icons/go"; // if there is a success
@@ -71,10 +76,13 @@ const ProfileHr = () => {
     const [isChecked, setIsChecked] = useState(false)
     const [errorMessage, setErrorMessage] = useState('');
     const textareaRef = useRef(null);
+    const [avatarSvg, setAvatarSvg] = useState('');
+    const [ownername, setOwnername] = useState('');
     // Guard to prevent double-fetching profile in React Strict Mode (dev double-invoke of effects)
     const hasFetchedProfile = useRef(false);
     // Guard to ensure interviews are fetched only once when profile becomes available
     const hasFetchedInterviews = useRef(false);
+    const navigate = useNavigate()
 
     const [skillsListArray, setSkillsListArray] = useState(["React", "Node Js", "Typescript"]);
     const [isEnhancing, setIsEnhancing] = useState(false);
@@ -102,7 +110,7 @@ const ProfileHr = () => {
     const [interviewSheduleWindow, setInterviewSheduleWindow] = useState(false);
     const [interviewSheduleLoading, setInterviewSheduleLoading] = useState(false);
     const [formErrors, setFormErrors] = useState({});
-    // const []
+    const [pdfDataExtractLoading, setPdfDataExtractLoading] = useState(false);
 
     // Selected candidates (for sending invites). Stores candidate IDs that are selected by the user.
     // Only candidates with emailStatus 'NONE' (GoCircle) should be selectable.
@@ -691,6 +699,7 @@ const ProfileHr = () => {
         const fetchProfile = async () => {
             try {
                 const response = await API.get('/api/owner/profile');
+                if (response.status === 401) return navigate("/o/l")
                 setProfile(response.data.owner);
                 setIsChecked(response.data.owner.googleSheetsConnected);
                 localStorage.setItem('umid', response.data.owner._id);
@@ -701,10 +710,18 @@ const ProfileHr = () => {
                     setIsChecked(true);
                 }
 
+                const avatar = createAvatar(initials, {
+                    seed: response.data.owner.name,
+                    size: 40,
+                    radius: 20,
+                    backgroundColor: ["lightblue", "lightgreen", "lightcoral", "lightsalmon", "lightseagreen"],
+                });
+                setAvatarSvg(avatar.toString());
+
                 console.log(response.data.owner.name);
             } catch (error) {
                 console.log("Error fetching profile:", error);
-                // navigate("/l/o")
+                navigate("/l/o")
             }
         };
 
@@ -931,6 +948,8 @@ const ProfileHr = () => {
             {profile ? (<>
                 <div className='w-full h-[100vh] flex relative overflow-hidden' onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
 
+
+
                     {interviewCreateWindow &&
                         <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
                             <div className='bg-white w-[70vw] max-h-[90vh] flex flex-col rounded-lg shadow-lg'>
@@ -945,6 +964,60 @@ const ProfileHr = () => {
 
                                 {/* Scrollable Content */}
                                 <div className='flex-1 overflow-y-auto px-8 hscroll'>
+
+                                    {/* PDF Upload Section */}
+                                    {!pdfDataExtractLoading &&
+                                        <div className='mb-4'>
+                                            <div className='border border-gray-200 rounded-lg  hover:bg-gray-100  bg-white '>
+                                                <div className='text-center'>
+                                                    <input
+                                                        type='file'
+                                                        accept='.pdf'
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files[0];
+                                                            if (file) {
+                                                                const formData = new FormData();
+                                                                formData.append('pdf', file);
+                                                                try {
+                                                                    setPdfDataExtractLoading(true);
+                                                                    const response = await API.post('/api/owner/extract-pdf-text', formData, {
+                                                                        headers: {
+                                                                            'Content-Type': 'multipart/form-data',
+                                                                        },
+                                                                    });
+                                                                    if (response.data.data) {
+                                                                        const { jobPosition, jobDescription, minimumSkills, minimumExperience, requiredSkills } = response.data.data;
+                                                                        setInterviewForm(prev => ({
+                                                                            ...prev,
+                                                                            jobPosition: jobPosition || prev.jobPosition,
+                                                                            jobDescription: jobDescription || prev.jobDescription,
+                                                                            minimumSkills: minimumSkills || prev.minimumSkills,
+                                                                            minimumExperience: minimumExperience || prev.minimumExperience,
+                                                                            requiredSkills: requiredSkills || prev.requiredSkills
+                                                                        }));
+                                                                    }
+                                                                    setPdfDataExtractLoading(false);
+                                                                } catch (error) {
+                                                                    console.error('Error extracting PDF text:', error);
+                                                                }
+                                                            }
+                                                        }}
+                                                        className='hidden'
+                                                        id='pdf-upload-hr'
+                                                    />
+                                                    <label
+                                                        htmlFor='pdf-upload-hr'
+                                                        className='cursor-pointer  w-full flex justify-center items-center gap-2 px-6 py-2 text-gray-700 rounded-lgtransition-colors  font-medium'
+                                                    >
+                                                        <Upload size={20} className='text-gray-600' />
+                                                        Upload a PDF
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                    <div>{pdfDataExtractLoading ? 'Extracting PDF data...' : ''}</div>
+
                                     <div className='mb-4'>
                                         <label className='text-gray-600 text-sm mb-2 block'>Job Position</label>
                                         <input
@@ -992,6 +1065,8 @@ const ProfileHr = () => {
                                             className={`w-full resize-none px-4 py-3 border ${formErrors.jobDescription ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobDescription ? 'focus:ring-red-400' : 'focus:ring-gray-400'} scroll`}
                                         />
                                     </div>
+
+
 
                                     <div className='flex gap-4 mb-4'>
                                         <div className='flex-1'>
@@ -1144,6 +1219,210 @@ const ProfileHr = () => {
                             </div>
                         </div>
                     }
+                    {/* 
+                    {interviewCreateWindow &&
+                        <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
+                            <div className='bg-white w-[70vw] max-h-[90vh] flex flex-col rounded-lg shadow-lg'>
+                                <div className='px-8 pt-6 pb-4'>
+                                    <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
+                                        <div>Create a Job Role</div>
+                                        <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); setFormErrors([]) }} className='hover:cursor-pointer'><IoCloseOutline /></div>
+                                    </div>
+                                    <hr className='border border-gray-300' />
+                                </div>
+
+                                <div className='flex-1 overflow-y-auto px-8 hscroll'>
+                                    <div className='mb-4'>
+                                        <label className='text-gray-600 text-sm mb-2 block'>Job Position</label>
+                                        <input
+                                            type='text'
+                                            required
+                                            name='jobPosition'
+                                            value={interviewForm.jobPosition}
+                                            onChange={(e) => {
+                                                handleInterviewChange(e);
+                                                if (formErrors.jobPosition) {
+                                                    setFormErrors(prev => ({ ...prev, jobPosition: false }));
+                                                }
+                                            }}
+                                            placeholder='Ex: Content Writing, Laravel Developer'
+                                            className={`w-full px-4 py-3 border ${formErrors.jobPosition ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobPosition ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
+                                        />
+                                    </div>
+
+                                    <div className='mb-4'>
+                                        <div className='flex justify-between items-center mb-2'>
+                                            <label className='text-gray-600 text-sm'>Job Description</label>
+                                            <button
+                                                onClick={enhanceWithAI}
+                                                disabled={isEnhancing}
+                                                className='text-gray-500 text-sm flex items-center gap-1 hover:text-gray-700'
+                                            >
+                                                <span className='text-lg'>↻</span> {isEnhancing ? 'Improving...' : 'Improve through AI'}
+                                            </button>
+                                        </div>
+                                        <textarea
+                                            ref={textareaRef}
+                                            name='jobDescription'
+                                            required
+                                            value={interviewForm.jobDescription}
+                                            onChange={(e) => {
+                                                handleInterviewChange(e);
+                                                if (formErrors.jobDescription) {
+                                                    setFormErrors(prev => ({ ...prev, jobDescription: false }));
+                                                }
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            rows={3}
+                                            placeholder='Type your job description here...'
+                                            className={`w-full resize-none px-4 py-3 border ${formErrors.jobDescription ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.jobDescription ? 'focus:ring-red-400' : 'focus:ring-gray-400'} scroll`}
+                                        />
+                                    </div>
+
+                                    <div className='flex gap-4 mb-4'>
+                                        <div className='flex-1'>
+                                            <label className='text-gray-600 text-sm mb-2 block'>Minimum Qualification</label>
+                                            <input
+                                                type='text'
+                                                required
+                                                name='minimumQualification'
+                                                value={interviewForm.minimumQualification}
+                                                onChange={(e) => {
+                                                    handleInterviewChange(e);
+                                                    if (formErrors.minimumQualification) {
+                                                        setFormErrors(prev => ({ ...prev, minimumQualification: false }));
+                                                    }
+                                                }}
+                                                placeholder='Bachelor or Masters'
+                                                className={`w-full px-4 py-3 border ${formErrors.minimumQualification ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumQualification ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
+                                            />
+                                        </div>
+                                        <div className='flex-1'>
+                                            <label className='text-gray-600 text-sm mb-2 block'>Minimum Experience</label>
+                                            <input
+                                                type='text'
+                                                required
+                                                name='minimumExperience'
+                                                value={interviewForm.minimumExperience}
+                                                onChange={(e) => {
+                                                    handleInterviewChange(e);
+                                                    if (formErrors.minimumExperience) {
+                                                        setFormErrors(prev => ({ ...prev, minimumExperience: false }));
+                                                    }
+                                                }}
+                                                placeholder='1 year+'
+                                                className={`w-full px-4 py-3 border ${formErrors.minimumExperience ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${formErrors.minimumExperience ? 'focus:ring-red-400' : 'focus:ring-gray-400'}`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className='mb-4'>
+                                        <label className='text-gray-600 text-sm mb-2 block'>Required Skills</label>
+                                        <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.minimumSkills ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.minimumSkills ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
+                                            {interviewForm.minimumSkills.map((skill, index) => (
+                                                <div key={index} className='bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm flex items-center gap-2'>
+                                                    {skill}
+                                                    <button onClick={() => handleRemoveSkill(skill)} className='text-red-500 hover:text-red-700'>
+                                                        <IoCloseOutline />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <input
+                                                type='text'
+                                                value={newSkill}
+                                                required
+                                                onChange={(e) => {
+                                                    setNewSkill(e.target.value);
+                                                    if (formErrors.minimumSkills && interviewForm.minimumSkills.length > 0) {
+                                                        setFormErrors(prev => ({ ...prev, minimumSkills: false }));
+                                                    }
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleAddSkill(newSkill);
+                                                    }
+                                                }}
+                                                placeholder='Add a skill and press Enter'
+                                                className='flex-grow px-2 py-1 border-none focus:outline-none focus:ring-0'
+                                            />
+                                        </div>
+                                        <div className='flex gap-2 mt-3'>
+                                            {skillsListArray.map((skill, idx) => {
+                                                return (
+                                                    <span key={idx} onClick={() => handleAddSkill(skill)} className='bg-gray-600 hover:bg-gray-800/90 hover:cursor-pointer text-white px-3 py-1 rounded-md text-sm flex items-center gap-1'>
+                                                        + {skill}
+                                                    </span>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className='mb-4'>
+                                        <label className='text-gray-600 text-sm mb-2 block'>Allowed Candidates Sheet</label>
+                                        <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
+
+                                            <select
+                                                name='candidateSheetId'
+                                                required
+                                                value={interviewForm.candidateSheetId}
+                                                onChange={(e) => {
+                                                    handleInterviewChange(e);
+                                                    if (formErrors.candidateSheetId) {
+                                                        setFormErrors(prev => ({ ...prev, candidateSheetId: false }));
+                                                    }
+                                                }}
+                                                className='w-full px-2 py-2 border-none rounded-md focus:outline-none focus:ring-0'
+                                            >
+                                                <option value=''>Select a Google Sheet</option>
+                                                {sheetsNames.map((sheet) => (
+                                                    <option key={sheet.id} value={sheet.id}>
+                                                        {sheet.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className='px-8 py-6 border-t border-gray-200'>
+                                    <div className='flex justify-between items-center'>
+                                        {createInterviewLoading ? (<>
+                                            <button
+                                                onClick={createinterview}
+                                                disabled
+                                                className='bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors flex relative pl-[42px] cursor-not-allowed'
+                                            >
+                                                <div className='absolute top-[4px] left-[-8px]'>
+                                                    <Spinner />
+                                                </div>
+                                                <div className=''>
+                                                    Creating...
+                                                </div>
+                                            </button>
+                                        </>) : (<>
+                                            <button
+                                                onClick={() => { createinterview(); }}
+                                                className='bg-black h-fit transistion-all duration-300 text-white px-6 py-2 rounded-full hover:bg-black/90 transition-colors flex'
+                                            >
+                                                Create
+                                            </button>
+                                        </>)}
+
+                                        {errorMessage != '' &&
+                                            <div className='w-full pl-3 flex justify-center items-center font-Manrope text-red-500 text-sm'>
+                                                <div className='bg-red-100 px-2 py-1 border-[1px] border-red-300 rounded-[4px] font-medium'>
+                                                    {errorMessage}
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    } */}
 
                     {interviewLogsWindow &&
                         <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
@@ -1368,9 +1647,26 @@ const ProfileHr = () => {
                                 </div>
                             </div>
                             <hr className='border border-gray-600/40 mx-5' />
-                            <div className='w-full flex gap-3 items-center px-5 py-5'>
-                                <div className=' w-10 h-10 rounded-full bg-slate-500'></div>
-                                <div className='USERNAME text-xl'>{profile.name}</div>
+                            <div className='w-full flex gap-3 items-center px-5 py-5 group relative'>
+                                <div className=' w-10 h-10 rounded-full overflow-hidden bg-slate-500' dangerouslySetInnerHTML={{ __html: avatarSvg }}></div>
+                                <div className='USERNAME text-xl'>{profile?.name}</div>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const response = await API.get('/api/owner/logout');
+                                            localStorage.clear();
+                                            if (response.status === 200) { navigate("/") }
+                                        } catch (error) {
+                                            console.log('Logout error:', error);
+                                            // Still clear localStorage and redirect
+                                            localStorage.clear();
+                                            window.location.href = '/';
+                                        }
+                                    }}
+                                    className='absolute left-[150px] top-[-5px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm font-medium'
+                                >
+                                    Logout
+                                </button>
                             </div>
                         </div>
                     </div>
