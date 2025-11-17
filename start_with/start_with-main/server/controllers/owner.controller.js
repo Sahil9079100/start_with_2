@@ -752,6 +752,7 @@ export const extractPdfText = async (req, res) => {
         You are given the following text extracted from a job description PDF. Your task is to parse this text and extract the following information into a JSON object with exactly these keys:
         - jobPosition: The job title or position name (string)
         - jobDescription: A detailed description of the job (string)
+        - minimumQualification: The minimum qualifications required (string)
         - minimumSkills: An array of minimum required skills (array of strings)
         - minimumExperience: The minimum years of experience required (string, e.g., "2 years")
         - requiredSkills: An array of all required skills (array of strings)

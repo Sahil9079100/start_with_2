@@ -980,22 +980,26 @@ const ProfileHr = () => {
                                                                 formData.append('pdf', file);
                                                                 try {
                                                                     setPdfDataExtractLoading(true);
+                                                                    // setCreateInterviewLoading(true);
                                                                     const response = await API.post('/api/owner/extract-pdf-text', formData, {
                                                                         headers: {
                                                                             'Content-Type': 'multipart/form-data',
                                                                         },
                                                                     });
+                                                                    console.log(response.data.data)
                                                                     if (response.data.data) {
-                                                                        const { jobPosition, jobDescription, minimumSkills, minimumExperience, requiredSkills } = response.data.data;
+                                                                        const { jobPosition, jobDescription, minimumSkills, minimumQualification, minimumExperience, requiredSkills } = response.data.data;
                                                                         setInterviewForm(prev => ({
                                                                             ...prev,
                                                                             jobPosition: jobPosition || prev.jobPosition,
                                                                             jobDescription: jobDescription || prev.jobDescription,
                                                                             minimumSkills: minimumSkills || prev.minimumSkills,
                                                                             minimumExperience: minimumExperience || prev.minimumExperience,
+                                                                            minimumQualification: minimumQualification || prev.minimumQualification,
                                                                             requiredSkills: requiredSkills || prev.requiredSkills
                                                                         }));
                                                                     }
+                                                                    // setCreateInterviewLoading(false);
                                                                     setPdfDataExtractLoading(false);
                                                                 } catch (error) {
                                                                     console.error('Error extracting PDF text:', error);
@@ -1016,7 +1020,9 @@ const ProfileHr = () => {
                                             </div>
                                         </div>
                                     }
-                                    <div>{pdfDataExtractLoading ? 'Extracting PDF data...' : ''}</div>
+                                    <div>{pdfDataExtractLoading ? (<>
+                                        <div className="mb-4 border border-gray-200 rounded-lg  hover:bg-gray-100  bg-white text-center py-2">Extracting data from PDF...</div>
+                                    </>) : null}</div>
 
                                     <div className='mb-4'>
                                         <label className='text-gray-600 text-sm mb-2 block'>Job Position</label>
