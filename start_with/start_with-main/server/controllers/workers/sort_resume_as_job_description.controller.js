@@ -262,7 +262,7 @@ Your job: Evaluate how well a candidate's resume matches a given job description
 
 Analyze these inputs carefully:
 
----JOB POSOTION---
+---JOB POSITION---
 ${jobPosition}
 
 --- JOB DESCRIPTION ---
@@ -280,7 +280,7 @@ ${JSON.stringify(dynamicData)}
 
 Now determine the candidate's suitability with very high accuracy.
 
-If the job position does not patch with the job that candidate has applied for, mark the candidate as Unqualified with a score of 0, if not proceed to evaluate the resume against the job description.
+<strong>If the JOB POSITION does not match with the job that candidate has applied for (you will most likely find applied job position in CANDIDATE DETAILS), then mark the candidate as Unqualified with a score of 0 immediately even if the candidate is otherwise qualified, if not proceed to evaluate the resume against the job description.</strong>
 
 Also give a small review comment (2-3 sentences) on why you rated the candidate that way.
 Give 9-10 questions that you would ask the candidate in an interview based on their resume and the job description.

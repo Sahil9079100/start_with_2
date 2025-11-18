@@ -113,6 +113,8 @@ const ProfileHr = () => {
     const [isSheadule, setIsSheadule] = useState(false);
     const [questionsWindow, setQuestionsWindow] = useState(false);
     const [impquestionsWindow, setImpQuestionsWindow] = useState(false);
+    const [questionsArray, setQuestionsArray] = useState([]);
+    const [impQuestionsArray, setImpQuestionsArray] = useState([]);
     const [pdfDataExtractLoading, setPdfDataExtractLoading] = useState(false);
 
     // Selected candidates (for sending invites). Stores candidate IDs that are selected by the user.
@@ -2034,6 +2036,8 @@ const ProfileHr = () => {
                                                                 setCurrentcandidateResumeDetailsID(interview._id);
                                                                 setCandidateResumeDetailsWindow(true);
                                                             }
+                                                            console.log(interview?.aiQuestions)
+                                                            setQuestionsArray(interview?.aiQuestions || interview.dynamicData?.Questions || []);
                                                         }}
                                                             className='relative w-full flex max-h-8  pr-[130px] mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr- rounded-sm justify-center items-center flex-nowrap text-black text-lg'>
                                                             {/* <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'></div> */}
@@ -2120,7 +2124,7 @@ const ProfileHr = () => {
                                                                             <div className='space-y-1'>
                                                                                 <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Note</div>
                                                                                 <div className='text-sm leading-relaxed text-black'>
-                                                                                    {interview.resumeSumary || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
+                                                                                    {interview.aiReviewComment || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
                                                                                 </div>
                                                                                 <div className='flex flex-col gap-2 mt-2'>
                                                                                     <div className='flex items-center gap-2 text-sm text-black/80'>
@@ -2133,17 +2137,19 @@ const ProfileHr = () => {
                                                                             </div>
                                                                         </div>
 
+
                                                                         <div className='flex flex-col gap-3 mb-3'>
                                                                             <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
                                                                             <div className='flex flex-wrap gap-3'>
-                                                                                <div onClick={() => { setQuestionsWindow(true) }} className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
-                                                                                    {(interview.dynamicData?.questions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
+                                                                                <div onClick={() => { setQuestionsWindow(true); console.log(interview?.aiQuestions) }} className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                    {(interview?.aiQuestions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
                                                                                 </div>
-                                                                                <div className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
-                                                                                    {(interview.dynamicData?.importantQuestions?.length || interview.dynamicData?.ImportantQuestions?.length || 0)} Important Question
+                                                                                <div onClick={() => { setImpQuestionsWindow(true); setImpQuestionsArray(interview?.aiImportantQuestions || interview.dynamicData?.ImportantQuestions || []) }} className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                    {(interview?.aiImportantQuestions?.length || interview.dynamicData?.ImportantQuestions?.length || 0)} Important Question
                                                                                 </div>
                                                                             </div>
                                                                         </div>
+
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -2408,11 +2414,58 @@ const ProfileHr = () => {
                         </div>}
 
 
-                    {/* <div className='QUESTIONS WINDOW absolute flex justify-center items-center w-full h-full'>
-                        <div onClick={() => setQuestionsWindow(false)} className="hover:cursor-pointer bg-yellow-500 w-fit h-fit p-2">
-                            Close Questions Window
+                    {questionsWindow &&
+                        <div className='QUESTIONS WINDOW absolute flex justify-center items-center w-full h-full z-30'>
+                            <div className="bg-gray-300/80 backdrop-blur-[6px] min-w-[50%] h-fit p-2 rounded-sm">
+                                <div className="flex justify-between items-center font-semibold">
+                                    <div className="ml-2 text-xl">Questions</div>
+                                    <div onClick={() => setQuestionsWindow(false)} className="bg-red-700 text-white px-2 py-1 rounded-md hover:cursor-pointer">Close</div>
+                                </div>
+                                <hr className='border border-black/30 mt-2' />
+                                <div className="flex text-lg flex-col gap-3 p-4 max-w-[1200px]  bg-rd-300 max-h-[400px] overflow-y-scroll scroll">
+                                    {questionsArray.length === 0 ? (<div className="text-center bg-yellow-300 text-lg text-gray-700">No important questions available.</div>
+                                    ) : (<>
+                                        {questionsArray.map((list, idx) => {
+                                            console.log(list)
+                                            return (
+                                                <div key={idx}>
+                                                    Q{idx + 1}. {list}
+                                                </div>
+                                            )
+                                        })
+                                        }
+                                    </>)}
+                                </div>
+                            </div>
+
                         </div>
-                    </div> */}
+                    }
+
+                    {impquestionsWindow &&
+                        <div className='QUESTIONS WINDOW absolute flex justify-center items-center w-full h-full'>
+                            <div className="bg-gray-300/60 backdrop-blur-[6px] min-w-[50%] h-fit p-2 rounded-sm">
+                                <div className="flex justify-between items-center font-semibold">
+                                    <div className="ml-2 text-xl">Important Questions</div>
+                                    <div onClick={() => setImpQuestionsWindow(false)} className="bg-red-700 text-white px-2 py-1 rounded-md hover:cursor-pointer">Close</div>
+                                </div>
+                                <hr className='border border-black/30 mt-2' />
+                                <div className="flex text-xl flex-col gap-3 p-4 max-w-[1200px] max-h-[400px] overflow-y-scroll scroll">
+                                    {impQuestionsArray.length === 0 ? (<div className="text-center text-lg text-gray-700">No important questions available.</div>
+                                    ) : (<>
+                                        {impQuestionsArray.map((list, idx) => {
+                                            return (
+                                                <div key={idx}>
+                                                    Q{idx + 1}. {list}
+                                                </div>
+                                            )
+                                        })
+                                        }
+                                    </>)}
+                                </div>
+                            </div>
+
+                        </div>
+                    }
 
                 </div >
             </>) : (<>
