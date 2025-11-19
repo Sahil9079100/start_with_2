@@ -437,6 +437,7 @@ const ProfileHr = () => {
 
     async function getSheetsNames() {
         try {
+            console.log("Fetching Google Sheets names...");
             const response = await API.get('/api/google/get-sheets-names');
             console.log(response.data);
             setSheetsName(response.data)
@@ -1173,8 +1174,11 @@ const ProfileHr = () => {
                                             /> */}
                                             <select
                                                 name='candidateSheetId'
-                                                required
+                                                // required
                                                 value={interviewForm.candidateSheetId}
+                                                onClick={() => { getSheetsNames(); }}
+                                                onFocus={() => { getSheetsNames(); }}
+                                                onMouseDown={() => { getSheetsNames(); }}
                                                 onChange={(e) => {
                                                     handleInterviewChange(e);
                                                     if (formErrors.candidateSheetId) {
@@ -2122,7 +2126,7 @@ const ProfileHr = () => {
                                                                             </div>
 
                                                                             <div className='space-y-1'>
-                                                                                <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Note</div>
+                                                                                <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Review</div>
                                                                                 <div className='text-sm leading-relaxed text-black'>
                                                                                     {interview.aiReviewComment || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
                                                                                 </div>
@@ -2423,7 +2427,7 @@ const ProfileHr = () => {
                                 </div>
                                 <hr className='border border-black/30 mt-2' />
                                 <div className="flex text-lg flex-col gap-3 p-4 max-w-[1200px]  bg-rd-300 max-h-[400px] overflow-y-scroll scroll">
-                                    {questionsArray.length === 0 ? (<div className="text-center bg-yellow-300 text-lg text-gray-700">No important questions available.</div>
+                                    {questionsArray.length === 0 ? (<div className="text-center text-lg text-gray-700">No important questions available.</div>
                                     ) : (<>
                                         {questionsArray.map((list, idx) => {
                                             console.log(list)

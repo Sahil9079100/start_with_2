@@ -19,7 +19,7 @@ function App() {
                 <Route path="/p/o/:id" element={<ProfileHr />} />
                 {/* <Route path="/p/:id" element={<UpdatedProfile />} /> */}
                 <Route path="/integrations" element={<GIntegrationSuccess />} />
-                <Route path="/" element={<MainPage />} />
+            <Route path="/" element={<MainPage />} />
 
             </Routes>
         </Router>
