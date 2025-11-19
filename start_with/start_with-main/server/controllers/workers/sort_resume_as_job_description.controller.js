@@ -117,14 +117,14 @@ export const sort_resume_as_job_description = async (interviewId) => {
                 jobminimumskillsrequired
             });
 
-            if (aiResult?.matchScore && aiResult?.matchLevel) {
-                candidate.matchScore = aiResult.matchScore;
-                candidate.matchLevel = aiResult.matchLevel;
-                candidate.aiReviewComment = aiResult.error ? "" : aiResult.reviewComment || "";
-                candidate.aiQuestions = aiResult.error ? [] : aiResult.questions || [];
-                candidate.aiImportantQuestions = aiResult.error ? [] : aiResult.importantQuestions || [];
-                await candidate.save();
-            }
+            // if (aiResult?.matchScore && aiResult?.matchLevel) {
+            candidate.matchScore = aiResult?.matchScore;
+            candidate.matchLevel = aiResult?.matchLevel;
+            candidate.aiReviewComment = aiResult.error ? "" : aiResult?.reviewComment || "";
+            candidate.aiQuestions = aiResult.error ? [] : aiResult?.questions || [];
+            candidate.aiImportantQuestions = aiResult.error ? [] : aiResult?.importantQuestions || [];
+            await candidate.save();
+            // }
 
             console.log(
                 `Candidate ${candidate._id} → ${aiResult.matchLevel} (${aiResult.matchScore})`

@@ -1,7 +1,7 @@
 // src/socket/socket.js
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_API_BASE_URL || "https://37d8bbfe437c.ngrok-free.app";
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL || "https://3a9a33cf9829.ngrok-free.app";
 // console.log("Connecting to SOCKET_URL:", SOCKET_URL);
 const socket = io(SOCKET_URL, {
     withCredentials: true,

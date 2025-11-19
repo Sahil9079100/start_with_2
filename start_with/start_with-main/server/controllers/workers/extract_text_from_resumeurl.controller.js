@@ -2,6 +2,7 @@ import { Interview } from "../../models/Interview.model.js";
 import { Candidate } from "../../models/Candidate.model.js";
 
 import axios from "axios";
+import FormData from "form-data";
 import { google } from "googleapis";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
@@ -118,6 +119,41 @@ export async function TextExtractor(resumeUrl, ownerId) {
         console.log("Extracting text from resume URL:", resumeUrl);
         let pdfBuffer;
 
+        // Helper: OCR fallback using external service (accepts only raw PDF)
+        const ocrExtract = async () => {
+            console.log("IN THE OCR")
+            const endpoint = process.env.OCR_SERVICE_URL || "https://ocr.startwith.live/ocr";
+            try {
+                // If we have the PDF buffer (e.g., Drive files), try sending raw PDF
+                if (pdfBuffer && Buffer.isBuffer(pdfBuffer)) {
+                    try {
+                        const form = new FormData();
+                        form.append("file", pdfBuffer, { filename: "resume.pdf", contentType: "application/pdf" });
+
+                        const { data } = await axios.post(endpoint, form, {
+                            headers: {
+                                ...form.getHeaders(),
+                            },
+                            timeout: 90000,
+                            maxBodyLength: Infinity,
+                            maxContentLength: Infinity,
+                        });
+                        if (data && typeof data.text === "string" && data.text.trim().length > 0) {
+                            console.log("OCR (via PDF buffer) succeeded, extracted chars:", data.text.length);
+                            return data.text;
+                        }
+                    } catch (err) {
+                        console.warn("OCR via PDF buffer failed:", err?.message || err);
+                    }
+                }
+                // No buffer available; cannot run OCR without a raw PDF
+                return "";
+            } catch (err) {
+                console.error("OCR extract error:", err?.message || err);
+                return "";
+            }
+        };
+
         // Helper: extract Google Drive fileId from various link formats
         const extractDriveFileId = (url) => {
             try {
@@ -163,18 +199,30 @@ export async function TextExtractor(resumeUrl, ownerId) {
             pdfBuffer = Buffer.from(response.data);
         }
         else {
-            throw new Error("Unsupported resume URL format");
+            // Not a Drive link or a direct PDF. Cannot OCR without a raw PDF buffer.
+            console.warn("Unsupported resume URL format for pdf-parse and OCR (expects raw PDF):", resumeUrl);
+            return "";
         }
 
         // console.log("PDF buffer fetched, length:", pdfBuffer);
         // Extract text from PDF
-        const pdfData = await pdfParse(pdfBuffer);
-        // console.log("PDF data:", pdfData);
-        // console.log("PDF data:", pdfData.text);
-        return pdfData.text || "";
+        try {
+            const pdfData = await pdfParse(pdfBuffer);
+            const parsed = pdfData?.text || "";
+            if (parsed && parsed.trim().length >= 20) {
+                return parsed;
+            }
+            console.warn("pdf-parse returned empty/short text. Falling back to OCR...");
+            // const ocrText = await ocrExtract();
+            return ocrText || parsed || "";
+        } catch (parseErr) {
+            console.warn("pdf-parse threw an error. Falling back to OCR...", parseErr?.message || parseErr);
+            // const ocrText = await ocrExtract();
+            return ocrText || "";
+        }
     } catch (err) {
-        console.error("Error in TextExtractor:", err.message);
-        console.error("Error in TextExtractor:", err);
+        console.error("Error in TextExtractor:", err?.message || err);
+        // No URL-based OCR fallback; service accepts only raw PDF
         return "";
     }
 }
