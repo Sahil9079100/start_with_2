@@ -118,7 +118,7 @@ export const sort_resume_as_job_description = async (interviewId) => {
             });
 
             // if (aiResult?.matchScore && aiResult?.matchLevel) {
-            candidate.matchScore = aiResult?.matchScore;
+            candidate.matchScore = aiResult?.matchScore || null;
             candidate.matchLevel = aiResult?.matchLevel;
             candidate.aiReviewComment = aiResult.error ? "" : aiResult?.reviewComment || "";
             candidate.aiQuestions = aiResult.error ? [] : aiResult?.questions || [];
