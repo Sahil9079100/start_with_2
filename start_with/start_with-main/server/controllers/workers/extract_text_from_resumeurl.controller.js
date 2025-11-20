@@ -134,39 +134,61 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
                         // The OCR service expects the file field name to be 'pdf' (upload.single('pdf'))
                         form.append("pdf", pdfBuffer, { filename: "resume.pdf", contentType: "application/pdf" });
 
-                        const resp = await axios.post(endpoint, form, {
-                            headers: {
-                                ...form.getHeaders(),
-                            },
-                            timeout: 90000,
-                            maxBodyLength: Infinity,
-                            maxContentLength: Infinity,
+                        // Defensive: listen for form stream errors so they don't become unhandled 'error' events
+                        form.on && form.on("error", (err) => {
+                            console.warn("FormData stream error before upload:", err?.message || err);
                         });
 
-                        const data = resp?.data || {};
-                        let extracted = "";
+                        // Allow longer OCR uploads; configurable via env
+                        const OCR_UPLOAD_TIMEOUT_MS = parseInt(process.env.OCR_UPLOAD_TIMEOUT_MS) || 300000; // 5 minutes
+                        const maxAttempts = 2; // number of upload attempts
+                        let lastErr;
+                        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                            try {
+                                const resp = await axios.post(endpoint, form, {
+                                    headers: {
+                                        ...form.getHeaders(),
+                                    },
+                                    timeout: OCR_UPLOAD_TIMEOUT_MS,
+                                    maxBodyLength: Infinity,
+                                    maxContentLength: Infinity,
+                                });
 
-                        // Preferred: top-level extractedText when success is true
-                        if (data.success && typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
-                            extracted = data.extractedText;
-                        }
-                        // Fallback: pages array
-                        else if (Array.isArray(data.pages) && data.pages.length > 0) {
-                            extracted = data.pages.map(p => (p && p.text) ? p.text : "").join("\n\n--- Page Break ---\n\n");
-                        }
-                        // Older shape: text
-                        else if (typeof data.text === "string" && data.text.trim().length > 0) {
-                            extracted = data.text;
-                        }
-                        // older/external field
-                        else if (typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
-                            extracted = data.extractedText;
-                        }
+                                const data = resp?.data || {};
+                                let extracted = "";
 
-                        if (extracted && extracted.trim().length > 0) {
-                            console.log("OCR (via PDF buffer) succeeded, extracted chars:", extracted.length, "pages:", data.totalPages || (data.pages && data.pages.length) || 0);
-                            return extracted;
+                                // Preferred: top-level extractedText when success is true
+                                if (data.success && typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
+                                    extracted = data.extractedText;
+                                }
+                                // Fallback: pages array
+                                else if (Array.isArray(data.pages) && data.pages.length > 0) {
+                                    extracted = data.pages.map(p => (p && p.text) ? p.text : "").join("\n\n--- Page Break ---\n\n");
+                                }
+                                // Older shape: text
+                                else if (typeof data.text === "string" && data.text.trim().length > 0) {
+                                    extracted = data.text;
+                                }
+                                // older/external field
+                                else if (typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
+                                    extracted = data.extractedText;
+                                }
+
+                                if (extracted && extracted.trim().length > 0) {
+                                    console.log("OCR (via PDF buffer) succeeded, extracted chars:", extracted.length, "pages:", data.totalPages || (data.pages && data.pages.length) || 0);
+                                    return extracted;
+                                }
+
+                                // no extracted text, set lastErr and maybe retry
+                                lastErr = new Error("OCR returned empty response");
+                            } catch (err) {
+                                lastErr = err;
+                                console.warn(`OCR via PDF buffer attempt ${attempt} failed:`, err?.message || err);
+                                // small backoff before retrying
+                                if (attempt < maxAttempts) await _sleep(1000 * attempt);
+                            }
                         }
+                        if (lastErr) throw lastErr;
                     } catch (err) {
                         console.warn("OCR via PDF buffer failed:", err?.message || err);
                     }
