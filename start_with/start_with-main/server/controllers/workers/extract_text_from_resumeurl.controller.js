@@ -109,7 +109,7 @@ export const extract_text_from_resumeurl = async (interviewId) => {
 };
 
 
-export async function TextExtractor(resumeUrl, ownerId) {
+export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
     try {
         // const pdfParse = (await import("pdf-parse")).default || (await import("pdf-parse"));
         const { default: pdfParse } = await import("pdf-parse");
@@ -119,7 +119,10 @@ export async function TextExtractor(resumeUrl, ownerId) {
         console.log("Extracting text from resume URL:", resumeUrl);
         let pdfBuffer;
 
-        // Helper: OCR fallback using external service (accepts only raw PDF)
+    // small sleep helper for retries
+    const _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // Helper: OCR fallback using external service (accepts only raw PDF)
         const ocrExtract = async () => {
             console.log("IN THE OCR")
             const endpoint = process.env.OCR_SERVICE_URL || "https://ocr.startwith.live/ocr";
@@ -128,9 +131,10 @@ export async function TextExtractor(resumeUrl, ownerId) {
                 if (pdfBuffer && Buffer.isBuffer(pdfBuffer)) {
                     try {
                         const form = new FormData();
-                        form.append("file", pdfBuffer, { filename: "resume.pdf", contentType: "application/pdf" });
+                        // The OCR service expects the file field name to be 'pdf' (upload.single('pdf'))
+                        form.append("pdf", pdfBuffer, { filename: "resume.pdf", contentType: "application/pdf" });
 
-                        const { data } = await axios.post(endpoint, form, {
+                        const resp = await axios.post(endpoint, form, {
                             headers: {
                                 ...form.getHeaders(),
                             },
@@ -138,9 +142,30 @@ export async function TextExtractor(resumeUrl, ownerId) {
                             maxBodyLength: Infinity,
                             maxContentLength: Infinity,
                         });
-                        if (data && typeof data.text === "string" && data.text.trim().length > 0) {
-                            console.log("OCR (via PDF buffer) succeeded, extracted chars:", data.text.length);
-                            return data.text;
+
+                        const data = resp?.data || {};
+                        let extracted = "";
+
+                        // Preferred: top-level extractedText when success is true
+                        if (data.success && typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
+                            extracted = data.extractedText;
+                        }
+                        // Fallback: pages array
+                        else if (Array.isArray(data.pages) && data.pages.length > 0) {
+                            extracted = data.pages.map(p => (p && p.text) ? p.text : "").join("\n\n--- Page Break ---\n\n");
+                        }
+                        // Older shape: text
+                        else if (typeof data.text === "string" && data.text.trim().length > 0) {
+                            extracted = data.text;
+                        }
+                        // older/external field
+                        else if (typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
+                            extracted = data.extractedText;
+                        }
+
+                        if (extracted && extracted.trim().length > 0) {
+                            console.log("OCR (via PDF buffer) succeeded, extracted chars:", extracted.length, "pages:", data.totalPages || (data.pages && data.pages.length) || 0);
+                            return extracted;
                         }
                     } catch (err) {
                         console.warn("OCR via PDF buffer failed:", err?.message || err);
@@ -213,16 +238,24 @@ export async function TextExtractor(resumeUrl, ownerId) {
                 return parsed;
             }
             console.warn("pdf-parse returned empty/short text. Falling back to OCR...");
-            // const ocrText = await ocrExtract();
+            const ocrText = await ocrExtract();
             return ocrText || parsed || "";
         } catch (parseErr) {
             console.warn("pdf-parse threw an error. Falling back to OCR...", parseErr?.message || parseErr);
-            // const ocrText = await ocrExtract();
+            const ocrText = await ocrExtract();
             return ocrText || "";
         }
     } catch (err) {
         console.error("Error in TextExtractor:", err?.message || err);
-        // No URL-based OCR fallback; service accepts only raw PDF
+        if (retries > 0) {
+            console.warn(`TextExtractor failed, will retry ${retries} more time(s) after delay...`);
+            // small backoff: 1s -> 2s -> 4s
+            const delay = 1000 * Math.pow(2, (3 - retries));
+            await _sleep(delay);
+            return TextExtractor(resumeUrl, ownerId, retries - 1);
+        }
+        // exhausted retries
+        console.error("TextExtractor: all retries exhausted. Returning empty string.");
         return "";
     }
 }

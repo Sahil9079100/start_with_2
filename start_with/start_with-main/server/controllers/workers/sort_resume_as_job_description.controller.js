@@ -112,19 +112,19 @@ export const sort_resume_as_job_description = async (interviewId) => {
                 jobPosition: interview.jobPosition,
                 jobDescription,
                 resumeSummary: candidate.resumeSummary,
-                dynamicData: interview.dynamicData,
+                dynamicData: candidate.dynamicData,
                 jobminimumqualifications,
                 jobminimumskillsrequired
             });
 
             // if (aiResult?.matchScore && aiResult?.matchLevel) {
-            candidate.matchScore = aiResult?.matchScore || null;
+            // Preserve numeric 0 as a valid score. Use nullish coalescing so 0 is not treated as falsy.
+            candidate.matchScore = aiResult?.matchScore ?? null;
             candidate.matchLevel = aiResult?.matchLevel;
             candidate.aiReviewComment = aiResult.error ? "" : aiResult?.reviewComment || "";
             candidate.aiQuestions = aiResult.error ? [] : aiResult?.questions || [];
             candidate.aiImportantQuestions = aiResult.error ? [] : aiResult?.importantQuestions || [];
             await candidate.save();
-            // }
 
             console.log(
                 `Candidate ${candidate._id} → ${aiResult.matchLevel} (${aiResult.matchScore})`
@@ -278,9 +278,22 @@ ${resumeSummary}
 --- CANDIDATE DETAILS ---
 ${JSON.stringify(dynamicData)}
 
-Now determine the candidate's suitability with very high accuracy.
+<strong>
+If the JOB POSITION does not match with the job that candidate has applied for (you will most likely find applied job position in CANDIDATE DETAILS), then mark the candidate as Unqualified with a score of 0 immediately even if the candidate is otherwise qualified, if not proceed to evaluate the resume against the job description.
+Before evaluating, first check if the JOB POSITION matches the applied job position in CANDIDATE DETAILS.
+If the JOB POSITION does not match, respond with the following JSON:
+\`\`\`json
+{
+  "matchLevel": "Unqualified",
+  "matchScore": 0,
+    "reviewComment": "string providing nice review comment",
+    "questions": [],
+    "importantQuestions": []
+}
+\`\`\`
+</strong>
 
-<strong>If the JOB POSITION does not match with the job that candidate has applied for (you will most likely find applied job position in CANDIDATE DETAILS), then mark the candidate as Unqualified with a score of 0 immediately even if the candidate is otherwise qualified, if not proceed to evaluate the resume against the job description.</strong>
+Now determine the candidate's suitability with very high accuracy.
 
 Also give a small review comment (2-3 sentences) on why you rated the candidate that way.
 Give 9-10 questions that you would ask the candidate in an interview based on their resume and the job description.
@@ -308,6 +321,8 @@ Important:
 - Be consistent — identical resumes  identical scores.
 `;
 
+        // console.log("Prompt to AI:", prompt);
+
         const result = await model.generateContent(prompt);
         const text = result.response.text();
 
@@ -316,7 +331,7 @@ Important:
 
         const parsed = JSON.parse(jsonText);
 
-        console.log("Teh AI output: ", parsed)
+        // console.log("Teh AI output: ", parsed)
         if (
             !parsed.matchLevel ||
             typeof parsed.matchScore !== "number" ||
