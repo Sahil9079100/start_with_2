@@ -7,12 +7,41 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { pdf } from "pdf-to-img";
-import { createWorker } from "tesseract.js";
+import Tesseract from "tesseract.js";
 import { google } from "googleapis";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import { sort_resume_as_job_description } from "./sort_resume_as_job_description.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
+
+// Simple in-process semaphore to limit concurrent OCR tasks (keeps CPU/memory in check on hosts)
+const OCR_CONCURRENCY = Number(process.env.OCR_CONCURRENCY || 1);
+const createSemaphore = (limit) => {
+    let active = 0;
+    const queue = [];
+    const run = (fn) => new Promise((resolve, reject) => {
+        const task = async () => {
+            active++;
+            try {
+                const res = await fn();
+                resolve(res);
+            } catch (err) {
+                reject(err);
+            } finally {
+                active--;
+                if (queue.length) {
+                    const next = queue.shift();
+                    // schedule next to avoid deep recursion
+                    setImmediate(next);
+                }
+            }
+        };
+        if (active < limit) task();
+        else queue.push(task);
+    });
+    return { run };
+};
+const ocrSemaphore = createSemaphore(OCR_CONCURRENCY);
 
 export const extract_text_from_resumeurl = async (interviewId) => {
     try {
@@ -138,12 +167,6 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
             try {
                 await fs.promises.writeFile(tmpPath, pdfBuffer);
 
-                // create tesseract worker (do NOT pass functions like logger - they can't be cloned across worker threads on some Node hosts)
-                worker = createWorker();
-                await worker.load();
-                await worker.loadLanguage("eng");
-                await worker.initialize("eng");
-
                 const pagesText = [];
                 let pageNumber = 1;
 
@@ -153,17 +176,15 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
                 try {
                     for await (const imageBuffer of document) {
                         console.log(`Processing OCR page ${pageNumber}...`);
-                        const { data: { text, confidence } } = await worker.recognize(imageBuffer);
-                        pagesText.push({ page: pageNumber, text: text.trim(), confidence: Number((confidence || 0).toFixed ? confidence.toFixed(2) : confidence) });
+                        const { data } = await Tesseract.recognize(imageBuffer, "eng");
+                        const text = data?.text || "";
+                        const confidence = data?.confidence || 0;
+                        pagesText.push({ page: pageNumber, text: text.trim(), confidence: Number(confidence) });
                         console.log(`Page ${pageNumber} OCR done – Confidence: ${confidence}`);
                         pageNumber++;
                     }
                 } catch (pdfErr) {
                     console.warn(`PDF->image conversion/iteration stopped at page ${pageNumber}:`, pdfErr?.message || pdfErr);
-                }
-
-                if (worker) {
-                    try { await worker.terminate(); } catch (e) { console.warn('Error terminating tesseract worker:', e?.message || e); }
                 }
 
                 if (!pagesText.length) {
@@ -245,11 +266,11 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
                 return parsed;
             }
             console.warn("pdf-parse returned empty/short text. Falling back to OCR...");
-            const ocrText = await ocrExtract();
+            const ocrText = await ocrSemaphore.run(() => ocrExtract());
             return ocrText || parsed || "";
         } catch (parseErr) {
             console.warn("pdf-parse threw an error. Falling back to OCR...", parseErr?.message || parseErr);
-            const ocrText = await ocrExtract();
+            const ocrText = await ocrSemaphore.run(() => ocrExtract());
             return ocrText || "";
         }
     } catch (err) {
