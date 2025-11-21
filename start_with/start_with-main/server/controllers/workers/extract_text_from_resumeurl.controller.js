@@ -138,8 +138,8 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
             try {
                 await fs.promises.writeFile(tmpPath, pdfBuffer);
 
-                // create tesseract worker
-                worker = await createWorker({ logger: (m) => console.log("TESSERACT:", m) });
+                // create tesseract worker (do NOT pass functions like logger - they can't be cloned across worker threads on some Node hosts)
+                worker = createWorker();
                 await worker.load();
                 await worker.loadLanguage("eng");
                 await worker.initialize("eng");
