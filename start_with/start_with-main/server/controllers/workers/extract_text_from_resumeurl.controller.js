@@ -16,6 +16,8 @@ import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 
 // Simple in-process semaphore to limit concurrent OCR tasks (keeps CPU/memory in check on hosts)
 const OCR_CONCURRENCY = Number(process.env.OCR_CONCURRENCY || 1);
+// Image rasterization scale for pdf->image conversion. Lower this to reduce memory usage.
+const OCR_IMAGE_SCALE = Number(process.env.OCR_IMAGE_SCALE || 2);
 const createSemaphore = (limit) => {
     let active = 0;
     const queue = [];
@@ -171,17 +173,43 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
                 let pageNumber = 1;
 
                 // Convert PDF -> images (pdf-to-img returns an async iterable of image buffers)
-                const document = await pdf(tmpPath, { scale: 3.5 });
+                // Try conversion; if the PDF structure is invalid, attempt a lightweight repair
+                let document;
+                try {
+                    document = await pdf(tmpPath, { scale: OCR_IMAGE_SCALE });
+                } catch (convErr) {
+                    console.warn("PDF->image conversion failed, attempting to repair PDF and retry:", convErr?.message || convErr);
+                    // Attempt to repair the PDF by reserializing it via pdf-lib (may fix structure issues)
+                    try {
+                        const { PDFDocument } = await import('pdf-lib');
+                        const repaired = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+                        const repairedBytes = await repaired.save();
+                        await fs.promises.writeFile(tmpPath, repairedBytes);
+                        // retry conversion with repaired file
+                        document = await pdf(tmpPath, { scale: OCR_IMAGE_SCALE });
+                        console.log("PDF repair + retry succeeded.");
+                    } catch (repairErr) {
+                        console.error("PDF repair attempt failed:", repairErr?.message || repairErr);
+                        throw convErr; // rethrow original conversion error
+                    }
+                }
 
                 try {
-                    for await (const imageBuffer of document) {
+                    for await (let imageBuffer of document) {
                         console.log(`Processing OCR page ${pageNumber}...`);
                         const { data } = await Tesseract.recognize(imageBuffer, "eng");
                         const text = data?.text || "";
                         const confidence = data?.confidence || 0;
                         pagesText.push({ page: pageNumber, text: text.trim(), confidence: Number(confidence) });
                         console.log(`Page ${pageNumber} OCR done – Confidence: ${confidence}`);
+                        // release reference to the large image buffer to allow GC to reclaim memory
+                        imageBuffer = null;
                         pageNumber++;
+                        // cooperative yield so GC can run sooner on some runtimes
+                        await new Promise((r) => setImmediate(r));
+                        if (global && typeof global.gc === 'function') {
+                            try { global.gc(); } catch (e) { /* ignore if not permitted */ }
+                        }
                     }
                 } catch (pdfErr) {
                     console.warn(`PDF->image conversion/iteration stopped at page ${pageNumber}:`, pdfErr?.message || pdfErr);
