@@ -518,12 +518,13 @@ const ProfileHr = () => {
                 interviewId: interviewDetails._id,
                 ...scheduleForm
             };
+            // console.log()
             console.log("Scheduling interview with payload:", payload);
             const response = await API.post('/api/owner/schedule/interview', payload);
             console.log("Interview scheduled successfully:", response.data);
+            setIsSheadule(true);
             setInterviewSheduleLoading(false);
             setInterviewSheduleWindow(false);
-            setIsSheadule(true);
         }
         catch (error) {
             console.log("Error scheduling interview:", error);
@@ -787,6 +788,7 @@ const ProfileHr = () => {
             } else {
                 setResumeCollectedLiveCount(0);
             }
+            setIsSheadule(interviewDetails.isSheduled || false);
         } else {
             console.log('interviewDetails cleared');
             // Clear combined logs when no interview is selected
@@ -1987,21 +1989,23 @@ const ProfileHr = () => {
                                         Reviewed Candidate
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>Candidate Resume Reviewed</div>
                                     </div>
-                                    {isSheadule == true ? (<>
-                                        <div className='flex items-center gap-2 mr-10'>
-                                            <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate_EmailPanel') }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[50ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
-                                                <span className='transition-all duration-[40ms] ease-in-out'>Email Panel</span>
-                                                <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
-                                                    <IoIosSend />
+                                    {console.log("UU", interviewDetails.isSheduled)}
+                                    {isSheadule == true ? (
+                                        <>
+                                            <div className='flex items-center gap-2 mr-10'>
+                                                <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate_EmailPanel') }} className='group flex bg-white border hover:bg-black hover:text-white transition-all duration-[50ms] ease-in-out border-black text-black text-[16px] rounded-full px-4 py-[5px] font-medium hover:cursor-pointer overflow-hidden'>
+                                                    <span className='transition-all duration-[40ms] ease-in-out'>Email Panel</span>
+                                                    <div className='ml-0 text-[20px] flex justify-center items-center max-w-0 opacity-0 group-hover:max-w-[24px] group-hover:ml-2 group-hover:opacity-100 transition-all duration-[300ms] ease-in-out'>
+                                                        <IoIosSend />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </>) : (<>
-                                        <div className='flex items-center gap-2 mr-10'>
-                                            <div onClick={() => { setInterviewSheduleWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Schedule Interview</div>
+                                        </>) : (<>
+                                            <div className='flex items-center gap-2 mr-10'>
+                                                <div onClick={() => { setInterviewSheduleWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Schedule Interview</div>
 
-                                        </div>
-                                    </>)}
+                                            </div>
+                                        </>)}
                                 </div>
 
                                 <div className='w-full text-gray-400 text-[14px] pr-[130px]'>

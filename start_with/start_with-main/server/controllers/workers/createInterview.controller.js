@@ -67,7 +67,7 @@ export const createInterview = async (req, res) => {
 export const scheduleInterview = async (req, res) => {
     try {
         console.log("Schedule Interview called with body:", req.body);
-        const { interviewId, expiryDate, duration, questions } = req.body;
+        const { interviewId, expiryDate, duration, questions, language } = req.body;
 
         if (!interviewId) {
             return res.status(400).json({
@@ -82,8 +82,9 @@ export const scheduleInterview = async (req, res) => {
             message: "Interview not found"
         });
 
-
+        //launguage
         findInterview.questions = questions
+        findInterview.launguage = language
         findInterview.duration = duration
         findInterview.expiryDate = expiryDate
         findInterview.isSheduled = true

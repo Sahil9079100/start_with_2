@@ -8,7 +8,7 @@ export function initSocket(server) {
     console.log("In the socket", process.env.FRONTEND_URL)
     io = new Server(server, {
         cors: {
-            origin: [`${process.env.FRONTEND_URL}`, 'http://localhost:5173', 'https://3a9a33cf9829.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app'],
+            origin: [`${process.env.FRONTEND_URL}`, 'http://localhost:5173', 'https://60f01cb99d34.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app'],
             methods: ["GET", "POST"],
             credentials: true,
         },
