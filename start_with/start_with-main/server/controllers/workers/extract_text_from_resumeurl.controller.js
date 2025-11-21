@@ -3,6 +3,11 @@ import { Candidate } from "../../models/Candidate.model.js";
 
 import axios from "axios";
 import FormData from "form-data";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { pdf } from "pdf-to-img";
+import { createWorker } from "tesseract.js";
 import { google } from "googleapis";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
@@ -124,80 +129,60 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
 
     // Helper: OCR fallback using external service (accepts only raw PDF)
         const ocrExtract = async () => {
-            console.log("IN THE OCR")
-            const endpoint = process.env.OCR_SERVICE_URL || "https://ocr.startwith.live/ocr";
+            // Local OCR: write PDF buffer to temp file, convert pages to images, run tesseract
+            if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer)) return "";
+
+            const tmpName = `resume-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`;
+            const tmpPath = path.join(os.tmpdir(), tmpName);
+            let worker;
             try {
-                // If we have the PDF buffer (e.g., Drive files), try sending raw PDF
-                if (pdfBuffer && Buffer.isBuffer(pdfBuffer)) {
-                    try {
-                        const form = new FormData();
-                        // The OCR service expects the file field name to be 'pdf' (upload.single('pdf'))
-                        form.append("pdf", pdfBuffer, { filename: "resume.pdf", contentType: "application/pdf" });
+                await fs.promises.writeFile(tmpPath, pdfBuffer);
 
-                        // Defensive: listen for form stream errors so they don't become unhandled 'error' events
-                        form.on && form.on("error", (err) => {
-                            console.warn("FormData stream error before upload:", err?.message || err);
-                        });
+                // create tesseract worker
+                worker = await createWorker({ logger: (m) => console.log("TESSERACT:", m) });
+                await worker.load();
+                await worker.loadLanguage("eng");
+                await worker.initialize("eng");
 
-                        // Allow longer OCR uploads; configurable via env
-                        const OCR_UPLOAD_TIMEOUT_MS = parseInt(process.env.OCR_UPLOAD_TIMEOUT_MS) || 300000; // 5 minutes
-                        const maxAttempts = 2; // number of upload attempts
-                        let lastErr;
-                        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-                            try {
-                                const resp = await axios.post(endpoint, form, {
-                                    headers: {
-                                        ...form.getHeaders(),
-                                    },
-                                    timeout: OCR_UPLOAD_TIMEOUT_MS,
-                                    maxBodyLength: Infinity,
-                                    maxContentLength: Infinity,
-                                });
+                const pagesText = [];
+                let pageNumber = 1;
 
-                                const data = resp?.data || {};
-                                let extracted = "";
+                // Convert PDF -> images (pdf-to-img returns an async iterable of image buffers)
+                const document = await pdf(tmpPath, { scale: 3.5 });
 
-                                // Preferred: top-level extractedText when success is true
-                                if (data.success && typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
-                                    extracted = data.extractedText;
-                                }
-                                // Fallback: pages array
-                                else if (Array.isArray(data.pages) && data.pages.length > 0) {
-                                    extracted = data.pages.map(p => (p && p.text) ? p.text : "").join("\n\n--- Page Break ---\n\n");
-                                }
-                                // Older shape: text
-                                else if (typeof data.text === "string" && data.text.trim().length > 0) {
-                                    extracted = data.text;
-                                }
-                                // older/external field
-                                else if (typeof data.extractedText === "string" && data.extractedText.trim().length > 0) {
-                                    extracted = data.extractedText;
-                                }
-
-                                if (extracted && extracted.trim().length > 0) {
-                                    console.log("OCR (via PDF buffer) succeeded, extracted chars:", extracted.length, "pages:", data.totalPages || (data.pages && data.pages.length) || 0);
-                                    return extracted;
-                                }
-
-                                // no extracted text, set lastErr and maybe retry
-                                lastErr = new Error("OCR returned empty response");
-                            } catch (err) {
-                                lastErr = err;
-                                console.warn(`OCR via PDF buffer attempt ${attempt} failed:`, err?.message || err);
-                                // small backoff before retrying
-                                if (attempt < maxAttempts) await _sleep(1000 * attempt);
-                            }
-                        }
-                        if (lastErr) throw lastErr;
-                    } catch (err) {
-                        console.warn("OCR via PDF buffer failed:", err?.message || err);
+                try {
+                    for await (const imageBuffer of document) {
+                        console.log(`Processing OCR page ${pageNumber}...`);
+                        const { data: { text, confidence } } = await worker.recognize(imageBuffer);
+                        pagesText.push({ page: pageNumber, text: text.trim(), confidence: Number((confidence || 0).toFixed ? confidence.toFixed(2) : confidence) });
+                        console.log(`Page ${pageNumber} OCR done – Confidence: ${confidence}`);
+                        pageNumber++;
                     }
+                } catch (pdfErr) {
+                    console.warn(`PDF->image conversion/iteration stopped at page ${pageNumber}:`, pdfErr?.message || pdfErr);
                 }
-                // No buffer available; cannot run OCR without a raw PDF
-                return "";
+
+                if (worker) {
+                    try { await worker.terminate(); } catch (e) { console.warn('Error terminating tesseract worker:', e?.message || e); }
+                }
+
+                if (!pagesText.length) {
+                    throw new Error("No pages could be processed by OCR");
+                }
+
+                const fullText = pagesText.map(p => p.text).join("\n\n--- Page Break ---\n\n");
+                console.log(`Local OCR extracted ${fullText.length} chars from ${pagesText.length} pages`);
+
+                return fullText;
             } catch (err) {
-                console.error("OCR extract error:", err?.message || err);
+                console.error("Local OCR failed:", err?.message || err);
+                if (worker) {
+                    try { await worker.terminate(); } catch (e) { /* ignore */ }
+                }
                 return "";
+            } finally {
+                // cleanup temp file
+                fs.unlink(tmpPath, () => {});
             }
         };
 
