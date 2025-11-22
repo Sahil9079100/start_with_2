@@ -85,5 +85,5 @@ dbconnect()
 export const geminiAPI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.get("/", (req, res) => {
-    res.send("hello  Shail :)");
+    res.send("hello  Shail [UPDATED] :)");
 });

@@ -59,6 +59,8 @@ export const LoginOwner = async (req, res) => {
             return res.status(400).json({ message: "Owner with this email does not exist" });
         }
 
+        
+
         if (email !== 'rameshkumar.mali@educategirls.ngo') {
             const isPasswordValid = await bcrypt.compare(password, owner.password);
             if (!isPasswordValid) {
