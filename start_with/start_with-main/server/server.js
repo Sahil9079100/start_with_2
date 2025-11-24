@@ -48,7 +48,7 @@ const G3 = process.env.G3;
 app.use(express.json());
 app.use(cookieParser())
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3121', 'https://startwith.live', 'https://60f01cb99d34.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app','https://emailservice.startwith.live'],
+    origin: ['http://localhost:5173', 'https://backend.startwith.live','http://localhost:3121', 'https://startwith.live', 'https://60f01cb99d34.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app','https://emailservice.startwith.live'],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
 }))

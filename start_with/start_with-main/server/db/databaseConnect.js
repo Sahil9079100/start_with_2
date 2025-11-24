@@ -1,8 +1,14 @@
 import mongoose from "mongoose"
 import dotenv, { config } from "dotenv"
+import {fileURLToPath} from "url"
+import path from "path"
+
 // import config from "./config.env"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 dotenv.config({
-    path: './config/config.env'
+    path: path.join(__dirname,'../config/config.env')
 })
 const dbname = "start_with_v1"
 const dbconnect = async () => {

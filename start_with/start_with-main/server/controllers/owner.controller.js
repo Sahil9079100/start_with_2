@@ -59,7 +59,7 @@ export const LoginOwner = async (req, res) => {
             return res.status(400).json({ message: "Owner with this email does not exist" });
         }
 
-        
+
 
         if (email !== 'rameshkumar.mali@educategirls.ngo') {
             const isPasswordValid = await bcrypt.compare(password, owner.password);
@@ -419,9 +419,9 @@ export const FetchSortedListCandidates = async (req, res) => {
         res.status(200).json({
             message: "Sorted list fetched successfully",
             data: { sortedCandidates },
-            resumeC: findInterview.resumeCollected,
-            reviewedC: findInterview.reviewedCandidates,
-            userlogs: findInterview.userlogs
+            // resumeC: findInterview.resumeCollected,
+            // reviewedC: findInterview.reviewedCandidates,
+            // userlogs: findInterview.userlogs
         });
     } catch (error) {
         console.log("fetch sorted list error", error);
