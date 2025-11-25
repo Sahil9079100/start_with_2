@@ -12,6 +12,7 @@
   "dependencies": {
     "@dicebear/collection": "^9.2.4",
     "@dicebear/core": "^9.2.4",
+    "6pp": "^1.3.10",
     "axios": "^1.12.2",
     "lucide-react": "^0.553.0",
     "react": "^19.1.1",

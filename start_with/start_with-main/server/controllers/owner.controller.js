@@ -348,7 +348,7 @@ export const FetchAllInterviews = async (req, res) => {
 
         // Fetch paginated interviews
         const interviews = await Interview.find({ owner: ownerid })
-            .select('-questions')
+            .select(['-questions', '-logs', '-usercompleteintreviewemailandid'])
             .sort({ createdAt: -1 }) // Sort by newest first
             .skip(skip)
             .limit(limit);
@@ -359,6 +359,52 @@ export const FetchAllInterviews = async (req, res) => {
         res.status(200).json({
             message: "Interviews fetched successfully",
             data: interviews,
+            pagination: {
+                currentPage: page,
+                totalPages: totalPages,
+                totalInterviews: totalInterviews,
+                limit: limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            }
+        });
+    } catch (error) {
+        console.log("fetch all interviews error", error)
+        res.status(500).json({ message: "fetch all interviews error" })
+    }
+}
+
+export const FetchAllInterviewsResults = async (req, res) => {
+    try {
+        const { interviewid } = req.params;
+
+        // Get page and limit from query parameters, with defaults
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 15;
+        const skip = (page - 1) * limit;
+
+        // Find the interview and read its list of completed interview result IDs
+        const interview = await Interview.findById(interviewid).lean();
+        if (!interview) return res.status(404).json({ message: 'Interview not found' });
+
+        const completedEntries = Array.isArray(interview.usercompleteintreviewemailandid) ? interview.usercompleteintreviewemailandid : [];
+        const totalInterviews = completedEntries.length;
+
+        // Paginate the entries (they contain { email, intreviewid })
+        const pageEntries = completedEntries.slice(skip, skip + limit);
+
+        // Load the IntreviewResult documents for the current page in the same order
+        const interviewresult = await Promise.all(pageEntries.map(async (entry) => {
+            const resultDoc = await IntreviewResult.findById(entry.intreviewid).lean().select("-resumeText");
+            return { email: entry.email, interviewResult: resultDoc };
+        }));
+
+        // Calculate total pages
+        const totalPages = Math.ceil(totalInterviews / limit) || 1;
+
+        res.status(200).json({
+            message: "Interview result fetched successfully",
+            data: interviewresult,
             pagination: {
                 currentPage: page,
                 totalPages: totalPages,
@@ -410,7 +456,7 @@ export const DeleteInterviews = async (req, res) => {
 export const FetchSortedListCandidates = async (req, res) => {
     try {
         const interviewId = req.params.id;
-        const sortedCandidates = await Candidate.find({ interview: interviewId }).sort({ matchScore: -1 });
+        const sortedCandidates = await Candidate.find({ interview: interviewId }).sort({ matchScore: -1 }).select("-resumeSummary");
 
         const findInterview = await Interview.findById(interviewId);
         if (!findInterview) return res.status(404).json({ message: "Interview not found" });
@@ -419,9 +465,9 @@ export const FetchSortedListCandidates = async (req, res) => {
         res.status(200).json({
             message: "Sorted list fetched successfully",
             data: { sortedCandidates },
-            // resumeC: findInterview.resumeCollected,
-            // reviewedC: findInterview.reviewedCandidates,
-            // userlogs: findInterview.userlogs
+            resumeC: findInterview.resumeCollected,
+            reviewedC: findInterview.reviewedCandidates,
+            userlogs: findInterview.userlogs
         });
     } catch (error) {
         console.log("fetch sorted list error", error);

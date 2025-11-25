@@ -1,7 +1,7 @@
 // basic  routes for owner
 import express from "express";
 // import { LoginOwner, RegisterOwner, CreateCompany, getProfile, CreateRecruiter, CreateInterview } from "../controller/owner.controller.js";
-import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText } from "../controllers/owner.controller.js";
+import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults } from "../controllers/owner.controller.js";
 import { ownerTokenAuth } from "../middlewares/ownerTokenAuth.middleware.js";
 import { createInterview, scheduleInterview } from "../controllers/workers/createInterview.controller.js";
 import multer from "multer";
@@ -54,6 +54,8 @@ router.post("/owner/fetch/interviews", ownerTokenAuth, FetchAllInterviews);
 router.post("/owner/delete/interview", ownerTokenAuth, DeleteInterviews);
 router.get("/owner/fetch/interview/:id/sorted-list", ownerTokenAuth, FetchSortedListCandidates);
 router.get("/owner/fetch/interview/result/:id", ownerTokenAuth, FetchCandiateCompletedInterviewDetails);
+// Paginated fetch of interview results for a given interview id
+router.get("/owner/fetch/interviews/results/:interviewid", ownerTokenAuth, FetchAllInterviewsResults);
 router.get("/owner/get-skills-ai/:jobPosition", ownerTokenAuth, getSkillsUsingAI);
 router.post("/owner/schedule/interview", ownerTokenAuth, scheduleInterview);
 router.post("/owner/send/email", ownerTokenAuth, SendEmailToCandidates);
