@@ -149,6 +149,10 @@ const interviewDetailsSchema = new mongoose.Schema({
             timestamp: { type: Date, default: Date.now },
         },
     ],
+    isSingle: {
+        type: Boolean,
+        default: false
+    },
     userlogs: [
         {
             message: String,

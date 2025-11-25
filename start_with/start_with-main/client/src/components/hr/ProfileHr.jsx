@@ -124,6 +124,114 @@ const ProfileHr = () => {
     const [pdfDataExtractLoading, setPdfDataExtractLoading] = useState(false);
     const [resultWindowData, setResultWindowData] = useState(false);
 
+    const [singleInterviewWindow, setSingleInterviewWindow] = useState(false);
+    const [singleInterviewCreateLoading, setSingleInterviewCreateLoading] = useState(false);
+    const [singleInterviewForm, setSingleInterviewForm] = useState({
+        language: 'English',
+        duration: '10',
+        questions: [''],
+        expiryDate: '',
+        jobPosition: '',
+        jobDescription: '',
+        candidateEmail: '',
+        resumeUrl: '',
+        resumeFile: null,
+    });
+
+    const handleSingleInterviewChange = (field, value) => {
+        setSingleInterviewForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleSingleInterviewQuestionChange = (index, value) => {
+        setSingleInterviewForm(prev => {
+            const copy = [...prev.questions];
+            copy[index] = value;
+            return { ...prev, questions: copy };
+        });
+    };
+
+    const addSingleInterviewQuestion = () => {
+        setSingleInterviewForm(prev => ({ ...prev, questions: [...prev.questions, ''] }));
+    };
+
+    const removeSingleInterviewQuestion = (index) => {
+        setSingleInterviewForm(prev => {
+            const copy = [...prev.questions];
+            copy.splice(index, 1);
+            return { ...prev, questions: copy.length ? copy : [''] };
+        });
+    };
+
+    const handleSingleResumeFile = (file) => {
+        setSingleInterviewForm(prev => ({ ...prev, resumeFile: file }));
+    };
+
+    const createSingleInterview = async () => {
+        // basic validation
+        const errors = [];
+        if (!singleInterviewForm.jobPosition.trim()) errors.push('jobPosition');
+        if (!singleInterviewForm.jobDescription.trim()) errors.push('jobDescription');
+
+        if (errors.length > 0) {
+            // simple UI feedback: alert (can be improved)
+            alert('Please fill required fields: Job Position and Job Description');
+            return;
+        }
+
+        try {
+            setSingleInterviewCreateLoading(true);
+
+            const formData = new FormData();
+            formData.append('language', singleInterviewForm.language || 'English');
+            formData.append('duration', singleInterviewForm.duration || '10');
+            formData.append('expiryDate', singleInterviewForm.expiryDate || '');
+            formData.append('jobPosition', singleInterviewForm.jobPosition || '');
+            formData.append('jobDescription', singleInterviewForm.jobDescription || '');
+            formData.append('candidateEmail', singleInterviewForm.candidateEmail || '');
+            formData.append('resumeUrl', singleInterviewForm.resumeUrl || '');
+            // send questions as an array: append each question separately so the server receives an array
+            const questions = singleInterviewForm.questions || [];
+            if (Array.isArray(questions)) {
+                questions.forEach(q => formData.append('questions', q || ''));
+            } else {
+                formData.append('questions', questions || '');
+            }
+
+            // attach file if present
+            if (singleInterviewForm.resumeFile) {
+                formData.append('resumeFile', singleInterviewForm.resumeFile, singleInterviewForm.resumeFile.name);
+            }
+
+            console.log('Sending create single interview request');
+
+            const response = await API.post('/api/owner/create/single-interview', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            console.log('Create single interview response:', response?.data);
+
+            // Optional: update local state with returned Interview/Candidate
+            if (response?.data?.Interview) {
+                setInterviews(prev => [response.data.Interview, ...prev]);
+                setTotalInterviews(prev => prev + 1);
+            }
+
+            setSingleInterviewCreateLoading(false);
+            setSingleInterviewWindow(false);
+            // reset form
+            setSingleInterviewForm({ language: 'English', duration: '10', questions: [''], expiryDate: '', jobPosition: '', jobDescription: '', candidateEmail: '', resumeUrl: '', resumeFile: null });
+
+            alert('Interview created successfully');
+        } catch (err) {
+            console.error('createSingleInterview error', err);
+            setSingleInterviewCreateLoading(false);
+            const message = err?.response?.data?.error || err?.message || 'Failed to create interview';
+            alert(message);
+        }
+    };
+
     // helper to extract file id
     const getDriveFileId = (url) => {
         if (!url) return null;
@@ -1030,6 +1138,7 @@ const ProfileHr = () => {
         <>
             {profile ? (<>
                 <div className='w-full h-[100vh] flex relative overflow-hidden' onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+
 
 
 
@@ -2329,6 +2438,91 @@ const ProfileHr = () => {
                         </div>
                     }
 
+                    {singleInterviewWindow && (
+                        <div className='absolute inset-0 z-40 flex items-center justify-center'>
+                            <div onClick={() => setSingleInterviewWindow(false)} className='absolute inset-0 bg-black/40' />
+                            <div className='relative w-full max-w-3xl bg-white rounded-lg shadow-xl p-6 z-50'>
+                                <div className='flex justify-between items-center mb-4'>
+                                    <h3 className='text-xl font-semibold'>Create Single Interview</h3>
+                                    <button aria-label='Close' onClick={() => setSingleInterviewWindow(false)} className='text-gray-500 hover:text-gray-700'>✕</button>
+                                </div>
+
+                                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                                    <div>
+                                        <label className='text-sm text-gray-600'>Language</label>
+                                        <select aria-label='Language' value={singleInterviewForm.language} onChange={(e) => handleSingleInterviewChange('language', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md'>
+                                            <option>English</option>
+                                            <option>Hindi</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className='text-sm text-gray-600'>Duration (minutes)</label>
+                                        <input aria-label='Duration' type='number' value={singleInterviewForm.duration} onChange={(e) => handleSingleInterviewChange('duration', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                    </div>
+
+
+                                    <div className='md:col-span-2'>
+                                        <label className='text-sm text-gray-600'>Job Position *</label>
+                                        <input aria-label='Job Position' type='text' value={singleInterviewForm.jobPosition} onChange={(e) => handleSingleInterviewChange('jobPosition', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                    </div>
+
+                                    <div className='md:col-span-2'>
+                                        <label className='text-sm text-gray-600'>Candidate Email (optional)</label>
+                                        <input aria-label='Candidate Email' type='email' value={singleInterviewForm.candidateEmail} onChange={(e) => handleSingleInterviewChange('candidateEmail', e.target.value)} placeholder='name@example.com' className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                    </div>
+
+                                    <div className='md:col-span-2'>
+                                        <label className='text-sm text-gray-600'>Job Description *</label>
+                                        <textarea aria-label='Job Description' value={singleInterviewForm.jobDescription} onChange={(e) => handleSingleInterviewChange('jobDescription', e.target.value)} rows={4} className='w-full px-3 py-2 border border-gray-200 rounded-md resize-none' />
+                                    </div>
+
+                                    <div className='md:col-span-2'>
+                                        <label className='text-sm text-gray-600'>Interview Questions</label>
+                                        <div className='space-y-2'>
+                                            {singleInterviewForm.questions.map((q, idx) => (
+                                                <div key={idx} className='flex gap-2'>
+                                                    <input aria-label={`Question ${idx + 1}`} type='text' value={q} onChange={(e) => handleSingleInterviewQuestionChange(idx, e.target.value)} className='flex-1 px-3 py-2 border border-gray-200 rounded-md' placeholder={`Q.${idx + 1}`} />
+                                                    <button type='button' onClick={() => removeSingleInterviewQuestion(idx)} className='px-3 py-2 bg-red-100 text-red-600 rounded-md'>-</button>
+                                                </div>
+                                            ))}
+                                            <div>
+                                                <button type='button' onClick={addSingleInterviewQuestion} className='px-3 py-2 bg-gray-100 rounded-md'>+ Add question</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className='text-sm text-gray-600'>Expiry Date</label>
+                                        <input aria-label='Expiry Date' type='date' value={singleInterviewForm.expiryDate} onChange={(e) => handleSingleInterviewChange('expiryDate', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                    </div>
+
+                                    <div>
+                                        <label className='text-sm text-gray-600'>Resume URL (optional)</label>
+                                        <input aria-label='Resume URL' type='text' value={singleInterviewForm.resumeUrl} onChange={(e) => handleSingleInterviewChange('resumeUrl', e.target.value)} placeholder='https://...' className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                    </div>
+
+                                    <div className='md:col-span-2'>
+                                        <label className='text-sm text-gray-600'>Or upload resume (PDF)</label>
+                                        <input aria-label='Resume file' type='file' accept='.pdf' onChange={(e) => handleSingleResumeFile(e.target.files?.[0] || null)} className='w-full' />
+                                    </div>
+                                </div>
+
+                                <div className='flex justify-end items-center gap-3 mt-6'>
+                                    <button onClick={() => { setSingleInterviewWindow(false); }} className='px-4 py-2 rounded-md border border-gray-300 bg-white'>Cancel</button>
+                                    {singleInterviewCreateLoading ? (
+                                        <button disabled className='px-4 py-2 rounded-md bg-black text-white flex items-center gap-2'>
+                                            <Spinner />
+                                            Creating...
+                                        </button>
+                                    ) : (
+                                        <button onClick={createSingleInterview} className='px-4 py-2 rounded-md bg-black text-white'>Create Single Interview</button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {activePage == "AI_Result_List" &&
                         <div className='MAIN-WINDOW ALL-INTERVIEWS   h-full bg-purple-600 p' style={{ width: `${100 - sidebarWidth - 0.25}%` }}>
 
@@ -2338,12 +2532,12 @@ const ProfileHr = () => {
                                         AI Result
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>{totalInterviews || 0} job position{totalInterviews !== 1 ? 's' : ''} created</div>
                                     </div>
-                                    {/* {interviews.length !== 0 &&
+                                    {interviews.length !== 0 &&
                                         <div className='flex items-center gap-2 mr-10'>
-                                            <div onClick={() => { setInterviewCreateWindow(true); getSheetsNames(); }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div>
-                                            <div className='w-7 h-7 rounded-full bg-gray-400'></div>
+                                            <div onClick={() => { setSingleInterviewWindow(true); }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer '>Create Single Interview</div>
+                                            {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
                                         </div>
-                                    } */}
+                                    }
                                 </div>
 
 
@@ -2651,7 +2845,7 @@ const ProfileHr = () => {
                                             {resultWindowData.interviewResult.feedback.overall_analysis || 'No detailed feedback available.'}
                                         </div>
                                     </div>
-                                    <div className="TRANSCRIPT bg-orange400 w-[35%] p-3 overflow-auto flex flex-col">
+                                    <div className="TRANSCRIPT bg-orange400 w-[35%] p-3 overflow-auto h-[93%] flex flex-col">
                                         <div ref={transcriptRef} className="flex-1 overflow-auto space-y-3 p-2">
                                             {Array.isArray(resultWindowData?.interviewResult?.transcript) && resultWindowData.interviewResult.transcript.length > 0 ? (
                                                 resultWindowData.interviewResult.transcript.map((msg, idx) => {
