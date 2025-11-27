@@ -103,6 +103,10 @@ const userSchema = new Schema({
         type: Boolean,
         default: false,
     },
+    isResumeSorted: {
+        type: Boolean,
+        default: false,
+    },
     matchLevel: {
         type: String,
         enum: ["High Match", "Medium Match", "Low Match", "Unqualified", ""],

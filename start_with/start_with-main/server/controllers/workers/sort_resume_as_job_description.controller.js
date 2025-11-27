@@ -5,6 +5,67 @@ import { geminiAPI } from "../../server.js";
 import { APICounter } from "../../models/APICounter.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
+import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
+
+// Rate limiter: allows up to RATE_LIMIT tokens per WINDOW_MS window
+class RateLimiter {
+    constructor({ tokens = 150, windowMs = 60000 }) {
+        this.capacity = tokens;
+        this.windowMs = windowMs;
+        this.tokens = tokens;
+        this.lastRefill = Date.now();
+        this.ratePerMs = tokens / windowMs; // tokens per ms
+    }
+
+    _refill() {
+        const now = Date.now();
+        const elapsed = now - this.lastRefill;
+        if (elapsed <= 0) return;
+        const add = elapsed * this.ratePerMs;
+        this.tokens = Math.min(this.capacity, this.tokens + add);
+        this.lastRefill = now;
+    }
+
+    async removeToken() {
+        while (true) {
+            this._refill();
+            if (this.tokens >= 1) {
+                this.tokens -= 1;
+                return;
+            }
+            // calculate ms to wait for one token
+            const needed = 1 - this.tokens;
+            const waitMs = Math.ceil(needed / this.ratePerMs);
+            await new Promise((r) => setTimeout(r, waitMs));
+        }
+    }
+}
+
+// Simple concurrency semaphore
+const createSemaphore = (limit) => {
+    let active = 0;
+    const queue = [];
+    const run = (fn) => new Promise((resolve, reject) => {
+        const task = async () => {
+            active++;
+            try {
+                const res = await fn();
+                resolve(res);
+            } catch (err) {
+                reject(err);
+            } finally {
+                active--;
+                if (queue.length) {
+                    const next = queue.shift();
+                    setImmediate(next);
+                }
+            }
+        };
+        if (active < limit) task();
+        else queue.push(task);
+    });
+    return { run };
+};
 
 // const apiKeys = [
 //     process.env.G1A, process.env.G1B, process.env.G1C,
@@ -85,73 +146,101 @@ export const sort_resume_as_job_description = async (interviewId) => {
             { upsert: true }
         );
 
-        // 3️⃣ Sequential processing (so delay actually works)
-        for (let i = 0; i < candidates.length; i++) {
-            const candidate = candidates[i];
+        // 3️⃣ Parallel processing with throttling to respect external rate limits
+        const RATE_LIMIT_PER_MIN = Number(process.env.GEMINI_RATE_LIMIT_PER_MIN || 150);
+        const WINDOW_MS = 60000;
+        const concurrency = Number(process.env.GEMINI_CONCURRENCY || 5); // number of parallel calls allowed
+
+        const limiter = new RateLimiter({ tokens: RATE_LIMIT_PER_MIN, windowMs: WINDOW_MS });
+        const sem = createSemaphore(concurrency);
+
+        // Process each candidate through a semaphore so only `concurrency` run at a time
+        const tasks = candidates.map((candidate, idx) => sem.run(async () => {
+            // Skip if resume is already sorted
+            if (candidate.isResumeSorted) {
+                console.log(`Skipping candidate ${candidate._id} - already sorted (isResumeSorted=true)`);
+                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "INFO",
+                    step: `Skipping ${candidate.email || candidate._id}: already sorted`
+                }).catch(() => { });
+                return { skipped: true };
+            }
 
             if (!candidate.resumeSummary) {
                 console.warn(`Candidate ${candidate._id} missing resume text, skipped.`);
-                continue;
+                return { skipped: true };
             }
 
-            console.log(`🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate._id}`);
+            // Wait for rate limiter token before making the AI call
+            await limiter.removeToken();
 
-            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-                interview: interviewId,
-                level: "INFO",
-                step: `🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate.email}`
-            });
-            // Persist candidate sorting log to DB so DB log order follows emitted order
-            await InterviewGSheetStructure.findOneAndUpdate(
-                { interview: interviewId },
-                { $push: { logs: { step: 'candidate_sorting', message: `🔹 [${i + 1}/${candidates.length}] Sorting candidate: ${candidate.email}`, level: 'INFO', timestamp: new Date() } } },
-                { upsert: true }
-            );
+            const progressLabel = `🔹 [${idx + 1}/${candidates.length}] Sorting candidate: ${candidate.email || candidate._id}`;
+            console.log(progressLabel);
 
-            const aiResult = await resume_sorter_agent({
-                jobPosition: interview.jobPosition,
-                jobDescription,
-                resumeSummary: candidate.resumeSummary,
-                dynamicData: candidate.dynamicData,
-                jobminimumqualifications,
-                jobminimumskillsrequired
-            });
+            try {
+                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "INFO",
+                    step: progressLabel
+                });
+                // Persist candidate sorting log to DB so DB log order follows emitted order
+                await InterviewGSheetStructure.findOneAndUpdate(
+                    { interview: interviewId },
+                    { $push: { logs: { step: 'candidate_sorting', message: progressLabel, level: 'INFO', timestamp: new Date() } } },
+                    { upsert: true }
+                );
 
-            // if (aiResult?.matchScore && aiResult?.matchLevel) {
-            // Preserve numeric 0 as a valid score. Use nullish coalescing so 0 is not treated as falsy.
-            candidate.matchScore = aiResult?.matchScore ?? null;
-            candidate.matchLevel = aiResult?.matchLevel;
-            candidate.aiReviewComment = aiResult.error ? "" : aiResult?.reviewComment || "";
-            candidate.aiQuestions = aiResult.error ? [] : aiResult?.questions || [];
-            candidate.aiImportantQuestions = aiResult.error ? [] : aiResult?.importantQuestions || [];
-            await candidate.save();
+                const aiResult = await resume_sorter_agent({
+                    jobPosition: interview.jobPosition,
+                    jobDescription,
+                    resumeSummary: candidate.resumeSummary,
+                    dynamicData: candidate.dynamicData,
+                    jobminimumqualifications,
+                    jobminimumskillsrequired
+                });
 
-            console.log(
-                `Candidate ${candidate._id} → ${aiResult.matchLevel} (${aiResult.matchScore})`
-            );
+                candidate.matchScore = aiResult?.matchScore ?? null;
+                candidate.matchLevel = aiResult?.matchLevel;
+                candidate.aiReviewComment = aiResult.error ? "" : aiResult?.reviewComment || "";
+                candidate.aiQuestions = aiResult.error ? [] : aiResult?.questions || [];
+                candidate.aiImportantQuestions = aiResult.error ? [] : aiResult?.importantQuestions || [];
+                // mark as sorted to avoid reprocessing in future runs
+                candidate.isResumeSorted = true;
+                await candidate.save();
 
-            await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-                interview: interviewId,
-                level: "INFO",
-                step: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`,
-                data: {
-                    reviewedCandidate: 'SUCCESS'
-                }
-            });
-            // Persist candidate result log
-            await InterviewGSheetStructure.findOneAndUpdate(
-                { interview: interviewId },
-                { $push: { logs: { step: 'candidate_result', message: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`, level: 'INFO', timestamp: new Date() } } },
-                { upsert: true }
-            );
+                console.log(`Candidate ${candidate._id} → ${aiResult.matchLevel} (${aiResult.matchScore})`);
 
-            // save the number of reviewed candidates to interview.reviewedCandidates
-            interview.reviewedCandidates = i + 1;
-            await interview.save();
+                await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "INFO",
+                    step: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`,
+                    data: { reviewedCandidate: 'SUCCESS' }
+                });
 
-            // Wait 6 seconds between each AI call
-            // await sleep(6000);
-        }
+                await InterviewGSheetStructure.findOneAndUpdate(
+                    { interview: interviewId },
+                    { $push: { logs: { step: 'candidate_result', message: `Candidate ${candidate.email} → ${aiResult.matchLevel} (${aiResult.matchScore})`, level: 'INFO', timestamp: new Date() } } },
+                    { upsert: true }
+                );
+
+                // Atomically increment reviewedCandidates to avoid race conditions
+                await Interview.findByIdAndUpdate(interviewId, { $inc: { reviewedCandidates: 1 } });
+
+                return { success: true };
+            } catch (err) {
+                console.error(`Error processing candidate ${candidate._id}:`, err?.message || err);
+                await InterviewGSheetStructure.findOneAndUpdate(
+                    { interview: interviewId },
+                    { $push: { logs: { step: 'candidate_result_error', message: `Candidate ${candidate.email || candidate._id} processing error: ${err?.message || err}`, level: 'error', timestamp: new Date() } } },
+                    { upsert: true }
+                );
+                return { success: false, error: err?.message || String(err) };
+            }
+        }));
+
+        // Wait for all candidate processing tasks to finish (they're throttled by limiter+sem)
+        await Promise.all(tasks);
 
         // Update interview status
         interview.status = "sort_resume_as_job_description";
@@ -172,7 +261,7 @@ export const sort_resume_as_job_description = async (interviewId) => {
             { upsert: true }
         );
 
-        console.log(`✅ Step F completed: Sorted ${candidates.length} candidates`);
+        console.log(`Step F completed: Sorted ${candidates.length} candidates`);
 
         await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
             interview: interviewId,
@@ -242,13 +331,43 @@ export const sort_resume_as_job_description = async (interviewId) => {
         return { success: true };
     } catch (error) {
         console.error("❌ Error in sort_resume_as_job_description:", error);
+
+        // Persist interview failure state so the retry engine can pick it up
+        try {
+            await Interview.findByIdAndUpdate(interviewId, {
+                $set: { currentStatus: "FAILED", lastProcessedStep: "SORTING" },
+                $push: { logs: { message: `Sorting failed: ${error.message}`, level: "error" } }
+            });
+        } catch (updateErr) {
+            console.error(`[SORTING] failed to update interview status for ${interviewId}:`, updateErr?.message || updateErr);
+        }
+
+        // Attempt to emit progress log (fetch owner when possible)
+        try {
+            const interviewDoc = await Interview.findById(interviewId);
+            await recruiterEmit(interviewDoc?.owner || null, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "ERROR",
+                step: `Sorting failed: ${error.message}`
+            });
+        } catch (emitErr) {
+            // ignore emit failures
+        }
+
+        // Trigger retry engine (it will decide whether to attempt retry)
+        try {
+            await __RETRY_ENGINE(interviewId);
+        } catch (retryErr) {
+            console.error(`[RETRY ENGINE ERROR] retry engine failed for interview=${interviewId}:`, retryErr?.message || retryErr);
+        }
+
         return { success: false, error: error.message || "Internal server error" };
     }
 };
 
 
 /**
- * 🧠 AI Agent: resume_sorter_agent
+ * AI Agent: resume_sorter_agent
  * Evaluates resume vs job description.
  */
 export async function resume_sorter_agent({ jobPosition, jobDescription, resumeSummary, dynamicData, jobminimumqualifications, jobminimumskillsrequired }, retries = 3) {

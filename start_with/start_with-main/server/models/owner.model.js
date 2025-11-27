@@ -19,6 +19,13 @@ const ownerSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Company"
     }],
+    companyName: {
+        type: String,
+    },
+    companyImage: {
+        type: String,
+        default: ""
+    },
     recrutier: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Company"

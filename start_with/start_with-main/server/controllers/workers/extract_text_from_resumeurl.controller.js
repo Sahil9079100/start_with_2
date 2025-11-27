@@ -13,6 +13,7 @@ import { createOAuthClient } from "../../utils/googleClient.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import { sort_resume_as_job_description } from "./sort_resume_as_job_description.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
+import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
 
 // Simple in-process semaphore to limit concurrent OCR tasks (keeps CPU/memory in check on hosts)
 const OCR_CONCURRENCY = Number(process.env.OCR_CONCURRENCY || 1);
@@ -61,6 +62,8 @@ export const extract_text_from_resumeurl = async (interviewId) => {
         const candidates = await Candidate.find({ interview: interviewId });
         if (!candidates.length) throw new Error("No candidates found for this interview");
 
+        interview.totalCandidates = candidates.length;
+        await interview.save();
         let count = 0
         for (let candidate of candidates) {
             try {
@@ -137,10 +140,35 @@ export const extract_text_from_resumeurl = async (interviewId) => {
         console.log("[extract_text_from_resumeurl] Completed for interview:", interviewId);
     } catch (error) {
         console.error(" Error in extract_text_from_resumeurl:", error);
-        await Interview.findByIdAndUpdate(interviewId, {
-            status: "failed",
-            $push: { logs: { message: `Failed during resume extraction: ${error.message}`, level: "error" } },
-        });
+
+        // Persist interview failure state so the centralized retry engine can pick it up
+        try {
+            await Interview.findByIdAndUpdate(interviewId, {
+                $set: { currentStatus: "FAILED", lastProcessedStep: "OCR" },
+                $push: { logs: { message: `Failed during resume extraction: ${error.message}`, level: "error" } },
+            });
+        } catch (updateErr) {
+            console.error(`[OCR] failed to update interview status for ${interviewId}:`, updateErr?.message || updateErr);
+        }
+
+        // Attempt to emit progress log with owner if available
+        try {
+            const interviewDoc = await Interview.findById(interviewId);
+            await recruiterEmit(interviewDoc?.owner || null, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "ERROR",
+                step: `Failed during resume extraction: ${error.message}`
+            });
+        } catch (emitErr) {
+            // ignore emit failures
+        }
+
+        // Trigger retry engine (guarded)
+        try {
+            await __RETRY_ENGINE(interviewId);
+        } catch (retryErr) {
+            console.error(`[RETRY ENGINE ERROR] retry engine failed for interview=${interviewId}:`, retryErr?.message || retryErr);
+        }
     }
 };
 
@@ -155,10 +183,10 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
         console.log("Extracting text from resume URL:", resumeUrl);
         let pdfBuffer;
 
-    // small sleep helper for retries
-    const _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        // small sleep helper for retries
+        const _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Helper: OCR fallback using external service (accepts only raw PDF)
+        // Helper: OCR fallback using external service (accepts only raw PDF)
         const ocrExtract = async () => {
             // Local OCR: write PDF buffer to temp file, convert pages to images, run tesseract
             if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer)) return "";
@@ -231,7 +259,7 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
                 return "";
             } finally {
                 // cleanup temp file
-                fs.unlink(tmpPath, () => {});
+                fs.unlink(tmpPath, () => { });
             }
         };
 

@@ -141,6 +141,39 @@ const interviewDetailsSchema = new mongoose.Schema({
         enum: ["initial", "sheet_data_structure", "sheet_data_extract_json", "separate_resume_urls_and_save", "extract_text_from_resumeurl", "sort_resume_as_job_description", "waiting_for_recruiter", "send_email_to_candidates", "interview_successfully_processed"],
         default: "initial",
     },
+    currentStatus: {
+        type: String,
+        enum: [
+            "CREATED",
+            "STRUCTURING",
+            "EXTRACTING_SHEET",
+            "RESUME_SEPARATION",
+            "OCR",
+            "SORTING",
+            "COMPLETED",
+            "FAILED"
+        ],
+        default: "CREATED"
+    },
+    lastProcessedStep: {
+        type: String,
+        default: null
+    },
+    // Global retry counters used by the centralized retry engine
+    retryCount: {
+        type: Number,
+        default: 0,
+    },
+    maxRetries: {
+        type: Number,
+        default: 3,
+    },
+    // Optional per-step attempt counters to avoid global counter collisions across steps
+    stepAttempts: {
+        type: Map,
+        of: Number,
+        default: {},
+    },
     currentLimit: { type: Number, default: 25 },
     logs: [
         {

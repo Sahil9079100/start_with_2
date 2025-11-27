@@ -5,6 +5,7 @@ import { Candidate } from "../../models/Candidate.model.js";
 import { geminiAPI } from "../../server.js";
 import { extract_text_from_resumeurl } from "./extract_text_from_resumeurl.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
+import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
 
 /**
  * STEP D: Separate resume URLs, emails, and save candidates
@@ -185,12 +186,33 @@ export const separate_resume_urls_and_save = async (interviewId) => {
                 continue;
             }
 
-            // Final failure
-            await recruiterEmit(null, "INTERVIEW_PROGRESS_LOG", {
-                interview: interviewId,
-                level: "ERROR",
-                step: `Step D failed after ${maxAttempts} attempts: ${error.message}`
-            }).catch(() => { });
+            // Final failure: persist interview failure state so retry engine can pick it up
+            try {
+                await Interview.findByIdAndUpdate(interviewId, {
+                    $set: { currentStatus: "FAILED", lastProcessedStep: "RESUME_SEPARATION" },
+                    $push: { logs: { message: `Step D failed after ${maxAttempts} attempts: ${error.message}`, level: "error" } }
+                });
+            } catch (updateErr) {
+                console.error(`[Step D] failed to update interview status for ${interviewId}:`, updateErr?.message || updateErr);
+            }
+
+            try {
+                await recruiterEmit(null, "INTERVIEW_PROGRESS_LOG", {
+                    interview: interviewId,
+                    level: "ERROR",
+                    step: `Step D failed after ${maxAttempts} attempts: ${error.message}`
+                });
+            } catch (emitErr) {
+                // ignore emit failures
+            }
+
+            // Trigger retry engine (it will decide whether to actually retry)
+            try {
+                await __RETRY_ENGINE(interviewId);
+            } catch (retryErr) {
+                console.error(`[RETRY ENGINE ERROR] retry engine failed for interview=${interviewId}:`, retryErr?.message || retryErr);
+            }
+
             return { success: false, error: error.message };
         }
     }

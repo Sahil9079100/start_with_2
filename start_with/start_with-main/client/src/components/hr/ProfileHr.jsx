@@ -110,6 +110,10 @@ const ProfileHr = () => {
     const [detailsSmallWindow, setDetailsSmallWindow] = useState(false);
     const [reviewedCandidatesLiveCount, setReviewedCandidatesLiveCount] = useState(0);
     const [resumeCollectedLiveCount, setResumeCollectedLiveCount] = useState(0);
+    const [totalResumeCollected, setTotalResumeCollected] = useState(0);
+    const [singleInterviewEmailStatus, setSingleInterviewEmailStatus] = useState(null);
+    const [singleInterviewCandidateID, setSingleInterviewCandidateID] = useState(null);
+
     const [createInterviewLoading, setCreateInterviewLoading] = useState(false);
     const [candidateResumeDetailsWindow, setCandidateResumeDetailsWindow] = useState(false);
     const [currentcandidateResumeDetailsID, setCurrentcandidateResumeDetailsID] = useState('');
@@ -122,6 +126,11 @@ const ProfileHr = () => {
     const [questionsArray, setQuestionsArray] = useState([]);
     const [impQuestionsArray, setImpQuestionsArray] = useState([]);
     const [pdfDataExtractLoading, setPdfDataExtractLoading] = useState(false);
+    // Loading state specifically for single-interview JD extraction
+    const [singleJDExtractLoading, setSingleJDExtractLoading] = useState(false);
+    // Drag state for single-interview dropzones
+    const [singleJDDragActive, setSingleJDDragActive] = useState(false);
+    const [singleResumeDragActive, setSingleResumeDragActive] = useState(false);
     const [resultWindowData, setResultWindowData] = useState(false);
 
     const [singleInterviewWindow, setSingleInterviewWindow] = useState(false);
@@ -140,6 +149,49 @@ const ProfileHr = () => {
 
     const handleSingleInterviewChange = (field, value) => {
         setSingleInterviewForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    // Drag & Drop handlers for JD and Resume dropzones
+    const onJdDragOver = (e) => {
+        e.preventDefault();
+    };
+
+    const onJdDragEnter = (e) => {
+        e.preventDefault();
+        setSingleJDDragActive(true);
+    };
+
+    const onJdDragLeave = (e) => {
+        e.preventDefault();
+        setSingleJDDragActive(false);
+    };
+
+    const onJdDrop = async (e) => {
+        e.preventDefault();
+        setSingleJDDragActive(false);
+        const file = e.dataTransfer?.files?.[0] || null;
+        if (file) await handleJobDescriptionPdfFile(file);
+    };
+
+    const onResumeDragOver = (e) => {
+        e.preventDefault();
+    };
+
+    const onResumeDragEnter = (e) => {
+        e.preventDefault();
+        setSingleResumeDragActive(true);
+    };
+
+    const onResumeDragLeave = (e) => {
+        e.preventDefault();
+        setSingleResumeDragActive(false);
+    };
+
+    const onResumeDrop = (e) => {
+        e.preventDefault();
+        setSingleResumeDragActive(false);
+        const file = e.dataTransfer?.files?.[0] || null;
+        if (file) handleSingleResumeFile(file);
     };
 
     const handleSingleInterviewQuestionChange = (index, value) => {
@@ -162,8 +214,45 @@ const ProfileHr = () => {
         });
     };
 
+    // Candidate resume upload: keep it simple (no JD extraction here)
     const handleSingleResumeFile = (file) => {
         setSingleInterviewForm(prev => ({ ...prev, resumeFile: file }));
+    };
+
+    // Upload Job Description PDF and auto-fill singleInterviewForm using server AI parser
+    const handleJobDescriptionPdfFile = async (file) => {
+        if (!file) return;
+        if (file.type !== 'application/pdf') {
+            alert('Please upload a PDF file for the Job Description');
+            return;
+        }
+
+        try {
+            setSingleJDExtractLoading(true);
+            const formData = new FormData();
+            formData.append('pdf', file);
+
+            const response = await API.post('/api/owner/extract-pdf-text', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const parsed = response?.data?.data || {};
+
+            // Merge parsed fields into singleInterviewForm (defensive defaults)
+            setSingleInterviewForm(prev => ({
+                ...prev,
+                language: parsed.language || prev.language || 'English',
+                duration: parsed.duration || prev.duration || '10',
+                jobPosition: parsed.jobPosition || prev.jobPosition,
+                jobDescription: parsed.jobDescription || prev.jobDescription,
+                candidateEmail: parsed.candidateEmail || prev.candidateEmail
+            }));
+        } catch (err) {
+            console.error('Error extracting JD PDF for single interview:', err);
+            alert('Unable to extract job details from the PDF. Please fill the form manually.');
+        } finally {
+            setSingleJDExtractLoading(false);
+        }
     };
 
     const createSingleInterview = async () => {
@@ -172,9 +261,14 @@ const ProfileHr = () => {
         if (!singleInterviewForm.jobPosition.trim()) errors.push('jobPosition');
         if (!singleInterviewForm.jobDescription.trim()) errors.push('jobDescription');
 
+        if (!singleInterviewForm.candidateEmail.trim()) {
+            alert('Please fill Candidate Email');
+            return;
+        }
+
         if (errors.length > 0) {
             // simple UI feedback: alert (can be improved)
-            alert('Please fill required fields: Job Position and Job Description');
+            alert('Please fill required fields: Job Position, Job Description, and Candidate Email');
             return;
         }
 
@@ -202,7 +296,7 @@ const ProfileHr = () => {
                 formData.append('resumeFile', singleInterviewForm.resumeFile, singleInterviewForm.resumeFile.name);
             }
 
-            console.log('Sending create single interview request');
+            console.log('Sending create single interview request', formData);
 
             const response = await API.post('/api/owner/create/single-interview', formData, {
                 headers: {
@@ -799,7 +893,10 @@ const ProfileHr = () => {
             // console.log(data.data)
             // console.log(data.data?.sortedListArray);
             // console.log(data.data?.waitForRecruiter)
-            if (data.data?.waitForRecruiter) { get_sorted_list(data.interview) }
+            if (data.data?.waitForRecruiter) {
+                get_sorted_list(data.interview)
+
+            }
             // console.log("###############")
             // console.log(data)
             // console.log("###############")
@@ -1019,6 +1116,8 @@ const ProfileHr = () => {
             console.log("reviewed: ", response.data.reviewedC);
             console.log("logs: ", response.data.userlogs);
             setSortedListArray(response.data.data.sortedCandidates);
+            console.log("YYYggg", response.data.data.sortedCandidates.length)
+            setTotalResumeCollected(response.data.data.sortedCandidates.length);
             setReviewedCandidateFetchLoading(false);
 
             // Normalize logs: prefer response.data.userlogs, fallback to response.data.data.userlogs
@@ -1714,25 +1813,29 @@ const ProfileHr = () => {
                                             <>
 
                                                 {Object.entries(groupInterviewsByDate()).map(([dateLabel, interviewsGroup]) => (
-                                                    <div key={dateLabel} className='mb-12'>
+
+                                                    <div key={dateLabel} className='mb-9'>
                                                         <div className='px-16 py-2 text-gray-400 text-[15px] mb-[-5px] font-normal'>
                                                             {dateLabel}
                                                         </div>
                                                         {interviewsGroup.map((interview) => (
                                                             <div key={interview._id} className='w-full'>
-                                                                <div onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); get_sorted_list(interview._id); setActivePage('Each Interview Detail'); }}
-                                                                    className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
-                                                                    <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
-                                                                    <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /> </span>
-                                                                    {/* <span onClick={() => { setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); }} className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span> */}
+                                                                {interview.isSingle ? (<>
+                                                                    {null}</>) : (<>
+                                                                        <div onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); get_sorted_list(interview._id); setActivePage('Each Interview Detail'); }}
+                                                                            className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
+                                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                            <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /> </span>
+                                                                            {/* <span onClick={() => { setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); }} className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span> */}
 
-                                                                    {/* {interviewExtraWindow[interview._id] && (
+                                                                            {/* {interviewExtraWindow[interview._id] && (
                                                                         <div className='absolute z-50 top-0 right-0 mt-10 mr-0 bg-gray-50 border-[2px] border-gray-200 rounded-[5px] p-1 flex flex-col gap-1 ' >
                                                                             <div onClick={() => { setAreYouSureDeleteWindow(true); setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); setDeleteInterviewID(interview._id); }} className={`hover:bg-red-200/40 hover:cursor-pointer flex rounded-[3px] px-2 py-1 font-normal text-red-400 select-none`}>Delete <span className='ml-2 text-xl flex justify-center items-center'><MdDelete /></span></div>
                                                                         </div>
                                                                     )} */}
-                                                                </div>
-                                                                <hr className='border border-black/30 mx-[52px]' />
+                                                                        </div>
+                                                                        <hr className='border border-black/30 mx-[52px]' />
+                                                                    </>)}
                                                             </div>
                                                         ))}
                                                     </div>
@@ -1861,80 +1964,175 @@ const ProfileHr = () => {
 
                                 {interviewFetchLoading == true ? (
                                     <>
-                                        <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll px-16 pt-5'>
-                                            <div className='grid grid-cols-2 gap-4 mb-6'>
-                                                <div className='rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
-                                                    <div>
-                                                        <div className='text-sm text-gray-400'>Resume Collected</div>
-                                                        <div className='text-2xl font-medium'>{resumeCollectedLiveCount ?? 'N/A'}</div>
-                                                    </div>
-                                                    <div className='text-xl text-gray-400'>›</div>
-                                                </div>
+                                        {interviewDetails.isSingle ? (<>
+                                            {null}
+                                            {/* <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll px-16 pt-5'>
 
-                                                <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate'); }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
-                                                    <div>
-                                                        <div className='text-sm text-gray-400'>Reviewed Candidate</div>
-                                                        <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div>
-                                                    </div>
-                                                    <div className='text-3xl  '>›</div>
-                                                </div>
-                                            </div>
-
-                                            <div className='rounded-2xl border border-gray-400 p-6 mb-6'>
-                                                <div className='text-sm text-gray-400 mb-2'>Job Description</div>
-                                                <div className='text-gray-800 leading-6 text-sm'>
-                                                    {interviewDetails?.jobDescription || 'No job description provided.'}
-                                                </div>
-                                            </div>
-
-                                            <div className='grid grid-cols-2 gap-4 mb-6'>
-                                                <div className='rounded-2xl border border-gray-400 p-4'>
-                                                    <div className='text-sm text-gray-400'>Minimum Qualification</div>
-                                                    <div className='text-base text-gray-800 mt-2'>{interviewDetails?.minimumQualification || 'N/A'}</div>
-                                                </div>
-
-                                                <div className='rounded-2xl border border-gray-400 p-4'>
-                                                    <div className='text-sm text-gray-400'>Minimum Skills</div>
-                                                    <div className='text-base text-gray-800 mt-2'>{(interviewDetails?.minimumSkills) ? interviewDetails.minimumSkills : 'N/A'}</div>
-                                                </div>
-                                            </div>
-
-                                            {interviewDetails?.isSheduled ? (
-                                                <div className='rounded-2xl border border-gray-400 p-4 mb-6'>
-                                                    <div className='text-sm text-gray-400 mb-1'>Interview URL</div>
-                                                    {interviewDetails?.interviewUrl ? (
-                                                        <div className='flex items-center gap-3'>
-                                                            <a
-                                                                href={interviewDetails.interviewUrl}
-                                                                target='_blank'
-                                                                rel='noopener noreferrer'
-                                                                className='text-blue-600 underline break-all'
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                {interviewDetails.interviewUrl}
-                                                            </a>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    try {
-                                                                        navigator.clipboard?.writeText(interviewDetails.interviewUrl);
-                                                                    } catch (err) {
-                                                                        // ignore
-                                                                    }
-                                                                }}
-                                                                className='px-2 py-1 bg-gray-200 rounded-md text-sm hover:bg-gray-300'
-                                                            >
-                                                                Copy
-                                                            </button>
+                                                <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between'>
+                                                    <div className='text-sm text-gray-700'>
+                                                        <div className='text-xs text-gray-400 mb-1'>Activity</div>
+                                                        <div className='text-sm'>
+                                                            <ActivityMessage message={latestActivityMessage} />
                                                         </div>
-                                                    ) : (
-                                                        <div className='text-sm text-gray-600'>Link not available</div>
-                                                    )}
+                                                    </div>
+                                                    <div onClick={() => { setInterviewLogsWindow(true) }} className='text-gray-400 hover:cursor-pointer'>
+                                                        <FiInfo />
+                                                    </div>
                                                 </div>
-                                            ) : null}
 
-                                            <hr className='border-t border-gray-500 my-6' />
+                                                <hr className='border-t border-white my-2' />
 
+                                                <div className='grid grid-cols-2 gap-4 mb-5'>
+                                                    <div className='rounded-2xl relative border  border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Resume Collected</div>
+                                                            <div className='text-2xl font-medium'>{resumeCollectedLiveCount ?? 'N/A'} <span className="text-black/60 ">/ {totalResumeCollected}</span></div>
+                                                        </div>
+                                                        <span className="text-black/60 absolute bottom-3 right-5 flex justify-center items-center">{totalResumeCollected - resumeCollectedLiveCount} need reviews</span>
+                                                    </div>
+
+                                                    <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate'); }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Reviewed Candidate</div>
+                                                            <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div>
+                                                        </div>
+                                                        <div className='text-3xl  '>›</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className='rounded-2xl border border-gray-400 p-6 mb-6'>
+                                                    <div className='text-sm text-gray-400 mb-2'>Job Description</div>
+                                                    <div className='text-gray-800 leading-6 text-sm'>
+                                                        {interviewDetails?.jobDescription || 'No job description provided.'}
+                                                    </div>
+                                                </div>
+
+                                                {interviewDetails?.isSheduled ? (
+                                                    <div className='rounded-2xl border border-gray-400 p-4 mb-6'>
+                                                        <div className='text-sm text-gray-400 mb-1'>Interview URL</div>
+                                                        {interviewDetails?.interviewUrl ? (
+                                                            <div className='flex items-center gap-3'>
+                                                                <a
+                                                                    href={interviewDetails.interviewUrl}
+                                                                    target='_blank'
+                                                                    rel='noopener noreferrer'
+                                                                    className='text-blue-600 underline break-all'
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    {interviewDetails.interviewUrl}
+                                                                </a>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        try {
+                                                                            navigator.clipboard?.writeText(interviewDetails.interviewUrl);
+                                                                        } catch (err) {
+                                                                            // ignore
+                                                                        }
+                                                                    }}
+                                                                    className='px-2 py-1 bg-gray-200 rounded-md text-sm hover:bg-gray-300'
+                                                                >
+                                                                    Copy
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className='text-sm text-gray-600'>Link not available</div>
+                                                        )}
+                                                    </div>
+                                                ) : null}
+                                            </div> */}
+                                        </>) : (
+                                            <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll px-16 pt-5'>
+
+                                                <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between'>
+                                                    <div className='text-sm text-gray-700'>
+                                                        <div className='text-xs text-gray-400 mb-1'>Activity</div>
+                                                        <div className='text-sm'>
+                                                            <ActivityMessage message={latestActivityMessage} />
+                                                        </div>
+                                                    </div>
+                                                    <div onClick={() => { setInterviewLogsWindow(true) }} className='text-gray-400 hover:cursor-pointer'>
+                                                        <FiInfo />
+                                                    </div>
+                                                </div>
+
+                                                <hr className='border-t border-white my-2' />
+
+                                                <div className='grid grid-cols-2 gap-4 mb-5'>
+                                                    <div className='rounded-2xl relative border  border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Resume Collected</div>
+                                                            <div className='text-2xl font-medium'>{resumeCollectedLiveCount ?? 'N/A'} <span className="text-black/60 ">/ {totalResumeCollected}</span></div>
+                                                            {/* <div>231</div> */}
+                                                        </div>
+                                                        <span className="text-black/60 absolute bottom-3 right-5 flex justify-center items-center">{totalResumeCollected - resumeCollectedLiveCount} need reviews</span>
+                                                        {/* <div className='text-xl text-gray-400'>›</div> */}
+                                                    </div>
+
+                                                    <div onClick={() => { setActivePage('Each_Interview_Reviewed_Candidate'); }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Reviewed Candidate</div>
+                                                            <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div>
+                                                        </div>
+                                                        <div className='text-3xl  '>›</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className='rounded-2xl border border-gray-400 p-6 mb-6'>
+                                                    <div className='text-sm text-gray-400 mb-2'>Job Description</div>
+                                                    <div className='text-gray-800 leading-6 text-sm'>
+                                                        {interviewDetails?.jobDescription || 'No job description provided.'}
+                                                    </div>
+                                                </div>
+
+                                                <div className='grid grid-cols-2 gap-4 mb-6'>
+                                                    <div className='rounded-2xl border border-gray-400 p-4'>
+                                                        <div className='text-sm text-gray-400'>Minimum Qualification</div>
+                                                        <div className='text-base text-gray-800 mt-2'>{interviewDetails?.minimumQualification || 'N/A'}</div>
+                                                    </div>
+
+                                                    <div className='rounded-2xl border border-gray-400 p-4'>
+                                                        <div className='text-sm text-gray-400'>Minimum Skills</div>
+                                                        <div className='text-base text-gray-800 mt-2'>{(interviewDetails?.minimumSkills) ? interviewDetails.minimumSkills : 'N/A'}</div>
+                                                    </div>
+                                                </div>
+
+                                                {interviewDetails?.isSheduled ? (
+                                                    <div className='rounded-2xl border border-gray-400 p-4 mb-6'>
+                                                        <div className='text-sm text-gray-400 mb-1'>Interview URL</div>
+                                                        {interviewDetails?.interviewUrl ? (
+                                                            <div className='flex items-center gap-3'>
+                                                                <a
+                                                                    href={interviewDetails.interviewUrl}
+                                                                    target='_blank'
+                                                                    rel='noopener noreferrer'
+                                                                    className='text-blue-600 underline break-all'
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    {interviewDetails.interviewUrl}
+                                                                </a>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        try {
+                                                                            navigator.clipboard?.writeText(interviewDetails.interviewUrl);
+                                                                        } catch (err) {
+                                                                            // ignore
+                                                                        }
+                                                                    }}
+                                                                    className='px-2 py-1 bg-gray-200 rounded-md text-sm hover:bg-gray-300'
+                                                                >
+                                                                    Copy
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className='text-sm text-gray-600'>Link not available</div>
+                                                        )}
+                                                    </div>
+                                                ) : null}
+
+                                                {/* <hr className='border-t border-gray-500 my-6' /> */}
+                                                {/* 
                                             <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between'>
                                                 <div className='text-sm text-gray-700'>
                                                     <div className='text-xs text-gray-400 mb-1'>Activity</div>
@@ -1945,8 +2143,9 @@ const ProfileHr = () => {
                                                 <div onClick={() => { setInterviewLogsWindow(true) }} className='text-gray-400'>
                                                     <FiInfo />
                                                 </div>
+                                            </div> */}
                                             </div>
-                                        </div>
+                                        )}
                                     </>
                                 ) : (
                                     <>
@@ -2123,6 +2322,7 @@ const ProfileHr = () => {
                                                                                 <div className='text-sm leading-relaxed text-black'>
                                                                                     {interview.aiReviewComment || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
                                                                                 </div>
+                                                                                {/*
                                                                                 <div className='flex flex-col gap-2 mt-2'>
                                                                                     <div className='flex items-center gap-2 text-sm text-black/80'>
                                                                                         <span className='text-green-600'>✓</span> LinkedIn Profile
@@ -2131,6 +2331,7 @@ const ProfileHr = () => {
                                                                                         <span className='text-green-600'>✓</span> Github Profile
                                                                                     </div>
                                                                                 </div>
+                                                                                */}
                                                                             </div>
                                                                         </div>
 
@@ -2360,16 +2561,16 @@ const ProfileHr = () => {
                                                                             <div className='space-y-1'>
                                                                                 <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Note</div>
                                                                                 <div className='text-sm leading-relaxed text-black'>
-                                                                                    {interview.resumeSumary || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
+                                                                                    {interview.aiReviewComment || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
                                                                                 </div>
-                                                                                <div className='flex flex-col gap-2 mt-2'>
+                                                                                {/* <div className='flex flex-col gap-2 mt-2'>
                                                                                     <div className='flex items-center gap-2 text-sm text-black/80'>
                                                                                         <span className='text-green-600'>✓</span> LinkedIn Profile
                                                                                     </div>
                                                                                     <div className='flex items-center gap-2 text-sm text-black/80'>
                                                                                         <span className='text-green-600'>✓</span> Github Profile
                                                                                     </div>
-                                                                                </div>
+                                                                                </div> */}
                                                                             </div>
                                                                         </div>
 
@@ -2377,10 +2578,10 @@ const ProfileHr = () => {
                                                                         <div className='flex flex-col gap-3 mb-3'>
                                                                             <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
                                                                             <div className='flex flex-wrap gap-3'>
-                                                                                <div className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                <div onClick={() => { setQuestionsWindow(true); console.log(interview?.aiQuestions) }} className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
                                                                                     {(interview?.aiQuestions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
                                                                                 </div>
-                                                                                <div className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
+                                                                                <div onClick={() => { setImpQuestionsWindow(true); setImpQuestionsArray(interview?.aiImportantQuestions || interview.dynamicData?.ImportantQuestions || []) }} className='bg-red-600 text-white px-3 py-1 rounded-md text-sm'>
                                                                                     {(interview?.aiImportantQuestions?.length || interview.dynamicData?.ImportantQuestions?.length || 0)} Important Question
                                                                                 </div>
                                                                             </div>
@@ -2441,74 +2642,137 @@ const ProfileHr = () => {
                     {singleInterviewWindow && (
                         <div className='absolute inset-0 z-40 flex items-center justify-center'>
                             <div onClick={() => setSingleInterviewWindow(false)} className='absolute inset-0 bg-black/40' />
-                            <div className='relative w-full max-w-3xl bg-white rounded-lg shadow-xl p-6 z-50'>
-                                <div className='flex justify-between items-center mb-4'>
+                            <div className='relative w-full max-w-3xl bg-white rounded-lg shadow-xl z-50 max-h-[85vh] flex flex-col overflow-hidden'>
+                                {/* Header (static) */}
+                                <div className='flex justify-between items-center p-6 flex-shrink-0 border-b'>
                                     <h3 className='text-xl font-semibold'>Create Single Interview</h3>
                                     <button aria-label='Close' onClick={() => setSingleInterviewWindow(false)} className='text-gray-500 hover:text-gray-700'>✕</button>
                                 </div>
 
-                                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                                    <div>
-                                        <label className='text-sm text-gray-600'>Language</label>
-                                        <select aria-label='Language' value={singleInterviewForm.language} onChange={(e) => handleSingleInterviewChange('language', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md'>
-                                            <option>English</option>
-                                            <option>Hindi</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className='text-sm text-gray-600'>Duration (minutes)</label>
-                                        <input aria-label='Duration' type='number' value={singleInterviewForm.duration} onChange={(e) => handleSingleInterviewChange('duration', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
-                                    </div>
-
-
-                                    <div className='md:col-span-2'>
-                                        <label className='text-sm text-gray-600'>Job Position *</label>
-                                        <input aria-label='Job Position' type='text' value={singleInterviewForm.jobPosition} onChange={(e) => handleSingleInterviewChange('jobPosition', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
-                                    </div>
-
-                                    <div className='md:col-span-2'>
-                                        <label className='text-sm text-gray-600'>Candidate Email (optional)</label>
-                                        <input aria-label='Candidate Email' type='email' value={singleInterviewForm.candidateEmail} onChange={(e) => handleSingleInterviewChange('candidateEmail', e.target.value)} placeholder='name@example.com' className='w-full px-3 py-2 border border-gray-200 rounded-md' />
-                                    </div>
-
-                                    <div className='md:col-span-2'>
-                                        <label className='text-sm text-gray-600'>Job Description *</label>
-                                        <textarea aria-label='Job Description' value={singleInterviewForm.jobDescription} onChange={(e) => handleSingleInterviewChange('jobDescription', e.target.value)} rows={4} className='w-full px-3 py-2 border border-gray-200 rounded-md resize-none' />
-                                    </div>
-
-                                    <div className='md:col-span-2'>
-                                        <label className='text-sm text-gray-600'>Interview Questions</label>
-                                        <div className='space-y-2'>
-                                            {singleInterviewForm.questions.map((q, idx) => (
-                                                <div key={idx} className='flex gap-2'>
-                                                    <input aria-label={`Question ${idx + 1}`} type='text' value={q} onChange={(e) => handleSingleInterviewQuestionChange(idx, e.target.value)} className='flex-1 px-3 py-2 border border-gray-200 rounded-md' placeholder={`Q.${idx + 1}`} />
-                                                    <button type='button' onClick={() => removeSingleInterviewQuestion(idx)} className='px-3 py-2 bg-red-100 text-red-600 rounded-md'>-</button>
-                                                </div>
-                                            ))}
-                                            <div>
-                                                <button type='button' onClick={addSingleInterviewQuestion} className='px-3 py-2 bg-gray-100 rounded-md'>+ Add question</button>
+                                {/* Scrollable middle content */}
+                                <div className='p-6 overflow-auto flex-1'>
+                                    {/* JD Upload Dropzone (just below heading) */}
+                                    <div className='mb-5'>
+                                        <input
+                                            id='single-jd-upload'
+                                            type='file'
+                                            accept='.pdf'
+                                            className='hidden'
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0] || null;
+                                                if (file) await handleJobDescriptionPdfFile(file);
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor='single-jd-upload'
+                                            onDragOver={onJdDragOver}
+                                            onDragEnter={onJdDragEnter}
+                                            onDragLeave={onJdDragLeave}
+                                            onDrop={onJdDrop}
+                                            className={`block w-full text-center px-4 py-6 rounded-lg border-2 border-dashed ${singleJDDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'} cursor-pointer transition-colors`}
+                                        >
+                                            <div className='flex flex-col items-center justify-center gap-1 text-gray-700'>
+                                                <span className='font-medium'>{singleJDDragActive ? 'Drop JD file to upload' : 'Upload JD file here'}</span>
+                                                <span className='text-xs text-gray-500'>(PDF, max 10MB)</span>
                                             </div>
+                                        </label>
+                                        {singleJDExtractLoading && (
+                                            <div className='mt-2 text-sm text-gray-500'>Extracting job details from PDF...</div>
+                                        )}
+                                    </div>
+                                    {/* <div className='md:col-span-2 flex'>
+                                        <label className='text-sm text-gray-600'>Upload Job Description (PDF)</label>
+                                        <input aria-label='Job Description PDF' type='file' accept='.pdf' onChange={async (e) => { const file = e.target.files?.[0] || null; if (file) await handleJobDescriptionPdfFile(file); }} className='w-full' />
+                                        {singleJDExtractLoading && <div className='text-sm text-gray-500 mt-1'>Extracting job details from PDF...</div>}
+                                    </div> */}
+
+                                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                                        <div>
+                                            <label className='text-sm text-gray-600'>Language</label>
+                                            <select aria-label='Language' value={singleInterviewForm.language} onChange={(e) => handleSingleInterviewChange('language', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md'>
+                                                <option>English</option>
+                                                <option>Hindi</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className='text-sm text-gray-600'>Duration (minutes)</label>
+                                            <input aria-label='Duration' type='number' value={singleInterviewForm.duration} onChange={(e) => handleSingleInterviewChange('duration', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                        </div>
+
+
+                                        <div className='md:col-span-2'>
+                                            <label className='text-sm text-gray-600'>Job Position *</label>
+                                            <input aria-label='Job Position' type='text' value={singleInterviewForm.jobPosition} onChange={(e) => handleSingleInterviewChange('jobPosition', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                        </div>
+
+                                        <div className='md:col-span-2'>
+                                            <label className='text-sm text-gray-600'>Candidate Email (optional)</label>
+
+                                            <input aria-label='Candidate Email' type='email' value={singleInterviewForm.candidateEmail} onChange={(e) => handleSingleInterviewChange('candidateEmail', e.target.value)} placeholder='name@example.com' className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                        </div>
+
+                                        <div className='md:col-span-2'>
+                                            <label className='text-sm text-gray-600'>Job Description *</label>
+                                            <textarea aria-label='Job Description' value={singleInterviewForm.jobDescription} onChange={(e) => handleSingleInterviewChange('jobDescription', e.target.value)} rows={4} className='w-full px-3 py-2 border border-gray-200 rounded-md resize-none' />
+                                        </div>
+
+                                        <div className='md:col-span-2'>
+                                            <label className='text-sm text-gray-600'>Interview Questions</label>
+                                            <div className='space-y-2'>
+                                                {singleInterviewForm.questions.map((q, idx) => (
+                                                    <div key={idx} className='flex gap-2'>
+                                                        <input aria-label={`Question ${idx + 1}`} type='text' value={q} onChange={(e) => handleSingleInterviewQuestionChange(idx, e.target.value)} className='flex-1 px-3 py-2 border border-gray-200 rounded-md' placeholder={`Q.${idx + 1}`} />
+                                                        <button type='button' onClick={() => removeSingleInterviewQuestion(idx)} className='px-3 py-2 bg-red-100 text-red-600 rounded-md'>-</button>
+                                                    </div>
+                                                ))}
+                                                <div>
+                                                    <button type='button' onClick={addSingleInterviewQuestion} className='px-3 py-2 bg-gray-100 rounded-md'>+ Add question</button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className='text-sm text-gray-600'>Expiry Date</label>
+                                            <input aria-label='Expiry Date' type='date' value={singleInterviewForm.expiryDate} onChange={(e) => handleSingleInterviewChange('expiryDate', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                        </div>
+
+                                        <div>
+                                            <label className='text-sm text-gray-600'>Resume URL (optional)</label>
+                                            <input aria-label='Resume URL' type='text' value={singleInterviewForm.resumeUrl} onChange={(e) => handleSingleInterviewChange('resumeUrl', e.target.value)} placeholder='https://...' className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                        </div>
+
+                                        <div className='md:col-span-2'>
+                                            <input
+                                                id='single-resume-upload'
+                                                type='file'
+                                                accept='.pdf'
+                                                className='hidden'
+                                                onChange={(e) => handleSingleResumeFile(e.target.files?.[0] || null)}
+                                            />
+                                            <label
+                                                htmlFor='single-resume-upload'
+                                                onDragOver={onResumeDragOver}
+                                                onDragEnter={onResumeDragEnter}
+                                                onDragLeave={onResumeDragLeave}
+                                                onDrop={onResumeDrop}
+                                                className={`block w-full text-center px-4 py-4 rounded-lg border-2 border-dashed ${singleResumeDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'} cursor-pointer transition-colors`}
+                                            >
+                                                <div className='flex flex-col items-center gap-1 text-gray-700'>
+                                                    <span className='font-medium'>{singleResumeDragActive ? 'Drop resume to upload' : 'Upload candidate resume'}</span>
+                                                    <span className='text-xs text-gray-500'>(PDF)</span>
+                                                    {singleInterviewForm.resumeFile && (
+                                                        <span className='text-xs text-gray-600 mt-2 break-words'>{singleInterviewForm.resumeFile.name}</span>
+                                                    )}
+                                                </div>
+                                            </label>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <label className='text-sm text-gray-600'>Expiry Date</label>
-                                        <input aria-label='Expiry Date' type='date' value={singleInterviewForm.expiryDate} onChange={(e) => handleSingleInterviewChange('expiryDate', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
-                                    </div>
-
-                                    <div>
-                                        <label className='text-sm text-gray-600'>Resume URL (optional)</label>
-                                        <input aria-label='Resume URL' type='text' value={singleInterviewForm.resumeUrl} onChange={(e) => handleSingleInterviewChange('resumeUrl', e.target.value)} placeholder='https://...' className='w-full px-3 py-2 border border-gray-200 rounded-md' />
-                                    </div>
-
-                                    <div className='md:col-span-2'>
-                                        <label className='text-sm text-gray-600'>Or upload resume (PDF)</label>
-                                        <input aria-label='Resume file' type='file' accept='.pdf' onChange={(e) => handleSingleResumeFile(e.target.files?.[0] || null)} className='w-full' />
-                                    </div>
                                 </div>
 
-                                <div className='flex justify-end items-center gap-3 mt-6'>
+                                {/* Footer (static) */}
+                                <div className='flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0'>
                                     <button onClick={() => { setSingleInterviewWindow(false); }} className='px-4 py-2 rounded-md border border-gray-300 bg-white'>Cancel</button>
                                     {singleInterviewCreateLoading ? (
                                         <button disabled className='px-4 py-2 rounded-md bg-black text-white flex items-center gap-2'>
@@ -2552,35 +2816,61 @@ const ProfileHr = () => {
                                             </div>
                                         ) : (
                                             <>
-
                                                 {Object.entries(groupInterviewsByDate()).map(([dateLabel, interviewsGroup]) => (
-                                                    <div key={dateLabel} className='mb-12'>
-                                                        <div className='px-16 py-2 text-gray-400 text-[15px] mb-[-5px] font-normal'>
-                                                            {dateLabel}
-                                                        </div>
-                                                        {interviewsGroup.map((interview) => (
-                                                            <div key={interview._id} className='w-full'>
-                                                                <div onClick={() => {
-                                                                    // setInterviewDetails(interview);
-                                                                    console.log('clicked interview:', interview);
-                                                                    // get_sorted_list(interview._id);
-                                                                    Fetch_Interview_Results(1, interview._id);
-                                                                    setActivePage('Each_Interview_Result_Detail');
-                                                                }}
-                                                                    className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
-                                                                    <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
-                                                                    <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /></span>
-                                                                    {/* <span onClick={() => { setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); }} className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span> */}
 
-                                                                    {/* {interviewExtraWindow[interview._id] && (
+                                                    < div key={dateLabel} className='mb-12' >
+                                                        {interviewsGroup.some(i => i.usercompleteintreviewemailandid && i.usercompleteintreviewemailandid.length > 0 || i.isSingle) &&
+                                                            <div className='px-16 py-2 text-gray-400 text-[15px] mb-[-5px] font-normal'>
+                                                                {dateLabel}
+                                                                {console.log("ok", interviewsGroup)}
+                                                            </div>
+                                                        }
+                                                        {
+                                                            interviewsGroup.map((interview) => (
+                                                                <>
+                                                                    {interview.usercompleteintreviewemailandid.length > 0 || interview.isSingle ? (
+                                                                        <div key={interview._id} className='w-full'>
+                                                                            <div onClick={async () => {
+                                                                                setInterviewDetails(interview);
+                                                                                console.log('clicked interview:', interview);
+                                                                                // get_sorted_list(interview._id);
+                                                                                Fetch_Interview_Results(1, interview._id);
+                                                                                setActivePage('Each_Interview_Result_Detail');
+                                                                                if (interview.isSingle) {
+                                                                                    console.log("This is a single interview so fetching email status also", interview._id);
+                                                                                    async function FetchSingleEmailStatus() {
+                                                                                        try {
+                                                                                            const data = interview._id
+                                                                                            const response = await API.get(`/api/owner/single-interview/email/status/${data}`)
+                                                                                            console.log(response, "of email status of single interview")
+                                                                                            setSingleInterviewEmailStatus(response.data.data) //candidateId
+                                                                                            setSingleInterviewCandidateID(response.data.candidateId)
+                                                                                        } catch (e) { console.log("Email single status error", e) }
+                                                                                    }
+                                                                                    FetchSingleEmailStatus()
+                                                                                }
+                                                                            }}
+                                                                                className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
+                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                                <div className="flex  items-center ">
+                                                                                    <div className='text-gray-600 text-base mr-4 flex w-fit'>{interview.usercompleteintreviewemailandid.length || 0}/{interview.totalCandidates}</div>
+                                                                                    <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /></span>
+                                                                                </div>
+                                                                                {/* <span onClick={() => { setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); }} className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span> */}
+
+                                                                                {/* {interviewExtraWindow[interview._id] && (
                                                                         <div className='absolute z-50 top-0 right-0 mt-10 mr-0 bg-gray-50 border-[2px] border-gray-200 rounded-[5px] p-1 flex flex-col gap-1 ' >
                                                                             <div onClick={() => { setAreYouSureDeleteWindow(true); setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); setDeleteInterviewID(interview._id); }} className={`hover:bg-red-200/40 hover:cursor-pointer flex rounded-[3px] px-2 py-1 font-normal text-red-400 select-none`}>Delete <span className='ml-2 text-xl flex justify-center items-center'><MdDelete /></span></div>
                                                                         </div>
                                                                     )} */}
-                                                                </div>
-                                                                <hr className='border border-black/30 mx-[52px]' />
-                                                            </div>
-                                                        ))}
+                                                                            </div>
+                                                                            <hr className='border border-black/30 mx-[52px]' />
+                                                                        </div>
+                                                                    ) : (null)
+                                                                    }
+                                                                </>
+                                                            ))
+                                                        }
                                                     </div>
                                                 ))}
 
@@ -2695,7 +2985,7 @@ const ProfileHr = () => {
                                     <div className='flex items-center gap-2 mr-10'>
                                         {/* <div onClick={() => { setInterviewCreateWindow(true) }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div> */}
                                         {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
-                                        <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
+                                        {/* <div onClick={() => { setDetailsSmallWindow(!detailsSmallWindow) }} className='relative text-[18px] hover:cursor-pointer p-[3px]'>
 
                                             <BsThreeDotsVertical />
 
@@ -2704,13 +2994,14 @@ const ProfileHr = () => {
                                                     <div className='bg-red-100 border border-red-400 text-red-400 px-2 py-1 rounded-[4px]'>Delete</div>
                                                 </div>
                                             }
-                                        </div>
+                                        </div> */}
 
                                     </div>
                                 </div>
 
 
-                                {InterviewResultDetails.length > 0 && (<>
+                                {InterviewResultDetails.length > 0 && !interviewDetails.isSingle && (<>
+
                                     <div className='w-full text-gray-400 text-[14px] pr-[130px]'>
                                         <div className='relative w-full flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[16px] pr-3 rounded-sm justify-center items-center flex-nowrap'>
                                             <div className='bg-gree-300/20 bg-yellow-00 w-full h-[100%] flex items-center'>
@@ -2730,61 +3021,168 @@ const ProfileHr = () => {
                                 </>)}
 
                                 {reviewedCandidateFetchLoading !== true ? (
-                                    <>{InterviewResultDetails.length <= 0 ? (<>
-                                        <div className='INTERVIEW_DETAILS_SECTION flex justify-center mt-20 text-black/70 w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
-                                            No Result Found
-                                        </div>
-                                    </>) : (
-                                        <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
-                                            {InterviewResultDetails.map((interview, idx) => (
-                                                <>
-                                                    <div key={interview._id} className='w-full'>
-                                                        <div onClick={() => {
-                                                            setResultWindowData(interview);
-                                                            if (currentcandidateResumeDetailsID === interview._id) {
-                                                                setCandidateResumeDetailsWindow(prev => !prev);
-                                                            } else {
-                                                                setCurrentcandidateResumeDetailsID(interview._id);
-                                                                setCandidateResumeDetailsWindow(true);
-                                                            }
-                                                        }}
-                                                            className='relative w-full flex max-h-8  pr-[130px] mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr- rounded-sm justify-center items-center flex-nowrap text-black text-lg'>
-                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
-                                                                <span className="text-[15px] text-gray-400 absolute left-[-35px]">{idx + 1}</span>
-                                                                {interview?.email || interview.dynamicData?.Name || interview.dynamicData?.name}
-                                                            </div>
+                                    <>
+                                        {interviewDetails.isSingle ? (<>
+                                            <div className='INTERVIEW_DETAILS_SECTION w-full h-full overflow-scroll hscroll px-16 pt-5 z-50 '>
 
-                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl pl-20'>
-                                                                {interview?.interviewResult?.feedback.overall_mark}
-                                                            </div>
-
-                                                            <div className={`w-fit bg-re-400 justify-end h-[100%] flex  text-black/90 hover:text-black text-xl`}>
-                                                                <RiArrowLeftSLine className={`${(currentcandidateResumeDetailsID === interview._id && candidateResumeDetailsWindow) ? '-rotate-90' : 'rotate-180'} transition-all duration-50`} />
-                                                            </div>
-
+                                                <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between'>
+                                                    <div className='text-sm text-gray-700'>
+                                                        <div className='text-xs text-gray-400 mb-1'>Activity</div>
+                                                        <div className='text-sm'>
+                                                            <ActivityMessage message={latestActivityMessage} />
                                                         </div>
-                                                        {candidateResumeDetailsWindow === true && currentcandidateResumeDetailsID === interview._id && (
-                                                            <div className='w-full transition-all duration-300 bg-red-300'>
-                                                                <div className='w-full bg-yellow-300'>
-                                                                    <div className='w-full px-[67px] bg-white shadow-sm flex flex-col gap-8'>
-                                                                        <div className='grid md:grid-cols-2 gap-8'>
+                                                    </div>
+                                                    <div onClick={() => { setInterviewLogsWindow(true) }} className='text-gray-400 hover:cursor-pointer'>
+                                                        <FiInfo />
+                                                    </div>
 
+                                                </div>
 
+                                                <hr className='border-t border-white my-2' />
 
+                                                <div className='grid grid-cols-2 gap-4 mb-5'>
+                                                    <div className='rounded-2xl relative border  border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Resume Collectedd</div>
+                                                            <div className='text-2xl font-medium'>{resumeCollectedLiveCount ?? 'N/A'} <span className="text-black/60 ">/ {interviewDetails.totalCandidates}</span></div>
+                                                        </div>
+                                                        <span className="text-black/60 absolute bottom-3 right-5 flex justify-center items-center">{interviewDetails.totalCandidates - resumeCollectedLiveCount} need reviews</span>
+                                                    </div>
+
+                                                    <div onClick={() => {
+                                                        // setActivePage('Each_Interview_Reviewed_Candidate');
+                                                        Fetch_Interview_Results(interviewDetails._id)
+                                                        setResultWindowData(InterviewResultDetails)
+                                                        console.log(InterviewResultDetails)
+                                                    }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Reviewed Candidate</div>
+                                                            <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div>
+                                                        </div>
+                                                        <div className='text-3xl  '>›</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className='rounded-2xl border border-gray-400 p-6 mb-6'>
+                                                    <div className='text-sm text-gray-400 mb-2'>Job Description</div>
+                                                    <div className='text-gray-800 leading-6 text-sm'>
+                                                        {interviewDetails?.jobDescription || 'No job description provided.'}
+                                                    </div>
+                                                </div>
+
+                                                {!interviewDetails?.isSheduled ? (
+                                                    <div className='rounded-2xl border border-gray-400 p-4 mb-6 relative'>
+                                                        <div className='text-sm text-gray-400 mb-1'>Interview URL</div>
+
+                                                        {interviewDetails?.interviewUrl ? (
+                                                            <div className='flex items-center gap-3'>
+                                                                <a
+                                                                    href={interviewDetails.interviewUrl}
+                                                                    target='_blank'
+                                                                    rel='noopener noreferrer'
+                                                                    className='text-blue-600 underline break-all'
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    {interviewDetails.interviewUrl}
+                                                                </a>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        try {
+                                                                            navigator.clipboard?.writeText(interviewDetails.interviewUrl);
+                                                                        } catch (err) {
+                                                                            // ignore
+                                                                        }
+                                                                    }}
+                                                                    className='px-2 py-1 bg-gray-200 rounded-md text-sm hover:bg-gray-300'
+                                                                >
+                                                                    Copy
+                                                                </button>
+
+                                                                <div onClick={() => {
+                                                                    if (singleInterviewEmailStatus == "NONE") {
+                                                                        console.log("it is NONE so send email")
+                                                                        send_email_array([singleInterviewCandidateID])
+                                                                        setSingleInterviewEmailStatus('SUCCESS')
+                                                                    }
+                                                                }} className="absolute bg-black/90 text-white px-4 py-2 rounded-full  top-[20px] right-[15px] z-50">
+                                                                    {singleInterviewEmailStatus === 'NONE' ? (
+                                                                        "Send Email"
+                                                                    ) : singleInterviewEmailStatus === 'PROCESSING' ? (
+                                                                        "Sending Email..."
+                                                                    ) : singleInterviewEmailStatus === 'SUCCESS' ? (
+                                                                        "Email Sent"
+                                                                    ) : (
+                                                                        "Loading..."
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className='text-sm text-gray-600'>Link not available</div>
+                                                        )}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        </>) : (<>
+                                            {InterviewResultDetails.length <= 0 ? (<>
+                                                <div className='INTERVIEW_DETAILS_SECTION flex justify-center mt-20 text-black/70 w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
+                                                    No Result Found
+                                                </div>
+                                            </>) : (
+                                                <>
+                                                    <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
+                                                        {InterviewResultDetails.map((interview, idx) => (
+                                                            <>
+                                                                <div key={interview._id} className='w-full'>
+                                                                    <div onClick={() => {
+                                                                        console.log("AHHHH", interview)
+                                                                        setResultWindowData(interview);
+                                                                        if (currentcandidateResumeDetailsID === interview._id) {
+                                                                            setCandidateResumeDetailsWindow(prev => !prev);
+                                                                        } else {
+                                                                            setCurrentcandidateResumeDetailsID(interview._id);
+                                                                            setCandidateResumeDetailsWindow(true);
+                                                                        }
+                                                                    }}
+                                                                        className='relative w-full flex max-h-8  pr-[130px] mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr- rounded-sm justify-center items-center flex-nowrap text-black text-lg'>
+                                                                        <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
+                                                                            <span className="text-[15px] text-gray-400 absolute left-[-35px]">{idx + 1}</span>
+                                                                            {interview.dynamicData?.Name || interview.dynamicData?.name || interview?.email}
+                                                                        </div>
+
+                                                                        <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl pl-20'>
+                                                                            {interview?.interviewResult?.feedback.overall_mark}
+                                                                        </div>
+
+                                                                        <div className={`w-fit bg-re-400 justify-end h-[100%] flex  text-black/90 hover:text-black text-xl`}>
+                                                                            <RiArrowLeftSLine className={`${(currentcandidateResumeDetailsID === interview._id && candidateResumeDetailsWindow) ? '-rotate-90' : 'rotate-180'} transition-all duration-50`} />
                                                                         </div>
 
                                                                     </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        <hr className='border border-black/30 mx-[52px]' />
-                                                    </div >
+                                                                    {candidateResumeDetailsWindow === true && currentcandidateResumeDetailsID === interview._id && (
+                                                                        <div className='w-full transition-all duration-300 bg-red-300'>
+                                                                            <div className='w-full bg-yellow-300'>
+                                                                                <div className='w-full px-[67px] bg-white shadow-sm flex flex-col gap-8'>
+                                                                                    <div className='grid md:grid-cols-2 gap-8'>
 
+
+
+                                                                                    </div>
+
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    <hr className='border border-black/30 mx-[52px]' />
+                                                                </div >
+
+                                                            </>
+                                                        ))}
+
+                                                    </div>
                                                 </>
-                                            ))}
-
-                                        </div>
-                                    )}
+                                            )}
+                                        </>)}
                                     </>
                                 ) : (
                                     <>
@@ -2802,74 +3200,96 @@ const ProfileHr = () => {
 
 
                     {resultWindowData && (
-                        <div className='absolute bg-gray-950/30 backdrop-blur-[2px] w-full h-[100vh] flex justify-center items-center z-50'>
-                            <div className='text-black relative max-w-[75%] min-w-[70%] h-[85%] bg-white rounded-md flex flex-col'>
+                        <>
+                            {resultWindowData.length > 0 ? (<>
+                                {console.log("BROOOO", resultWindowData)}
+                                <div className='absolute bg-gray-950/30 backdrop-blur-[2px] w-full h-[100vh] flex justify-center items-center z-50'>
+                                    <div className='text-black relative max-w-[75%] min-w-[70%] h-[85%] bg-white rounded-md flex flex-col'>
 
 
-
-                                <div className=" w-full h-fit px-3 py-2 text-xl flex justify-between items-center">
-                                    {resultWindowData.email}
-                                    <div onClick={() => setResultWindowData(null)} className="bg-red-600 text-base text-white px-3 py-1 rounded-md hover:cursor-pointer">Close</div>
-                                </div>
-                                <hr className='border-[1px] border-black/30' />
-                                <div className="bg-green400/20 w-full  h-full flex justify-between">
-                                    <div className="VIdeo_+ _Feedback bg-yellow400 w-[65%] p-3 flex flex-col gap-3">
-                                        {/* Prefer Drive preview iframe when we can compute a previewSrc (file id),
+                                        <div className=" w-full h-fit px-3 py-2 text-xl flex justify-between items-center">
+                                            {resultWindowData.email}
+                                            <div onClick={() => setResultWindowData(null)} className="bg-red-600 text-base text-white px-3 py-1 rounded-md hover:cursor-pointer">Close</div>
+                                        </div>
+                                        <hr className='border-[1px] border-black/30' />
+                                        <div className="bg-green400/20 w-full  h-full flex justify-between">
+                                            <div className="VIdeo_+ _Feedback bg-yellow400 w-[65%] p-3 flex flex-col gap-3">
+                                                {/* Prefer Drive preview iframe when we can compute a previewSrc (file id),
                                             otherwise fall back to showing the raw URL or a placeholder */}
-                                        {previewSrc ? (
-                                            <div className="Video w-full bg-black/5 flex items-center justify-center">
-                                                {/* Aspect-ratio wrapper: 56.25% = 16:9. The iframe fills this area and scales with width
+                                                {previewSrc ? (
+                                                    <div className="Video w-full bg-black/5 flex items-center justify-center">
+                                                        {/* Aspect-ratio wrapper: 56.25% = 16:9. The iframe fills this area and scales with width
                                                     Cap height so modal doesn't overflow (75vh) and ensure a minimum height so it's not tiny. */}
-                                                <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
-                                                    <iframe
-                                                        title="candidate-video"
-                                                        src={previewSrc}
-                                                        className="absolute inset-0 w-full h-full rounded-md border border-gray-200"
-                                                        frameBorder="0"
-                                                        allowFullScreen
-                                                    />
+                                                        <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
+                                                            <iframe
+                                                                title="candidate-video"
+                                                                src={previewSrc}
+                                                                className="absolute inset-0 w-full h-full rounded-md border border-gray-200"
+                                                                frameBorder="0"
+                                                                allowFullScreen
+                                                            />
+                                                        </div>
+
+                                                    </div>
+                                                ) : (
+                                                    <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
+                                                        {resultWindowData.interviewResult.videoUrls?.[0] || resultWindowData.interviewResult.videoUrl || 'No video available.'}
+                                                    </div>
+                                                )}
+
+                                                <div className="Feedback w-full bg-pink300 max-w-[100%] min-w-[70%] p-3 overflow-y-auto flex-wrap ">
+                                                    {console.log(resultWindowData.interviewResult.feedback)}
+                                                    {/* Marks Cutdown reasons: <br /> */}
+                                                    {/* {resultWindowData.interviewResult.feedback.marks_cutdown_points || 'No remarks available.'} */}
+                                                    {/* <br /><br /> */}
+                                                    <h1 className="text-xl mb-2">Detailed Feedback</h1>
+                                                    {resultWindowData.interviewResult.feedback.overall_analysis || 'No detailed feedback available.'}
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
-                                                {resultWindowData.interviewResult.videoUrls?.[0] || resultWindowData.interviewResult.videoUrl || 'No video available.'}
+                                            <div className="TRANSCRIPT bg-orange400 w-[35%] p-3 overflow-auto h-[93%] flex flex-col">
+                                                <div ref={transcriptRef} className="flex-1 overflow-auto space-y-3 p-2">
+                                                    {Array.isArray(resultWindowData?.interviewResult?.transcript) && resultWindowData.interviewResult.transcript.length > 0 ? (
+                                                        resultWindowData.interviewResult.transcript.map((msg, idx) => {
+                                                            const isUser = msg.role === 'user';
+                                                            return (
+                                                                <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                                                    <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${isUser ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>
+                                                                        {msg.content}
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        })
+                                                    ) : (
+                                                        <div className="text-sm text-gray-700">No transcript available.</div>
+                                                    )}
+                                                </div>
+                                                {/* optional: small input / controls could be added here in future */}
                                             </div>
-                                        )}
+                                        </div>
 
-                                        <div className="Feedback w-full bg-pink300 max-w-[100%] min-w-[70%] p-3 overflow-y-auto flex-wrap ">
-                                            {console.log(resultWindowData.interviewResult.feedback)}
-                                            {/* Marks Cutdown reasons: <br /> */}
-                                            {/* {resultWindowData.interviewResult.feedback.marks_cutdown_points || 'No remarks available.'} */}
-                                            {/* <br /><br /> */}
-                                            <h1 className="text-xl mb-2">Detailed Feedback</h1>
-                                            {resultWindowData.interviewResult.feedback.overall_analysis || 'No detailed feedback available.'}
-                                        </div>
-                                    </div>
-                                    <div className="TRANSCRIPT bg-orange400 w-[35%] p-3 overflow-auto h-[93%] flex flex-col">
-                                        <div ref={transcriptRef} className="flex-1 overflow-auto space-y-3 p-2">
-                                            {Array.isArray(resultWindowData?.interviewResult?.transcript) && resultWindowData.interviewResult.transcript.length > 0 ? (
-                                                resultWindowData.interviewResult.transcript.map((msg, idx) => {
-                                                    const isUser = msg.role === 'user';
-                                                    return (
-                                                        <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                                            <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${isUser ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>
-                                                                {msg.content}
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })
-                                            ) : (
-                                                <div className="text-sm text-gray-700">No transcript available.</div>
-                                            )}
-                                        </div>
-                                        {/* optional: small input / controls could be added here in future */}
+
+
                                     </div>
                                 </div>
+                            </>) : (<>
+                                {/* {alert("No data avalible")} */}
+                                <div className='absolute bg-gray-950/30 backdrop-blur-[2px] w-full h-[100vh] flex justify-center items-center z-50'>
+                                    <div className='text-black relative max-w-[75%] min-w-[70%] h-[65%] bg-white rounded-md flex flex-col border border-black/30'>
 
 
+                                        <div className=" w-full h-fit px-3 py-2 text-xl flex justify-between items-center">
+                                            {resultWindowData.email || "AI Interview Result"}
+                                            <div onClick={() => setResultWindowData(null)} className="bg-red-600 text-base text-white px-3 py-1 rounded-md hover:cursor-pointer">Close</div>
+                                        </div>
+                                        <hr className='border-[1px] border-black/30' />
 
-                            </div>
-                        </div>
+                                        <div className='w-full h-full flex justify-center items-center text-gray-500'>The candidate had not given the interview yet</div>
+
+                                    </div>
+                                </div>
+                            </>)}
+
+                        </>
                     )}
 
 

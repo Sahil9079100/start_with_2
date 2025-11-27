@@ -114,6 +114,7 @@ export const scheduleInterview = async (req, res) => {
 }
 
 
+
 export const createSingleInterview = async (req, res) => {
     try {
         const ownerId = req.user; // contains user id from middleware.

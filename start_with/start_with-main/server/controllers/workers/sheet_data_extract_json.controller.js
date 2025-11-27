@@ -8,6 +8,7 @@ import { createOAuthClient } from "../../utils/googleClient.js";  // Your existi
 import InterviewGSheetStructureModel from "../../models/InterviewGSheetStructure.model.js";
 import { separate_resume_urls_and_save } from "./separate_resume_urls_and_save.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
+import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
 
 export const extractSheetData = async (interviewId) => {
     try {
@@ -148,18 +149,42 @@ export const extractSheetData = async (interviewId) => {
         }, 1000); // small delay to avoid blocking response
     } catch (error) {
         console.error("Error extracting sheet data:", error);
-        // Update interview and sheetExtract status if error occurs
-        if (interviewId) {
-            await Interview.findByIdAndUpdate(interviewId, {
-                status: "failed",
-                $push: { logs: { message: `Sheet extraction failed: ${error.message}`, level: "error" } }
-            });
+
+        // Attempt to persist failure state on the interview so retry engine can pick it up
+        try {
+            if (interviewId) {
+                await Interview.findByIdAndUpdate(interviewId, {
+                    $set: { currentStatus: "FAILED", lastProcessedStep: "EXTRACTING_SHEET" },
+                    $push: { logs: { message: `Sheet extraction failed: ${error.message}`, level: "error" } }
+                });
+            }
+        } catch (updateErr) {
+            console.error(`[Worker] failed to update interview status for ${interviewId}:`, updateErr?.message || updateErr);
         }
 
-        await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-            interview: interviewId,
-            level: "ERROR",
-            step: `Sheet extraction failed: ${error.message}`
-        });
+        // Try to fetch interview owner for emitting progress; guard failures
+        let interviewDoc = null;
+        try {
+            if (interviewId) interviewDoc = await Interview.findById(interviewId);
+        } catch (fetchErr) {
+            // ignore
+        }
+
+        try {
+            await recruiterEmit(interviewDoc?.owner || null, "INTERVIEW_PROGRESS_LOG", {
+                interview: interviewId,
+                level: "ERROR",
+                step: `Sheet extraction failed: ${error.message}`
+            });
+        } catch (emitErr) {
+            console.warn(`[Worker] recruiterEmit failed for interview ${interviewId}:`, emitErr?.message || emitErr);
+        }
+
+        // Trigger retry engine (it will decide whether to retry)
+        try {
+            await __RETRY_ENGINE(interviewId);
+        } catch (retryErr) {
+            console.error(`[RETRY ENGINE ERROR] retry engine failed for interview=${interviewId}:`, retryErr?.message || retryErr);
+        }
     }
 };
