@@ -2844,6 +2844,7 @@ const ProfileHr = () => {
                                                                                             const response = await API.get(`/api/owner/single-interview/email/status/${data}`)
                                                                                             console.log(response, "of email status of single interview")
                                                                                             setSingleInterviewEmailStatus(response.data.data) //candidateId
+                                                                                            console.log("IDID", response.data.candidateId)
                                                                                             setSingleInterviewCandidateID(response.data.candidateId)
                                                                                         } catch (e) { console.log("Email single status error", e) }
                                                                                     }
@@ -3102,6 +3103,7 @@ const ProfileHr = () => {
                                                                 <div onClick={() => {
                                                                     if (singleInterviewEmailStatus == "NONE") {
                                                                         console.log("it is NONE so send email")
+                                                                        console.log("JJJJ", singleInterviewCandidateID)
                                                                         send_email_array([singleInterviewCandidateID])
                                                                         setSingleInterviewEmailStatus('SUCCESS')
                                                                     }
