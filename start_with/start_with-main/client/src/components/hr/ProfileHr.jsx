@@ -3110,6 +3110,7 @@ const ProfileHr = () => {
                                                                         const data = [singleInterviewCandidateID]
                                                                         // setSortedListArray(data)
                                                                         setSelectedCandidates(data)
+                                                                        selectedCandidates.push(singleInterviewCandidateID)
                                                                         send_email_array()
                                                                         setSingleInterviewEmailStatus('SUCCESS')
                                                                     }
