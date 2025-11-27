@@ -1155,7 +1155,9 @@ const ProfileHr = () => {
         try {
             setSendEmailLoading(true)
 
-            console.log("int heblack: ", sortedListArray)
+            // console.log("int heblack: ", sortedListArray)
+
+            console.log(selectedCandidates)
 
             console.log({ interviewId: interviewDetails._id, candidateIds: selectedCandidates })
             const response = await API.post("/api/owner/send/email", { interviewId: interviewDetails._id, candidateIds: selectedCandidates })
@@ -2845,6 +2847,7 @@ const ProfileHr = () => {
                                                                                             console.log(response, "of email status of single interview")
                                                                                             setSingleInterviewEmailStatus(response.data.data) //candidateId
                                                                                             console.log("IDID", response.data.candidateId)
+
                                                                                             setSingleInterviewCandidateID(response.data.candidateId)
                                                                                         } catch (e) { console.log("Email single status error", e) }
                                                                                     }
@@ -3104,7 +3107,10 @@ const ProfileHr = () => {
                                                                     if (singleInterviewEmailStatus == "NONE") {
                                                                         console.log("it is NONE so send email")
                                                                         console.log("JJJJ", singleInterviewCandidateID)
-                                                                        send_email_array([singleInterviewCandidateID])
+                                                                        const data = [singleInterviewCandidateID]
+                                                                        // setSortedListArray(data)
+                                                                        setSelectedCandidates(data)
+                                                                        send_email_array()
                                                                         setSingleInterviewEmailStatus('SUCCESS')
                                                                     }
                                                                 }} className="absolute bg-black/90 text-white px-4 py-2 rounded-full  top-[20px] right-[15px] z-50">
