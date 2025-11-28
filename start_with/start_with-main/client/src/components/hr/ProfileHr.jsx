@@ -3052,7 +3052,7 @@ const ProfileHr = () => {
                                                         // setActivePage('Each_Interview_Reviewed_Candidate');
                                                         Fetch_Interview_Results(interviewDetails._id)
                                                         setResultWindowData(InterviewResultDetails)
-                                                        console.log(InterviewResultDetails)
+                                                        console.log(InterviewResultDetails);
                                                     }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                         <div>
                                                             <div className='text-sm text-gray-400'>Reviewed Candidate</div>
