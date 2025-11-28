@@ -333,7 +333,9 @@ const ProfileHr = () => {
         return m ? m[1] : null;
     };
 
-    const driveUrl = resultWindowData?.interviewResult?.videoUrls?.[0];
+    // Normalize resultWindowData: it may be an object or an array (API returns array in some cases)
+    const normalizedResult = Array.isArray(resultWindowData) ? resultWindowData[0] : resultWindowData;
+    const driveUrl = normalizedResult?.interviewResult?.videoUrls?.[0];
     const fileId = getDriveFileId(driveUrl);
     const previewSrc = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : null;
 
@@ -350,7 +352,7 @@ const ProfileHr = () => {
         } catch (e) {
             // ignore
         }
-    }, [resultWindowData?.interviewResult?.transcript, resultWindowData]);
+    }, [normalizedResult?.interviewResult?.transcript, resultWindowData]);
 
     // Selected candidates (for sending invites). Stores candidate IDs that are selected by the user.
     // Only candidates with emailStatus 'NONE' (GoCircle) should be selectable.
@@ -3051,8 +3053,10 @@ const ProfileHr = () => {
                                                     <div onClick={() => {
                                                         // setActivePage('Each_Interview_Reviewed_Candidate');
                                                         Fetch_Interview_Results(interviewDetails._id)
+                                                        if (InterviewResultDetails.length == 0) { return alert("The candidate has not given interview") }
+                                                        console.log("HYHYHY", resultWindowData)
+                                                        console.log("qqqq", InterviewResultDetails);
                                                         setResultWindowData(InterviewResultDetails)
-                                                        console.log(InterviewResultDetails);
                                                     }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                         <div>
                                                             <div className='text-sm text-gray-400'>Reviewed Candidate</div>
@@ -3205,14 +3209,17 @@ const ProfileHr = () => {
 
                     {resultWindowData && (
                         <>
-                            {resultWindowData.length > 0 ? (<>
-                                {console.log("BROOOO", resultWindowData)}
+                            {console.log("HELLOOO", normalizedResult || resultWindowData)}
+                            {InterviewResultDetails.length > 0 ? (<>
+                                {console.log("BROOOO", normalizedResult || resultWindowData)}
+                                
+                                {/* {console.log("BROOOO", InterviewResultDetails)} */}
                                 <div className='absolute bg-gray-950/30 backdrop-blur-[2px] w-full h-[100vh] flex justify-center items-center z-50'>
                                     <div className='text-black relative max-w-[75%] min-w-[70%] h-[85%] bg-white rounded-md flex flex-col'>
 
 
                                         <div className=" w-full h-fit px-3 py-2 text-xl flex justify-between items-center">
-                                            {resultWindowData.email}
+                                            {normalizedResult?.email}
                                             <div onClick={() => setResultWindowData(null)} className="bg-red-600 text-base text-white px-3 py-1 rounded-md hover:cursor-pointer">Close</div>
                                         </div>
                                         <hr className='border-[1px] border-black/30' />
@@ -3237,23 +3244,24 @@ const ProfileHr = () => {
                                                     </div>
                                                 ) : (
                                                     <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
-                                                        {resultWindowData.interviewResult.videoUrls?.[0] || resultWindowData.interviewResult.videoUrl || 'No video available.'}
+                                                        {resultWindowData?.interviewResult?.videoUrls?.[0] || resultWindowData?.interviewResult?.videoUrl || 'No video available.'}
                                                     </div>
                                                 )}
 
                                                 <div className="Feedback w-full bg-pink300 max-w-[100%] min-w-[70%] p-3 overflow-y-auto flex-wrap ">
-                                                    {console.log(resultWindowData.interviewResult.feedback)}
+                                                    {console.log(normalizedResult?.interviewResult?.feedback)}
                                                     {/* Marks Cutdown reasons: <br /> */}
                                                     {/* {resultWindowData.interviewResult.feedback.marks_cutdown_points || 'No remarks available.'} */}
                                                     {/* <br /><br /> */}
                                                     <h1 className="text-xl mb-2">Detailed Feedback</h1>
-                                                    {resultWindowData.interviewResult.feedback.overall_analysis || 'No detailed feedback available.'}
+                                                    {resultWindowData?.interviewResult?.feedback?.overall_analysis || normalizedResult?.interviewResult?.feedback.overall_analysis || 'No detailed feedback available.'}
+                                                    {console.log(normalizedResult?.interviewResult?.feedback.overall_analysis)}
                                                 </div>
                                             </div>
                                             <div className="TRANSCRIPT bg-orange400 w-[35%] p-3 overflow-auto h-[93%] flex flex-col">
                                                 <div ref={transcriptRef} className="flex-1 overflow-auto space-y-3 p-2">
-                                                    {Array.isArray(resultWindowData?.interviewResult?.transcript) && resultWindowData.interviewResult.transcript.length > 0 ? (
-                                                        resultWindowData.interviewResult.transcript.map((msg, idx) => {
+                                                    {Array.isArray(normalizedResult?.interviewResult?.transcript) && normalizedResult.interviewResult.transcript.length > 0 ? (
+                                                        normalizedResult.interviewResult.transcript.map((msg, idx) => {
                                                             const isUser = msg.role === 'user';
                                                             return (
                                                                 <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -3282,7 +3290,7 @@ const ProfileHr = () => {
 
 
                                         <div className=" w-full h-fit px-3 py-2 text-xl flex justify-between items-center">
-                                            {resultWindowData.email || "AI Interview Result"}
+                                            {normalizedResult?.email || "AI Interview Result"}
                                             <div onClick={() => setResultWindowData(null)} className="bg-red-600 text-base text-white px-3 py-1 rounded-md hover:cursor-pointer">Close</div>
                                         </div>
                                         <hr className='border-[1px] border-black/30' />

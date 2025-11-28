@@ -400,9 +400,10 @@ export const FetchAllInterviewsResults = async (req, res) => {
         const pageEntries = completedEntries.slice(skip, skip + limit);
 
         // Load the IntreviewResult documents for the current page in the same order
+        console.log("this is page entries: ", interview.isSingle)
         const interviewresult = await Promise.all(pageEntries.map(async (entry) => {
             const resultDoc = await IntreviewResult.findById(entry.intreviewid).lean().select("-resumeText");
-            return { email: entry.email, interviewResult: resultDoc };
+            return { email: entry.email, isSingle: interview.isSingle, interviewResult: resultDoc };
         }));
 
         // Calculate total pages
@@ -558,8 +559,9 @@ export const SendEmailToCandidates = async (req, res) => {
             // Responsive, inline-styled email (table layout for wide client support)
             let html;
 
-            const senderName = `${capitalizeWords(companyName)}` || 'StartWith Team';
-            const senderEmail = `${companyName}@startwith.live` || 'interview@startwith.live'
+            const companyNameSafe = companyName ? String(companyName).trim() : '';
+            const senderName = companyNameSafe ? capitalizeWords(companyNameSafe) : 'StartWith Team';
+            const senderEmail = companyNameSafe ? `${companyNameSafe}@startwith.live` : 'interview@startwith.live';
             const candidateId = candidate._id;
 
             // educategirls@startwith.live
