@@ -3212,7 +3212,7 @@ const ProfileHr = () => {
                             {console.log("HELLOOO", normalizedResult || resultWindowData)}
                             {InterviewResultDetails.length > 0 ? (<>
                                 {console.log("BROOOO", normalizedResult || resultWindowData)}
-                                
+
                                 {/* {console.log("BROOOO", InterviewResultDetails)} */}
                                 <div className='absolute bg-gray-950/30 backdrop-blur-[2px] w-full h-[100vh] flex justify-center items-center z-50'>
                                     <div className='text-black relative max-w-[75%] min-w-[70%] h-[85%] bg-white rounded-md flex flex-col'>
@@ -3248,7 +3248,7 @@ const ProfileHr = () => {
                                                     </div>
                                                 )}
 
-                                                <div className="Feedback w-full bg-pink300 max-w-[100%] min-w-[70%] p-3 overflow-y-auto flex-wrap ">
+                                                <div className="Feedback w-full bg-pink300 max-w-[100%] h-[40%] p-3 overflow-y-auto flex-wrap ">
                                                     {console.log(normalizedResult?.interviewResult?.feedback)}
                                                     {/* Marks Cutdown reasons: <br /> */}
                                                     {/* {resultWindowData.interviewResult.feedback.marks_cutdown_points || 'No remarks available.'} */}
