@@ -9,6 +9,7 @@ import { Candidate } from "../models/Candidate.model.js";
 import { IntreviewResult } from "../models/IntreviewResult.model.js";
 import axios from "axios";
 import recruiterEmit from "../socket/emit/recruiterEmit.js";
+import { extractTextFromBuffer } from "../utils/fileExtractor.js";
 
 // import Company from "../model/company.model.js";
 // import Recruiter from "../model/recruiter.model.js";
@@ -906,30 +907,30 @@ export const SendEmailToCandidates = async (req, res) => {
 
 export const extractPdfText = async (req, res) => {
     try {
-        const { default: pdfParse } = await import("pdf-parse");
-        console.log('📄 Starting PDF text extraction for job description...');
+        console.log('📄 Starting job description extraction (multi-format)');
 
         const fileBuffer = req.file?.buffer;
+        const originalName = req.file?.originalname || '';
 
         if (!fileBuffer) {
-            return res.status(400).json({ message: "PDF file is required" });
+            return res.status(400).json({ message: "File is required" });
         }
 
-        console.log('📄 PDF buffer size:', fileBuffer.length);
+        console.log('📄 Uploaded buffer size:', fileBuffer.length, 'originalName:', originalName);
 
-        const data = await pdfParse(fileBuffer);
-        const text = data.text;
+        // Use the unified extractor which handles PDFs, DOCX, XLSX, CSV, TXT and images (with OCR)
+        const text = await extractTextFromBuffer(fileBuffer, originalName);
 
-        console.log("📄 Extracted text length:", text.length);
+        console.log('📄 Extracted text length:', text ? text.length : 0);
 
         if (!text || text.trim().length === 0) {
-            return res.status(400).json({ message: "No text could be extracted from the PDF" });
+            return res.status(400).json({ message: "No text could be extracted from the uploaded file" });
         }
 
         const model = geminiAPI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `
-        You are given the following text extracted from a job description PDF. Your task is to parse this text and extract the following information into a JSON object with exactly these keys:
+        You are given the following text extracted from a job description. Your task is to parse this text and extract the following information into a JSON object with exactly these keys:
         - jobPosition: The job title or position name (string)
         - jobDescription: A detailed description of the job (string)
         - minimumQualification: The minimum qualifications required (string)
@@ -945,27 +946,55 @@ export const extractPdfText = async (req, res) => {
         `;
 
         const result = await model.generateContent(prompt);
-        const aiText = result.response.text();
+
+        // Robustly extract text content from model response
+        let aiText = '';
+        try {
+            if (result && result.response) {
+                const resp = await result.response;
+                if (resp && typeof resp.text === 'function') {
+                    aiText = await resp.text();
+                } else if (typeof resp === 'string') {
+                    aiText = resp;
+                } else if (resp && resp.outputText) {
+                    aiText = resp.outputText;
+                } else {
+                    aiText = JSON.stringify(resp);
+                }
+            } else if (result && result.outputText) {
+                aiText = result.outputText;
+            } else if (typeof result === 'string') {
+                aiText = result;
+            } else if (result && result.toString) {
+                aiText = result.toString();
+            } else {
+                aiText = JSON.stringify(result);
+            }
+        } catch (e) {
+            console.log('Error reading AI response:', e);
+            return res.status(500).json({ message: 'Error reading AI response' });
+        }
 
         let parsedData;
         try {
             const jsonMatch = aiText.match(/\{[\s\S]*\}/);
             parsedData = JSON.parse(jsonMatch ? jsonMatch[0] : aiText);
         } catch (parseError) {
-            console.log('Error parsing AI response:', parseError);
+            console.log('Error parsing AI response for job details:', parseError);
             return res.status(500).json({ message: "Error parsing AI response for job details" });
         }
 
         const jobData = {
             jobPosition: parsedData.jobPosition || '',
             jobDescription: parsedData.jobDescription || '',
+            minimumQualification: parsedData.minimumQualification || '',
             minimumSkills: Array.isArray(parsedData.minimumSkills) ? parsedData.minimumSkills : [],
             minimumExperience: parsedData.minimumExperience || '',
             requiredSkills: Array.isArray(parsedData.requiredSkills) ? parsedData.requiredSkills : []
         };
 
         res.status(200).json({
-            message: "PDF parsed successfully",
+            message: "File parsed successfully",
             data: jobData
         });
 

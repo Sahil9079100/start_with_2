@@ -125,8 +125,8 @@ export const createSingleInterview = async (req, res) => {
         // Expecting fields in data: language, duration, questions (array or JSON string), expiryDate, jobPosition, jobDescription, resumeUrl, candidateEmail (optional)
         const {
             language = 'English',
-            duration = '',
-            questions = [],
+            duration,
+            questions,
             expiryDate,
             jobPosition,
             jobDescription,
@@ -157,6 +157,7 @@ export const createSingleInterview = async (req, res) => {
             launguage: language,
             candidateSheetId,
             jobPosition,
+            duration,
             jobDescription,
             // useremail: [candidateEmail || `single_candidate_${Date.now()}@local`],
             expiryDate: expiryDate || null,

@@ -147,7 +147,56 @@ const ProfileHr = () => {
         resumeFile: null,
     });
 
+    // Validation message for duration input (will auto-clear)
+    const [durationError, setDurationError] = useState('');
+    const durationErrorTimeoutRef = useRef(null);
+
+    // Cleanup timeout on unmount
+    React.useEffect(() => {
+        return () => {
+            if (durationErrorTimeoutRef.current) {
+                clearTimeout(durationErrorTimeoutRef.current);
+                durationErrorTimeoutRef.current = null;
+            }
+        };
+    }, []);
+
+    // Cleanup schedule duration timeout on unmount
+    React.useEffect(() => {
+        return () => {
+            if (scheduleDurationTimeoutRef.current) {
+                clearTimeout(scheduleDurationTimeoutRef.current);
+                scheduleDurationTimeoutRef.current = null;
+            }
+        };
+    }, []);
+
     const handleSingleInterviewChange = (field, value) => {
+        // For duration, validate minimum value and show temporary message
+        if (field === 'duration') {
+            // allow empty to let user type, but coerce to number for check
+            const numeric = Number(value);
+            setSingleInterviewForm(prev => ({ ...prev, [field]: value }));
+
+            if (!isNaN(numeric) && numeric > 0 && numeric < 5) {
+                setDurationError('Minimum time for AI Interview is 5 minutes');
+                // clear any existing timeout
+                if (durationErrorTimeoutRef.current) clearTimeout(durationErrorTimeoutRef.current);
+                durationErrorTimeoutRef.current = setTimeout(() => {
+                    setDurationError('');
+                    durationErrorTimeoutRef.current = null;
+                }, 4000);
+            } else {
+                // clear error immediately if valid
+                setDurationError('');
+                if (durationErrorTimeoutRef.current) {
+                    clearTimeout(durationErrorTimeoutRef.current);
+                    durationErrorTimeoutRef.current = null;
+                }
+            }
+            return;
+        }
+
         setSingleInterviewForm(prev => ({ ...prev, [field]: value }));
     };
 
@@ -389,12 +438,16 @@ const ProfileHr = () => {
 
     // Schedule interview form state
     const [scheduleForm, setScheduleForm] = useState({
-        language: 'English',
-        duration: '12',
-        questions: ['How do you manage a product?', 'How do you collab with other brands to manage there product?'],
+        language: '',
+        duration: '10',
+        questions: [''],
         // addProfileScreening: 'Yes',
         expiryDate: ''
     });
+
+    // Validation message for schedule duration (temporary)
+    const [scheduleDurationError, setScheduleDurationError] = useState('');
+    const scheduleDurationTimeoutRef = useRef(null);
 
     // Latest activity message: prefer live combinedLogs, fallback to last user log on reload
     const latestActivityMessage = useMemo(() => {
@@ -1262,58 +1315,65 @@ const ProfileHr = () => {
 
                                     {/* PDF Upload Section */}
                                     {!pdfDataExtractLoading &&
-                                        <div className='mb-4'>
-                                            <div className='border border-gray-200 rounded-lg  hover:bg-gray-100  bg-white '>
-                                                <div className='text-center'>
-                                                    <input
-                                                        type='file'
-                                                        accept='.pdf'
-                                                        onChange={async (e) => {
-                                                            const file = e.target.files[0];
-                                                            if (file) {
-                                                                const formData = new FormData();
-                                                                formData.append('pdf', file);
-                                                                try {
-                                                                    setPdfDataExtractLoading(true);
-                                                                    // setCreateInterviewLoading(true);
-                                                                    const response = await API.post('/api/owner/extract-pdf-text', formData, {
-                                                                        headers: {
-                                                                            'Content-Type': 'multipart/form-data',
-                                                                        },
-                                                                    });
-                                                                    console.log(response.data.data)
-                                                                    if (response.data.data) {
-                                                                        const { jobPosition, jobDescription, minimumSkills, minimumQualification, minimumExperience, requiredSkills } = response.data.data;
-                                                                        setInterviewForm(prev => ({
-                                                                            ...prev,
-                                                                            jobPosition: jobPosition || prev.jobPosition,
-                                                                            jobDescription: jobDescription || prev.jobDescription,
-                                                                            minimumSkills: minimumSkills || prev.minimumSkills,
-                                                                            minimumExperience: minimumExperience || prev.minimumExperience,
-                                                                            minimumQualification: minimumQualification || prev.minimumQualification,
-                                                                            requiredSkills: requiredSkills || prev.requiredSkills
-                                                                        }));
+                                        <>
+                                            <div className='mb-4'>
+                                                <div className='border border-gray-200 rounded-lg  hover:bg-gray-100  bg-white '>
+                                                    <div className='text-center'>
+                                                        <input
+                                                            type='file'
+                                                            accept='.pdf'
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files[0];
+                                                                if (file) {
+                                                                    const formData = new FormData();
+                                                                    formData.append('pdf', file);
+                                                                    try {
+                                                                        setPdfDataExtractLoading(true);
+                                                                        // setCreateInterviewLoading(true);
+                                                                        const response = await API.post('/api/owner/extract-pdf-text', formData, {
+                                                                            headers: {
+                                                                                'Content-Type': 'multipart/form-data',
+                                                                            },
+                                                                        });
+                                                                        console.log(response.data.data)
+                                                                        if (response.data.data) {
+                                                                            const { jobPosition, jobDescription, minimumSkills, minimumQualification, minimumExperience, requiredSkills } = response.data.data;
+                                                                            setInterviewForm(prev => ({
+                                                                                ...prev,
+                                                                                jobPosition: jobPosition || prev.jobPosition,
+                                                                                jobDescription: jobDescription || prev.jobDescription,
+                                                                                minimumSkills: minimumSkills || prev.minimumSkills,
+                                                                                minimumExperience: minimumExperience || prev.minimumExperience,
+                                                                                minimumQualification: minimumQualification || prev.minimumQualification,
+                                                                                requiredSkills: requiredSkills || prev.requiredSkills
+                                                                            }));
+                                                                        }
+                                                                        // setCreateInterviewLoading(false);
+                                                                        setPdfDataExtractLoading(false);
+                                                                    } catch (error) {
+                                                                        console.error('Error extracting PDF text:', error);
                                                                     }
-                                                                    // setCreateInterviewLoading(false);
-                                                                    setPdfDataExtractLoading(false);
-                                                                } catch (error) {
-                                                                    console.error('Error extracting PDF text:', error);
                                                                 }
-                                                            }
-                                                        }}
-                                                        className='hidden'
-                                                        id='pdf-upload-hr'
-                                                    />
-                                                    <label
-                                                        htmlFor='pdf-upload-hr'
-                                                        className='cursor-pointer  w-full flex justify-center items-center gap-2 px-6 py-2 text-gray-700 rounded-lgtransition-colors  font-medium'
-                                                    >
-                                                        <Upload size={20} className='text-gray-600' />
-                                                        Upload a PDF
-                                                    </label>
+                                                            }}
+                                                            className='hidden'
+                                                            id='pdf-upload-hr'
+                                                        />
+                                                        <label
+                                                            htmlFor='pdf-upload-hr'
+                                                            className='cursor-pointer  w-full flex justify-center items-center gap-2 px-6 py-2 text-gray-700 rounded-lgtransition-colors  font-medium'
+                                                        >
+                                                            <Upload size={20} className='text-gray-600' />
+                                                            Upload Job Description PDF
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                            <div className=" h-3 w-full flex items-center gap-[6px] my-2">
+                                                <hr className="border w-full  border-black/20 border-dashed" />
+                                                <div className="text-black/40">OR</div>
+                                                <hr className="border w-full  border-black/20 border-dashed" />
+                                            </div>
+                                        </>
                                     }
                                     <div>{pdfDataExtractLoading ? (<>
                                         <div className="mb-4 border border-gray-200 rounded-lg  hover:bg-gray-100  bg-white text-center py-2">Extracting data from PDF...</div>
@@ -1591,10 +1651,29 @@ const ProfileHr = () => {
                                         type='number'
                                         name='duration'
                                         value={scheduleForm.duration}
-                                        onChange={(e) => setScheduleForm(prev => ({ ...prev, duration: e.target.value }))}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setScheduleForm(prev => ({ ...prev, duration: val }));
+                                            const numeric = Number(val);
+                                            if (!isNaN(numeric) && numeric > 0 && numeric < 5) {
+                                                setScheduleDurationError('Minimum time for AI Interview is 5 minutes');
+                                                if (scheduleDurationTimeoutRef.current) clearTimeout(scheduleDurationTimeoutRef.current);
+                                                scheduleDurationTimeoutRef.current = setTimeout(() => {
+                                                    setScheduleDurationError('');
+                                                    scheduleDurationTimeoutRef.current = null;
+                                                }, 4000);
+                                            } else {
+                                                setScheduleDurationError('');
+                                                if (scheduleDurationTimeoutRef.current) {
+                                                    clearTimeout(scheduleDurationTimeoutRef.current);
+                                                    scheduleDurationTimeoutRef.current = null;
+                                                }
+                                            }
+                                        }}
                                         placeholder='10'
                                         className='w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400'
                                     />
+                                    {scheduleDurationError && <div className='text-sm text-red-500 mt-1'>{scheduleDurationError}</div>}
                                 </div>
 
                                 <div className='mb-4'>
@@ -1680,7 +1759,8 @@ const ProfileHr = () => {
                                     </>) : (<>
                                         <button
                                             onClick={() => { SheduleInterviewSend(interviewDetails._id) }}
-                                            className='bg-black text-white px-8 py-2 rounded-full hover:bg-gray-800 transition-colors'
+                                            disabled={Number(scheduleForm.duration) > 0 && Number(scheduleForm.duration) < 5}
+                                            className={`bg-black text-white px-8 py-2 rounded-full hover:bg-gray-800 transition-colors ${Number(scheduleForm.duration) > 0 && Number(scheduleForm.duration) < 5 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             Send
                                         </button>
@@ -2337,7 +2417,7 @@ const ProfileHr = () => {
 
 
                                                                         <div className='flex flex-col gap-3 mb-3'>
-                                                                            <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
+                                                                            <div className='text-sm text-gray-400 uppercase tracking-wide'>Recommended Questions</div>
                                                                             <div className='flex flex-wrap gap-3'>
                                                                                 <div onClick={() => { setQuestionsWindow(true); console.log(interview?.aiQuestions) }} className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
                                                                                     {(interview?.aiQuestions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
@@ -2576,7 +2656,7 @@ const ProfileHr = () => {
 
                                                                         {/* Flags / Questions */}
                                                                         <div className='flex flex-col gap-3 mb-3'>
-                                                                            <div className='text-sm text-gray-400 uppercase tracking-wide'>Flags</div>
+                                                                            <div className='text-sm text-gray-400 uppercase tracking-wide'>Recommended Questions</div>
                                                                             <div className='flex flex-wrap gap-3'>
                                                                                 <div onClick={() => { setQuestionsWindow(true); console.log(interview?.aiQuestions) }} className='bg-orange-500 text-white px-3 py-1 rounded-md text-sm'>
                                                                                     {(interview?.aiQuestions?.length || interview.dynamicData?.Questions?.length || 0)} Questions
@@ -2613,14 +2693,14 @@ const ProfileHr = () => {
 
 
                     {questionsWindow &&
-                        <div className='QUESTIONS WINDOW absolute flex justify-center items-center w-full h-full z-30'>
-                            <div className="bg-gray-300/80 backdrop-blur-[6px] min-w-[50%] h-fit p-2 rounded-sm">
-                                <div className="flex justify-between items-center font-semibold">
+                        <div className='QUESTIONS WINDOW absolute bg-gray-600/50 flex justify-center items-center w-full h-full z-30'>
+                            <div className="bg-white/90 backdrop-blur-[6px] min-w-[50%] h-fit  rounded-lg">
+                                <div className="flex justify-between items-center font-semibold p-2 bg-white/50 rounded-t-lg border-b border-gray-300">
                                     <div className="ml-2 text-xl">Questions</div>
-                                    <div onClick={() => setQuestionsWindow(false)} className="bg-red-700 text-white px-2 py-1 rounded-md hover:cursor-pointer">Close</div>
+                                    <div onClick={() => setQuestionsWindow(false)} className="hover:bg-red-700 hover:text-white text-red-700 border border-red-700 px-2 py-1 rounded-md hover:cursor-pointer transistion-all duration-200">Close</div>
                                 </div>
-                                <hr className='border border-black/30 mt-2' />
-                                <div className="flex text-lg flex-col gap-3 p-4 max-w-[1200px]  bg-rd-300 max-h-[400px] overflow-y-scroll scroll">
+                                {/* <hr className='border-[1px] border-black/20 mt-2' /> */}
+                                <div className="flex text-lg  flex-col gap-3 p-4 max-w-[1200px]  bg-rd-300 max-h-[500px] overflow-y-scroll scroll">
                                     {questionsArray.length === 0 ? (<div className="text-center text-lg text-gray-700">No important questions available.</div>
                                     ) : (<>
                                         {questionsArray.map((list, idx) => {
@@ -2628,6 +2708,7 @@ const ProfileHr = () => {
                                             return (
                                                 <div key={idx}>
                                                     Q{idx + 1}. {list}
+                                                    <hr className='border border-gray-600/10 mt-2' />
                                                 </div>
                                             )
                                         })
@@ -2697,6 +2778,7 @@ const ProfileHr = () => {
                                         <div>
                                             <label className='text-sm text-gray-600'>Duration (minutes)</label>
                                             <input aria-label='Duration' type='number' value={singleInterviewForm.duration} onChange={(e) => handleSingleInterviewChange('duration', e.target.value)} className='w-full px-3 py-2 border border-gray-200 rounded-md' />
+                                            {/* {durationError && <div className='text-sm text-red-500 mt-1'>{durationError}</div>} */}
                                         </div>
 
 
@@ -2772,6 +2854,12 @@ const ProfileHr = () => {
 
                                 {/* Footer (static) */}
                                 <div className='flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0'>
+                                    <div className='flex-1 text-left'>
+                                        {/* Persistent validation message for duration when too short */}
+                                        {Number(singleInterviewForm.duration) > 0 && Number(singleInterviewForm.duration) < 5 && (
+                                            <div className='text-sm text-red-600'>Minimum time for AI Interview is 5 minutes</div>
+                                        )}
+                                    </div>
                                     <button onClick={() => { setSingleInterviewWindow(false); }} className='px-4 py-2 rounded-md border border-gray-300 bg-white'>Cancel</button>
                                     {singleInterviewCreateLoading ? (
                                         <button disabled className='px-4 py-2 rounded-md bg-black text-white flex items-center gap-2'>
@@ -2779,7 +2867,12 @@ const ProfileHr = () => {
                                             Creating...
                                         </button>
                                     ) : (
-                                        <button onClick={createSingleInterview} className='px-4 py-2 rounded-md bg-black text-white'>Create Single Interview</button>
+                                        <button
+                                            onClick={createSingleInterview}
+                                            disabled={Number(singleInterviewForm.duration) > 0 && Number(singleInterviewForm.duration) < 5}
+                                            className={`px-4 py-2 rounded-md bg-black text-white ${Number(singleInterviewForm.duration) > 0 && Number(singleInterviewForm.duration) < 5 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                            Create Single Interview
+                                        </button>
                                     )}
                                 </div>
                             </div>
@@ -3307,13 +3400,12 @@ const ProfileHr = () => {
 
 
                     {impquestionsWindow &&
-                        <div className='QUESTIONS WINDOW absolute flex justify-center items-center w-full h-full'>
-                            <div className="bg-gray-300/60 backdrop-blur-[6px] min-w-[50%] h-fit p-2 rounded-sm">
-                                <div className="flex justify-between items-center font-semibold">
+                        <div className='QUESTIONS WINDOW absolute bg-gray-600/50 flex justify-center items-center w-full h-full'>
+                            <div className="bg-white/90 backdrop-blur-[6px] min-w-[50%] h-fit  rounded-sm">
+                                <div className="flex justify-between items-center font-semibold p-2 bg-white/50 rounded-t-lg border-b border-gray-300">
                                     <div className="ml-2 text-xl">Important Questions</div>
-                                    <div onClick={() => setImpQuestionsWindow(false)} className="bg-red-700 text-white px-2 py-1 rounded-md hover:cursor-pointer">Close</div>
+                                    <div onClick={() => setImpQuestionsWindow(false)} className="hover:bg-red-700 hover:text-white text-red-700 border border-red-700 px-2 py-1 rounded-md hover:cursor-pointer transistion-all duration-200">Close</div>
                                 </div>
-                                <hr className='border border-black/30 mt-2' />
                                 <div className="flex text-xl flex-col gap-3 p-4 max-w-[1200px] max-h-[400px] overflow-y-scroll scroll">
                                     {impQuestionsArray.length === 0 ? (<div className="text-center text-lg text-gray-700">No important questions available.</div>
                                     ) : (<>
@@ -3321,6 +3413,7 @@ const ProfileHr = () => {
                                             return (
                                                 <div key={idx}>
                                                     Q{idx + 1}. {list}
+                                                    <hr className='border border-gray-600/10 mt-2' />
                                                 </div>
                                             )
                                         })

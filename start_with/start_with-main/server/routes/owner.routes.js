@@ -9,14 +9,25 @@ import multer from "multer";
 
 const upload = multer({
     storage: multer.memoryStorage(),
+    // Allow many file types; validation will happen on server side in the extractor
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/pdf') {
-            cb(null, true);
-        } else {
-            cb(new Error('Only PDF files are allowed'), false);
-        }
+        // Accept common document and image MIME types
+        const allowed = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+            'text/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'image/png',
+            'image/jpeg',
+            'image/tiff'
+        ];
+        if (allowed.includes(file.mimetype)) cb(null, true);
+        else cb(null, true); // accept anyway, extractor will attempt fallback conversion
     },
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit
 });
 // Middleware to handle multer errors
 const handleMulterError = (err, req, res, next) => {
