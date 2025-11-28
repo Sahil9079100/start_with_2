@@ -3024,7 +3024,7 @@ const ProfileHr = () => {
                                 {reviewedCandidateFetchLoading !== true ? (
                                     <>
                                         {interviewDetails.isSingle ? (<>
-                                            <div className='INTERVIEW_DETAILS_SECTION w-full h-full overflow-scroll hscroll px-16 pt-5 z-50 '>
+                                            <div className='INTERVIEW_DETAILS_SECTION w-full h-full overflow-scroll hscroll px-16 pt-5 '>
 
                                                 <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between'>
                                                     <div className='text-sm text-gray-700'>
