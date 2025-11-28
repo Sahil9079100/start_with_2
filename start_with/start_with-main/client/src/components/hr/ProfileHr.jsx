@@ -1815,32 +1815,28 @@ const ProfileHr = () => {
                                             <>
 
                                                 {Object.entries(groupInterviewsByDate()).map(([dateLabel, interviewsGroup]) => (
-
-                                                    <div key={dateLabel} className='mb-9'>
-                                                        <div className='px-16 py-2 text-gray-400 text-[15px] mb-[-5px] font-normal'>
-                                                            {dateLabel}
-                                                        </div>
-                                                        {interviewsGroup.map((interview) => (
-                                                            <div key={interview._id} className='w-full'>
-                                                                {interview.isSingle ? (<>
-                                                                    {null}</>) : (<>
-                                                                        <div onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); get_sorted_list(interview._id); setActivePage('Each Interview Detail'); }}
-                                                                            className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
-                                                                            <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
-                                                                            <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /> </span>
-                                                                            {/* <span onClick={() => { setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); }} className='hover:bg-gray-200 p-1 rounded-full h-fit flex justify-center items-center text-xl'><BsThreeDotsVertical /></span> */}
-
-                                                                            {/* {interviewExtraWindow[interview._id] && (
-                                                                        <div className='absolute z-50 top-0 right-0 mt-10 mr-0 bg-gray-50 border-[2px] border-gray-200 rounded-[5px] p-1 flex flex-col gap-1 ' >
-                                                                            <div onClick={() => { setAreYouSureDeleteWindow(true); setInterviewExtraWindow({ [interview._id]: !interviewExtraWindow[interview._id] }); setDeleteInterviewID(interview._id); }} className={`hover:bg-red-200/40 hover:cursor-pointer flex rounded-[3px] px-2 py-1 font-normal text-red-400 select-none`}>Delete <span className='ml-2 text-xl flex justify-center items-center'><MdDelete /></span></div>
-                                                                        </div>
-                                                                    )} */}
-                                                                        </div>
-                                                                        <hr className='border border-black/30 mx-[52px]' />
-                                                                    </>)}
+                                                    // Only render a date block if there is at least one non-single interview in the group
+                                                    interviewsGroup.some(i => !i.isSingle) ? (
+                                                        <div key={dateLabel} className='mb-9'>
+                                                            <div className='px-16 py-2 text-gray-400 text-[15px] mb-[-5px] font-normal'>
+                                                                {dateLabel}
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                            {interviewsGroup.map((interview) => (
+                                                                <div key={interview._id} className='w-full'>
+                                                                    {interview.isSingle ? null : (
+                                                                        <>
+                                                                            <div onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); get_sorted_list(interview._id); setActivePage('Each Interview Detail'); }}
+                                                                                className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
+                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                                <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /> </span>
+                                                                            </div>
+                                                                            <hr className='border border-black/30 mx-[52px]' />
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : null
                                                 ))}
 
                                             </>
@@ -2638,8 +2634,7 @@ const ProfileHr = () => {
                                 </div>
                             </div>
 
-                        </div>
-                    }
+                        </div>}
 
                     {singleInterviewWindow && (
                         <div className='absolute inset-0 z-40 flex items-center justify-center'>
