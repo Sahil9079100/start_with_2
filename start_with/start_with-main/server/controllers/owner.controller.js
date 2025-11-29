@@ -1040,16 +1040,20 @@ export const FetchSingleInterviewEmailStatus = async (req, res) => {
             return res.status(400).json({ message: 'Candidate id is required', data: null });
         }
         // console.log('FetchSingleInterviewEmailStatus id:', data);
-        const candidate = await Candidate.find({ interview: data }).select('emailStatus');
-        console.log(candidate)
-        console.log(candidate.emailStatus)
-        if (!candidate) {
-            console.log(`FetchSingleInterviewEmailStatus: candidate not found for id ${data}`);
+        const candidates = await Candidate.find({ interview: data }).select('emailStatus');
+        console.log('FetchSingleInterviewEmailStatus - candidates found:', candidates);
+
+        if (!Array.isArray(candidates) || candidates.length === 0) {
+            console.log(`FetchSingleInterviewEmailStatus: candidate not found for interview ${data}`);
             return res.status(404).json({ message: 'Candidate not found', data: null });
         }
 
-        // Safe: candidate is present and we only selected emailStatus
-        res.status(200).json({ message: 'Status Found', data: candidate[0].emailStatus, candidateId: candidate._id });
+        // Use the first candidate (existing behaviour) but access fields safely
+        const first = candidates[0];
+        const emailStatus = first?.emailStatus ?? null;
+        const candidateId = first?._id ?? null;
+
+        res.status(200).json({ message: 'Status Found', data: emailStatus, candidateId });
     } catch (error) {
         console.log("FetchSingleInterviewEmailStatus error", error);
         res.status(500).json({ message: "Internal server error" });
