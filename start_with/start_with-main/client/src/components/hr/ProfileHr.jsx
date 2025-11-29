@@ -271,14 +271,18 @@ const ProfileHr = () => {
     // Upload Job Description PDF and auto-fill singleInterviewForm using server AI parser
     const handleJobDescriptionPdfFile = async (file) => {
         if (!file) return;
-        if (file.type !== 'application/pdf') {
-            alert('Please upload a PDF file for the Job Description');
+
+        // Accept many file types; server will handle extraction and fallback conversion.
+        const maxBytes = 20 * 1024 * 1024; // 20 MB
+        if (file.size > maxBytes) {
+            alert('File is too large. Maximum allowed size is 20MB.');
             return;
         }
 
         try {
             setSingleJDExtractLoading(true);
             const formData = new FormData();
+            // backend expects the upload field named 'pdf' for historical reasons
             formData.append('pdf', file);
 
             const response = await API.post('/api/owner/extract-pdf-text', formData, {
@@ -297,8 +301,8 @@ const ProfileHr = () => {
                 candidateEmail: parsed.candidateEmail || prev.candidateEmail
             }));
         } catch (err) {
-            console.error('Error extracting JD PDF for single interview:', err);
-            alert('Unable to extract job details from the PDF. Please fill the form manually.');
+            console.error('Error extracting JD file for single interview:', err);
+            alert('Unable to extract job details from the uploaded file. Please fill the form manually.');
         } finally {
             setSingleJDExtractLoading(false);
         }
@@ -1321,15 +1325,18 @@ const ProfileHr = () => {
                                                     <div className='text-center'>
                                                         <input
                                                             type='file'
-                                                            accept='.pdf'
+                                                            accept='.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,image/*'
                                                             onChange={async (e) => {
                                                                 const file = e.target.files[0];
                                                                 if (file) {
+                                                                    if (file.size > 20 * 1024 * 1024) {
+                                                                        alert('File is too large. Maximum allowed size is 20MB.');
+                                                                        return;
+                                                                    }
                                                                     const formData = new FormData();
                                                                     formData.append('pdf', file);
                                                                     try {
                                                                         setPdfDataExtractLoading(true);
-                                                                        // setCreateInterviewLoading(true);
                                                                         const response = await API.post('/api/owner/extract-pdf-text', formData, {
                                                                             headers: {
                                                                                 'Content-Type': 'multipart/form-data',
@@ -1348,10 +1355,10 @@ const ProfileHr = () => {
                                                                                 requiredSkills: requiredSkills || prev.requiredSkills
                                                                             }));
                                                                         }
-                                                                        // setCreateInterviewLoading(false);
                                                                         setPdfDataExtractLoading(false);
                                                                     } catch (error) {
-                                                                        console.error('Error extracting PDF text:', error);
+                                                                        console.error('Error extracting file text:', error);
+                                                                        setPdfDataExtractLoading(false);
                                                                     }
                                                                 }
                                                             }}
@@ -1363,7 +1370,7 @@ const ProfileHr = () => {
                                                             className='cursor-pointer  w-full flex justify-center items-center gap-2 px-6 py-2 text-gray-700 rounded-lgtransition-colors  font-medium'
                                                         >
                                                             <Upload size={20} className='text-gray-600' />
-                                                            Upload Job Description PDF
+                                                            Upload Job Description (PDF / DOCX / TXT / CSV / XLSX / Image)
                                                         </label>
                                                     </div>
                                                 </div>
@@ -2736,7 +2743,7 @@ const ProfileHr = () => {
                                         <input
                                             id='single-jd-upload'
                                             type='file'
-                                            accept='.pdf'
+                                            accept='.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,image/*'
                                             className='hidden'
                                             onChange={async (e) => {
                                                 const file = e.target.files?.[0] || null;
@@ -2753,7 +2760,7 @@ const ProfileHr = () => {
                                         >
                                             <div className='flex flex-col items-center justify-center gap-1 text-gray-700'>
                                                 <span className='font-medium'>{singleJDDragActive ? 'Drop JD file to upload' : 'Upload JD file here'}</span>
-                                                <span className='text-xs text-gray-500'>(PDF, max 10MB)</span>
+                                                <span className='text-xs text-gray-500'>(PDF, DOCX, DOC, TXT, CSV, XLSX, images — max 20MB)</span>
                                             </div>
                                         </label>
                                         {singleJDExtractLoading && (
@@ -2914,7 +2921,7 @@ const ProfileHr = () => {
                                                         {interviewsGroup.some(i => i.usercompleteintreviewemailandid && i.usercompleteintreviewemailandid.length > 0 || i.isSingle) &&
                                                             <div className='px-16 py-2 text-gray-400 text-[15px] mb-[-5px] font-normal'>
                                                                 {dateLabel}
-                                                                {console.log("ok", interviewsGroup)}
+                                                                {/* {console.log("ok", interviewsGroup)} */}
                                                             </div>
                                                         }
                                                         {
@@ -3203,6 +3210,7 @@ const ProfileHr = () => {
                                                                         // setSortedListArray(data)
                                                                         setSelectedCandidates(data)
                                                                         selectedCandidates.push(singleInterviewCandidateID)
+                                                                        console.log("email", data)
                                                                         send_email_array()
                                                                         setSingleInterviewEmailStatus('SUCCESS')
                                                                     }
