@@ -567,7 +567,7 @@ export const SendEmailToCandidates = async (req, res) => {
 
             // educategirls@startwith.live
 
-            if (senderEmail == 'educategirls@startwith.live') {
+            if (true) {
                 html = `
                 <!DOCTYPE html>
 <html lang="en">
