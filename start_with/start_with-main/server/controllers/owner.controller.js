@@ -521,7 +521,6 @@ export const SendEmailToCandidates = async (req, res) => {
 
             const to = candidate.email;
             // const subject = `${capitalizeWords(companyName)}: Your AI Interview is ready for ${findInterview.jobPosition}`;
-            const subject = `${candidate?.name}, Invitation for AI-interview - ${findInterview.jobPosition} Position at Balotra`;
 
             // Derive first name and expiration in days for dynamic template values
             const candidateName = (candidate?.name && String(candidate.name).trim())
@@ -530,6 +529,7 @@ export const SendEmailToCandidates = async (req, res) => {
             const now = new Date();
             const expiryDateObj = findInterview.expiryDate ? new Date(findInterview.expiryDate) : null;
 
+            const subject = `${candidate?.name || candidateName}, Invitation for AI-interview - ${findInterview.jobPosition} Position at Balotra`;
             // compute formatted expiry date or 'None'
             const expiryDateObjSafe = expiryDateObj && !isNaN(expiryDateObj.getTime()) ? expiryDateObj : null;
             const getOrdinalSuffix = (n) => {
@@ -562,7 +562,7 @@ export const SendEmailToCandidates = async (req, res) => {
 
             const companyNameSafe = companyName ? String(companyName).trim() : '';
             const senderName = companyNameSafe ? capitalizeWords(companyNameSafe) : 'StartWith Team';
-            const senderEmail = companyNameSafe ? `${companyNameSafe}@startwith.live` : 'interview@startwith.live';
+            const senderEmail = companyNameSafe ? `${companyNameSafe}@startwith.live` : 'educategirls@startwith.live';
             const candidateId = candidate._id;
 
             // educategirls@startwith.live
