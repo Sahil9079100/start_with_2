@@ -529,7 +529,7 @@ export const SendEmailToCandidates = async (req, res) => {
             const now = new Date();
             const expiryDateObj = findInterview.expiryDate ? new Date(findInterview.expiryDate) : null;
 
-            const subject = `${candidate?.name || candidateName}, Invitation for AI-interview - ${findInterview.jobPosition} Position at Balotra`;
+            const subject = `${candidate?.name || candidateName}, Your AI Interview Invitation for ${findInterview.jobPosition} at Balotra`;
             // compute formatted expiry date or 'None'
             const expiryDateObjSafe = expiryDateObj && !isNaN(expiryDateObj.getTime()) ? expiryDateObj : null;
             const getOrdinalSuffix = (n) => {
