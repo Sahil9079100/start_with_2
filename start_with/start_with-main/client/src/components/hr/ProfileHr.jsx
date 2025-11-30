@@ -2895,7 +2895,7 @@ const ProfileHr = () => {
                                         AI Result
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>{totalInterviews || 0} job position{totalInterviews !== 1 ? 's' : ''} created</div>
                                     </div>
-                                    {interviews.length !== 0 &&
+                                    {true &&
                                         <div className='flex items-center gap-2 mr-10'>
                                             <div onClick={() => { setSingleInterviewWindow(true); }} className=' bg-black text-white text-[15px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer '>Create Single Interview</div>
                                             {/* <div className='w-7 h-7 rounded-full bg-gray-400'></div> */}
@@ -2911,7 +2911,7 @@ const ProfileHr = () => {
                                         {interviews.length === 0 ? (
                                             <div className='w-full h-full flex flex-col items-center justify-start pt-20 gap-4 text-gray-400'>
                                                 <div className='text-xl'>No Job Roles Created Yet</div>
-                                                <div onClick={() => { setInterviewCreateWindow(true); getSheetsNames(); }} className=' bg-black text-white text-[12px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Job Role</div>
+                                                <div onClick={() => { setSingleInterviewWindow(true); }} className=' bg-black text-white text-[12px] rounded-full px-3 py-[8px] font-light hover:cursor-pointer'>Create Single Interview</div>
                                             </div>
                                         ) : (
                                             <>

@@ -567,9 +567,8 @@ export const SendEmailToCandidates = async (req, res) => {
 
             // educategirls@startwith.live
 
-            if (true) {
-                html = `
-                <!DOCTYPE html>
+            /*
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -647,7 +646,92 @@ export const SendEmailToCandidates = async (req, res) => {
     </tr>
   </table>
 </body>
-</html>`;
+</html>
+            
+            */
+            if (true) {
+                html = `
+                <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Invitation</title>
+    <style>
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+        }
+      
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 20px;">
+
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; margin: 0 auto; border: 1px solid #dddddd; padding: 20px;">
+        <tr>
+            <td >
+                <p>Dear <strong>${candidateName}</strong>,</p>
+
+                <p>Hope this email finds you well!</p>
+
+                <p>Thanks for applying to the <strong>${findInterview.jobPosition}</strong> at Balotra with Foundation to Educate Girls. I'm happy to let you know you've been shortlisted for the AI interview.</p>
+                <p>Please go ahead and complete it when you're ready, here's what you need:</p>
+
+                <ul>
+                    <li style="margin-bottom: 5px;"><strong>Expiry Date:</strong> ${findInterview.expiryDate == null ? ('None') : (expiryDataEmailFormet)}</li>
+                    <li style="margin-bottom: 5px;"><strong>Interview Link:</strong> <a href="${findInterview.interviewUrl}">Click here</a></li>
+                </ul>
+
+                <p>Quick tips to get started smoothly:</p>
+
+                <ul>
+                    <li style="margin-bottom: 5px;">Pick a quiet spot with little background noise.</li>
+                    <li style="margin-bottom: 5px;">Use a stable Wi-Fi connection.</li>
+                    <li style="margin-bottom: 5px;">Test your microphone, camera, and speakers beforehand.</li>
+                </ul>
+
+                <p>If anything comes up or you have questions, just reply to this email or reach out to me directly at <a href="mailto:${findowner.email}">${findowner.email}</a></p>
+
+                <p>Looking forward to chatting soon!</p>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="padding-top: 20px;">
+                <p style="margin: 0;">Best,</p>
+                <p style="margin: 0;"><strong>Ramesh Kumar Mali</strong></p>
+                <p style="margin: 0;">District HR</p>
+                <p style="margin: 0;">Foundation to Educate Girls</p>
+                <p style="margin: 0;">+91 97827 40008</p>
+                <br>
+                <p style="margin: 0;"><a href="mailto:${findowner.email}">${findowner.email}</a></p>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="padding-top: 30px; font-size: 12px; color: #777777; text-align: center;">
+                <p>[Powered by <a href="https://startwith.live" target="_blank">Startwith.live</a> – This is an auto-generated email; please don't reply directly.]</p>
+            </td>
+        </tr>
+
+    </table>
+
+</body>
+</html>
+
+                `;
             } else {
                 html = `
                 <!DOCTYPE html >
