@@ -6,7 +6,6 @@ import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.mode
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import { geminiAPI } from "../../server.js";
-import { extractSheetData } from "./sheet_data_extract_json.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
 
@@ -243,11 +242,7 @@ export const sheet_data_structure_worker = async (interviewId) => {
         //     step: "Google Sheet structure processed"
         // });
 
-        // ✅ kick off next worker asynchronously
-        setTimeout(() => {
-            extractSheetData(interviewId);
-        }, 1000); // small delay to avoid blocking response
-
+        // ✅ Pipeline continues via BullMQ - next job (EXTRACT_SHEET) enqueued by queue worker
         return true;
     } catch (error) {
         console.error(`❌ [Worker] Sheet data structure failed for interview ${interviewId}:`, error.message);

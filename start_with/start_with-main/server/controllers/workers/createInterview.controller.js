@@ -3,7 +3,7 @@
 // import { schedule } from "node-cron";
 import { Interview } from "../../models/Interview.model.js";
 import { Candidate } from "../../models/Candidate.model.js";
-import { sheet_data_structure_worker } from "./sheet_data_structure.controller.js";
+import { startPipeline } from "../../queues/interviewPipelineQueue.js";
 import { TextExtractor } from "./extract_text_from_resumeurl.controller.js";
 import fs from "fs";
 import path from "path";
@@ -28,6 +28,7 @@ export const createInterview = async (req, res) => {
             interviewUrl: 'none',
             isSingle: false,
             status: "initial",
+            currentStatus: "CREATED",
             logs: [
                 {
                     message: "Interview record created successfully. Waiting for next phase.",
@@ -44,10 +45,8 @@ export const createInterview = async (req, res) => {
         // return
         console.log(`[INTERVIEW CREATED] ${newInterview._id} by ${ownerId}`);
 
-        // ✅ kick off next worker asynchronously
-        setTimeout(() => {
-            sheet_data_structure_worker(newInterview._id);
-        }, 1000); // small delay to avoid blocking response
+        // ✅ kick off pipeline via BullMQ queue
+        await startPipeline(newInterview._id.toString());
 
         res.status(201).json({
             success: true,

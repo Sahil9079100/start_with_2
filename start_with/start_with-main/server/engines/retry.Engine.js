@@ -1,15 +1,11 @@
 import { Interview } from "../models/Interview.model.js";
-import { sheet_data_structure_worker } from "../controllers/workers/sheet_data_structure.controller.js";
-import { extractSheetData } from "../controllers/workers/sheet_data_extract_json.controller.js";
-import { separate_resume_urls_and_save } from "../controllers/workers/separate_resume_urls_and_save.controller.js";
-import { extract_text_from_resumeurl } from "../controllers/workers/extract_text_from_resumeurl.controller.js";
-import { sort_resume_as_job_description } from "../controllers/workers/sort_resume_as_job_description.controller.js";
 
 /**
- * Centralized retry engine.
+ * Centralized retry engine using BullMQ.
  * - Respects interview.retryCount / interview.maxRetries
  * - Uses per-step counters stored in interview.stepAttempts (object) to avoid cross-step pollution
  * - Increments counters (persisted) before attempting a retry
+ * - Enqueues retry job via BullMQ instead of direct function calls
  */
 export const __RETRY_ENGINE = async (interviewId) => {
     const interview = await Interview.findById(interviewId);
@@ -53,29 +49,12 @@ export const __RETRY_ENGINE = async (interviewId) => {
     console.log(`[RETRY ENGINE] Retrying interview=${interviewId} step=${step} (attempt ${(updatedInterview.stepAttempts && updatedInterview.stepAttempts[step]) || updatedInterview.retryCount}/${maxRetries})`);
 
     try {
-        switch (step) {
-            case "STRUCTURING":
-                return await sheet_data_structure_worker(interviewId);
-
-            case "EXTRACTING_SHEET":
-                return await extractSheetData(interviewId);
-
-            case "RESUME_SEPARATION":
-                return await separate_resume_urls_and_save(interviewId);
-
-            case "OCR":
-                return await extract_text_from_resumeurl(interviewId);
-
-            case "SORTING":
-                return await sort_resume_as_job_description(interviewId);
-
-            default:
-                console.warn(`[RETRY ENGINE] Unknown step=${step} for interview=${interviewId}`);
-                return;
-        }
+        // Dynamic import to avoid circular dependency with queue
+        const { retryStep } = await import("../queues/interviewPipelineQueue.js");
+        await retryStep(interviewId, step);
     } catch (err) {
-        console.error(`[RETRY ENGINE] retry attempt for interview=${interviewId} step=${step} failed:`, err?.message || err);
-        // leave interview in FAILED state; worker catch blocks will handle logging and re-invoking the engine if appropriate
-        return;
+        console.error(`[RETRY ENGINE] failed to enqueue retry job for interview=${interviewId} step=${step}:`, err?.message || err);
+        // Reset status to FAILED since we couldn't enqueue
+        await Interview.findByIdAndUpdate(interviewId, { currentStatus: "FAILED" });
     }
 };

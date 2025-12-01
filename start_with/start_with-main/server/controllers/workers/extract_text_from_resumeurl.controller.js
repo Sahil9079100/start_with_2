@@ -11,7 +11,6 @@ import Tesseract from "tesseract.js";
 import { google } from "googleapis";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
-import { sort_resume_as_job_description } from "./sort_resume_as_job_description.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
 
@@ -134,9 +133,7 @@ export const extract_text_from_resumeurl = async (interviewId) => {
             step: `All candidate resumes are extracted successfully.`
         });
 
-        setTimeout(() => {
-            sort_resume_as_job_description(interviewId);
-        }, 1000);
+        // ✅ Pipeline continues via BullMQ - next job (SORTING) enqueued by queue worker
         console.log("[extract_text_from_resumeurl] Completed for interview:", interviewId);
     } catch (error) {
         console.error(" Error in extract_text_from_resumeurl:", error);

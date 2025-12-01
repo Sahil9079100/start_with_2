@@ -3,7 +3,6 @@ import InterviewGSheetStructure from "../../models/InterviewGSheetStructure.mode
 import SheetDataExtractJson from "../../models/SheetDataExtractJson.model.js";
 import { Candidate } from "../../models/Candidate.model.js";
 import { geminiAPI } from "../../server.js";
-import { extract_text_from_resumeurl } from "./extract_text_from_resumeurl.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
 
@@ -167,10 +166,7 @@ export const separate_resume_urls_and_save = async (interviewId) => {
             });
             await structureDoc.save();
 
-            setTimeout(() => {
-                extract_text_from_resumeurl(interviewId);
-            }, 2000);
-
+            // ✅ Pipeline continues via BullMQ - next job (OCR) enqueued by queue worker
             return { success: true, savedCount };
         } catch (error) {
             console.error(`[Step D] Attempt ${attempt} failed:`, error.message);

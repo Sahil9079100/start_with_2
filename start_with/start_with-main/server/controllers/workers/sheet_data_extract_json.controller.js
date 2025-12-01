@@ -6,7 +6,6 @@ import { Interview } from "../../models/Interview.model.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import { createOAuthClient } from "../../utils/googleClient.js";  // Your existing helper
 import InterviewGSheetStructureModel from "../../models/InterviewGSheetStructure.model.js";
-import { separate_resume_urls_and_save } from "./separate_resume_urls_and_save.controller.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
 
@@ -143,10 +142,7 @@ export const extractSheetData = async (interviewId) => {
         console.log(`[Worker] Sheet extraction done for interview ${interview._id}`);
         // console.log(`✅ Sheet extraction done for interview ${interview._id}`);
 
-        // ✅ kick off next worker asynchronously
-        setTimeout(() => {
-            separate_resume_urls_and_save(interviewId);
-        }, 1000); // small delay to avoid blocking response
+        // ✅ Pipeline continues via BullMQ - next job (RESUME_SEPARATION) enqueued by queue worker
     } catch (error) {
         console.error("Error extracting sheet data:", error);
 

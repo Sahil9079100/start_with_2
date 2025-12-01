@@ -11,6 +11,9 @@ import ownerRoute from "./routes/owner.routes.js";
 import googleRoute from "./routes/google.route.js";
 import webhookRoute from "./routes/webhook.routes.js";
 
+// BullMQ Pipeline Worker - import to auto-start processing
+import { pipelineWorker, interviewPipelineQueue } from "./queues/interviewPipelineQueue.js";
+
 
 // import { startAttendanceScheduler } from "./utilits/cron_jobs/attendanceScheduler.cron.js";
 // import socket from "./socket.js";
@@ -75,11 +78,28 @@ dbconnect()
         // });
         server.listen(process.env.PORT || 4000, () => {
             console.log(`⚙️ Server running on port ${process.env.PORT || 4000}`);
+            console.log(`📋 BullMQ Pipeline Worker started - processing interview jobs`);
         });
     })
     .catch((error) => {
         console.error(`Error from app.js:::-> ${error}`);
     });
+
+// Graceful shutdown for BullMQ worker
+const gracefulShutdown = async (signal) => {
+    console.log(`\n${signal} received. Closing BullMQ worker...`);
+    try {
+        await pipelineWorker.close();
+        await interviewPipelineQueue.close();
+        console.log("BullMQ worker closed gracefully.");
+    } catch (err) {
+        console.error("Error closing BullMQ worker:", err);
+    }
+    process.exit(0);
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // startAttendanceScheduler()
 
 export const geminiAPI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
