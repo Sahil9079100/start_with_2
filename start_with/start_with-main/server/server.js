@@ -31,9 +31,6 @@ const server = createServer(app)
 initSocket(server);
 
 
-const G1 = process.env.G1;
-const G2 = process.env.G2;
-const G3 = process.env.G3;
 
 // const io = new Server(server, {
 //     cors: {
