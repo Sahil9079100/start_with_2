@@ -562,8 +562,8 @@ export const SendEmailToCandidates = async (req, res) => {
 
             const companyNameSafe = companyName ? String(companyName).trim() : '';
             const senderName = companyNameSafe ? capitalizeWords(companyNameSafe) : 'Educategirls';
-            // const senderEmail = companyNameSafe ? `${companyNameSafe}@startwith.live` : 'interview@startwith.live';
-            const senderEmail = 'interview@startwith.live';
+            const senderEmail = companyNameSafe ? `${companyNameSafe}@startwith.live` : 'interview@startwith.live';
+            // const senderEmail = 'interview@startwith.live';
             const candidateId = candidate._id;
 
             // educategirls@startwith.live
