@@ -1,7 +1,7 @@
 // basic  routes for owner
 import express from "express";
 // import { LoginOwner, RegisterOwner, CreateCompany, getProfile, CreateRecruiter, CreateInterview } from "../controller/owner.controller.js";
-import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults, FetchSingleInterviewEmailStatus } from "../controllers/owner.controller.js";
+import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults, FetchSingleInterviewEmailStatus, FetchSingleInterviewCandidateEmailID } from "../controllers/owner.controller.js";
 import { ownerTokenAuth } from "../middlewares/ownerTokenAuth.middleware.js";
 import { createInterview, scheduleInterview, createSingleInterview } from "../controllers/workers/createInterview.controller.js";
 import multer from "multer";
@@ -73,7 +73,7 @@ router.post("/owner/schedule/interview", ownerTokenAuth, scheduleInterview);
 router.post("/owner/send/email", ownerTokenAuth, SendEmailToCandidates);
 router.post("/owner/extract-pdf-text", ownerTokenAuth, upload.single('pdf'), handleMulterError, extractPdfText);
 router.get("/owner/single-interview/email/status/:data", ownerTokenAuth, FetchSingleInterviewEmailStatus);
-
+// router.get("/api/owner/single-interview/email/id/:interviewid", ownerTokenAuth, FetchSingleInterviewCandidateEmailID);
 
 //`/api/owner/get-skills-ai/${jobPosition}`
 // add/recruiter

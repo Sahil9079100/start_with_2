@@ -113,6 +113,7 @@ const ProfileHr = () => {
     const [totalResumeCollected, setTotalResumeCollected] = useState(0);
     const [singleInterviewEmailStatus, setSingleInterviewEmailStatus] = useState(null);
     const [singleInterviewCandidateID, setSingleInterviewCandidateID] = useState(null);
+    const [candidateEmail, setCandidateEmail] = useState('');
 
     const [createInterviewLoading, setCreateInterviewLoading] = useState(false);
     const [candidateResumeDetailsWindow, setCandidateResumeDetailsWindow] = useState(false);
@@ -170,6 +171,8 @@ const ProfileHr = () => {
             }
         };
     }, []);
+
+
 
     const handleSingleInterviewChange = (field, value) => {
         // For duration, validate minimum value and show temporary message
@@ -2939,10 +2942,13 @@ const ProfileHr = () => {
                                                                                     console.log("This is a single interview so fetching email status also", interview._id);
                                                                                     async function FetchSingleEmailStatus() {
                                                                                         try {
+                                                                                            setCandidateEmail('Loading...')
                                                                                             const data = interview._id
                                                                                             const response = await API.get(`/api/owner/single-interview/email/status/${data}`)
                                                                                             console.log(response, "of email status of single interview")
                                                                                             setSingleInterviewEmailStatus(response.data.data) //candidateId
+                                                                                            setCandidateEmail(response.data.email)
+                                                                                            console.log("asdhgad", response.data.email)
                                                                                             console.log("IDID", response.data.candidateId)
 
                                                                                             setSingleInterviewCandidateID(response.data.candidateId)
@@ -3141,6 +3147,17 @@ const ProfileHr = () => {
 
                                                 <hr className='border-t border-white my-2' />
 
+                                                <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between mb-4'>
+                                                    <div className='text-sm text-gray-700'>
+                                                        <div className='text-xs text-gray-400 mb-1'>Candidate email</div>
+                                                        <div className='text-sm'>
+                                                            {/* {console.log("qwqwqw", interviewDetails?.usercompleteintreviewemailandid[0].email || "N/A")} */}
+                                                            {/* {interviewDetails?.usercompleteintreviewemailandid[0]?.email || "N/A"} */}
+                                                            {candidateEmail}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
                                                 <div className='grid grid-cols-2 gap-4 mb-5'>
                                                     <div className='rounded-2xl relative border  border-gray-400 p-4 flex justify-between items-center'>
                                                         <div>
@@ -3153,16 +3170,56 @@ const ProfileHr = () => {
                                                     <div onClick={() => {
                                                         // setActivePage('Each_Interview_Reviewed_Candidate');
                                                         Fetch_Interview_Results(interviewDetails._id)
-                                                        if (InterviewResultDetails.length == 0) { return alert("The candidate has not given interview") }
+                                                        if (InterviewResultDetails.length == 0) { return alert("The candidate has not given interview yet") }
                                                         console.log("HYHYHY", resultWindowData)
                                                         console.log("qqqq", InterviewResultDetails);
                                                         setResultWindowData(InterviewResultDetails)
                                                     }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                         <div>
-                                                            <div className='text-sm text-gray-400'>Reviewed Candidate</div>
-                                                            <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div>
+                                                            <div className='text-lg text-gray-700 ml-5'>Candidate Interview Result</div>
+                                                            {/* <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div> */}
                                                         </div>
                                                         <div className='text-3xl  '>›</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className='grid grid-cols-2 gap-4 mb-5'>
+                                                    <div className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Language</div>
+                                                            <div className='text-xl font-medium text-black/90'>{interviewDetails.launguage ?? 'N/A'}</div>
+                                                        </div>
+                                                        <div className='text-3xl  '>›</div>
+                                                    </div>
+
+                                                    <div className='rounded-2xl relative border  border-gray-400 p-4 flex justify-between items-center'>
+                                                        <div>
+                                                            <div className='text-sm text-gray-400'>Duration</div>
+                                                            <div className='text-xl font-medium'>{interviewDetails.duration ?? 'N/A'}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className='rounded-2xl border border-gray-400 p-6 mb-6'>
+                                                    <div className='text-sm text-gray-400 mb-2'>Interview Questions</div>
+                                                    <div className='text-gray-800 leading-6 text-sm'>
+                                                        {(() => {
+                                                            const questions = interviewDetails?.questions;
+                                                            // Filter out empty questions
+                                                            const validQuestions = Array.isArray(questions) 
+                                                                ? questions.filter(q => q && q.trim() !== '')
+                                                                : [];
+                                                            
+                                                            if (validQuestions.length === 0) {
+                                                                return 'No questions provided.';
+                                                            }
+                                                            
+                                                            return validQuestions.map((question, index) => (
+                                                                <div key={index}>
+                                                                    <span className="mr-1">Q{index + 1}.</span>{question}
+                                                                </div>
+                                                            ));
+                                                        })()}
                                                     </div>
                                                 </div>
 

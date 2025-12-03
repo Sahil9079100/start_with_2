@@ -355,7 +355,7 @@ export const FetchAllInterviews = async (req, res) => {
 
         // Fetch paginated interviews
         const interviews = await Interview.find({ owner: ownerid })
-            .select(['-questions', '-logs', '-roleofai', '-sortedList'])
+            .select(['-logs', '-roleofai', '-sortedList'])
             .sort({ createdAt: -1 }) // Sort by newest first
             .skip(skip)
             .limit(limit);
@@ -394,6 +394,9 @@ export const FetchAllInterviewsResults = async (req, res) => {
         const interview = await Interview.findById(interviewid).lean();
         if (!interview) return res.status(404).json({ message: 'Interview not found' });
 
+        // console.log("this is interview: ", interview._id)
+        // console.log("this is interview: ", interview.isSingle)
+
         const completedEntries = Array.isArray(interview.usercompleteintreviewemailandid) ? interview.usercompleteintreviewemailandid : [];
         const totalInterviews = completedEntries.length;
 
@@ -401,7 +404,7 @@ export const FetchAllInterviewsResults = async (req, res) => {
         const pageEntries = completedEntries.slice(skip, skip + limit);
 
         // Load the IntreviewResult documents for the current page in the same order
-        console.log("this is page entries: ", interview.isSingle)
+        // console.log("this is page entries: ", interview.isSingle)
         const interviewresult = await Promise.all(pageEntries.map(async (entry) => {
             const resultDoc = await IntreviewResult.findById(entry.intreviewid).lean().select("-resumeText");
             return { email: entry.email, isSingle: interview.isSingle, interviewResult: resultDoc };
@@ -695,12 +698,14 @@ export const SendEmailToCandidates = async (req, res) => {
                     <li style="margin-bottom: 5px;"><strong>Interview Link:</strong> <a href="${findInterview.interviewUrl}">Click here</a></li>
                 </ul>
 
-                <p>Quick tips to get started smoothly:</p>
 
+                <p>Quick tips to get started smoothly:</p>
                 <ul>
                     <li style="margin-bottom: 5px;">Pick a quiet spot with little background noise.</li>
                     <li style="margin-bottom: 5px;">Use a stable Wi-Fi connection.</li>
                     <li style="margin-bottom: 5px;">Test your microphone, camera, and speakers beforehand.</li>
+                    <li style="margin-bottom: 5px;">Use a laptop or desktop computer (mobile phones/tablets are not recommended for this interview as some features may not work properly).</li>
+                    <li style="margin-bottom: 5px;">Use chromium-based browsers like Google Chrome or Microsoft Edge or Brave, other browsers will not work.</li>
                 </ul>
 
                 <p>If anything comes up or you have questions, just reply to this email or reach out to me directly at <a href="mailto:${findowner.email}">${findowner.email}</a></p>
@@ -723,7 +728,8 @@ export const SendEmailToCandidates = async (req, res) => {
 
         <tr>
             <td style="padding-top: 30px; font-size: 12px; color: #777777; text-align: center;">
-                <p>[Powered by <a href="https://startwith.live" target="_blank">Startwith.live</a> – This is an auto-generated email; please don't reply directly.]</p>
+                <p>[Powered by <a href="https://startwith.live" target="_blank">Startwith.live</a>]</p>
+                <p>[This is an auto-generated email; please don't reply directly.]</p>
             </td>
         </tr>
 
@@ -1125,7 +1131,7 @@ export const FetchSingleInterviewEmailStatus = async (req, res) => {
             return res.status(400).json({ message: 'Candidate id is required', data: null });
         }
         // console.log('FetchSingleInterviewEmailStatus id:', data);
-        const candidates = await Candidate.find({ interview: data }).select('emailStatus');
+        const candidates = await Candidate.find({ interview: data }).select(['emailStatus', 'email']);
         console.log('FetchSingleInterviewEmailStatus - candidates found:', candidates);
 
         if (!Array.isArray(candidates) || candidates.length === 0) {
@@ -1138,12 +1144,42 @@ export const FetchSingleInterviewEmailStatus = async (req, res) => {
         const emailStatus = first?.emailStatus ?? null;
         const candidateId = first?._id ?? null;
 
-        res.status(200).json({ message: 'Status Found', data: emailStatus, candidateId });
+        res.status(200).json({ message: 'Status Found', data: emailStatus, email: first?.email ?? null, candidateId });
     } catch (error) {
         console.log("FetchSingleInterviewEmailStatus error", error);
         res.status(500).json({ message: "Internal server error" });
     }
 }
+
+export const FetchSingleInterviewCandidateEmailID = async (req, res) => {
+    try {
+        // "/api/owner/single-interview/email/id/${data}"
+        const data = req.params.data;
+        if (!data) {
+            console.log('FetchSingleInterviewCandidateEmailID: missing id param');
+            return res.status(400).json({ message: 'Candidate id is required', data: null });
+        }
+        // console.log('FetchSingleInterviewCandidateEmailID id:', data);
+        const candidates = await Candidate.find({ interview: data }).select('email');
+        console.log('FetchSingleInterviewCandidateEmailID - candidates found:', candidates);
+
+        if (!Array.isArray(candidates) || candidates.length === 0) {
+            console.log(`FetchSingleInterviewCandidateEmailID: candidate not found for interview ${data}`);
+            return res.status(404).json({ message: 'Candidate not found', data: null });
+        }
+
+        // Use the first candidate (existing behaviour) but access fields safely
+        const first = candidates[0];
+        const email = first?.email ?? null;
+        const candidateId = first?._id ?? null;
+
+        res.status(200).json({ message: 'Email Found', data: email, candidateId });
+    } catch (error) {
+        console.log("FetchSingleInterviewCandidateEmailID error", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
 // export const CreateCompany = async (req, res) => {
 //     try {
 //         const { name, location, website, size, industry, recruiters } = req.body
