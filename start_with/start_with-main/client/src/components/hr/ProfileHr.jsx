@@ -1150,12 +1150,9 @@ const ProfileHr = () => {
                 // setCompletedInterviewCandidateResults([]);
             }
 
-            // Update pagination state if provided
-            if (response.data.pagination) {
-                setCurrentPage(response.data.pagination.currentPage || page);
-                setTotalPages(response.data.pagination.totalPages || 1);
-                setTotalInterviews(response.data.pagination.totalInterviews || 0);
-            }
+            // Note: Do NOT update pagination state here as it would overwrite
+            // the interview list pagination (causing the pagination bar to disappear
+            // when navigating back from interview details)
 
             setReviewedCandidateFetchLoading(false);
         } catch (error) {
