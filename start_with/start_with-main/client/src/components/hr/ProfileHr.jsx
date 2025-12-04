@@ -1137,7 +1137,8 @@ const ProfileHr = () => {
             setReviewedCandidateFetchLoading(true);
             // Call backend endpoint that returns paginated results for the given interview
             // Backend returns: { message, data: [...], pagination: { currentPage, totalPages, totalInterviews, limit } }
-            const response = await API.get(`/api/owner/fetch/interviews/results/${interviewid}?page=${page}&limit=${interviewsPerPage}`);
+            // const response = await API.get(`/api/owner/fetch/interviews/results/${interviewid}?page=${page}&limit=${interviewsPerPage}`);
+            const response = await API.get(`/api/owner/fetch/interviews/results/${interviewid}?page=${page}&limit=${1000}`);
             console.log('Fetched interview results:', response.data);
 
             // store results in the completed interview results state
@@ -3084,7 +3085,7 @@ const ProfileHr = () => {
                                                 // setSortedListArray([]);
                                             }} className='hover:cursor-pointer hover:underline hover:decoration-dotted'>AI Result</div>
                                             <RiArrowLeftSLine className='rotate-180 text-2xl   left-[-25px]' />
-                                            <div className='text-gray-500'>AI Result</div>
+                                            <div className='text-gray-500'>AI Resultttt</div>
                                         </div>
                                         {/* {interviewDetails.jobPosition} */}
                                         <div className='text-gray-400 text-[16px] mt-[-8px]'>{formatInterviewDate()}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{formatInterviewTime()}</div>
@@ -3116,7 +3117,7 @@ const ProfileHr = () => {
                                             </div>
 
                                             <div className='bg-gree-300/20 bg-red-00 w-full h-[100%] flex items-center pl-20'>
-                                                Score
+                                                Scoree
                                             </div>
                                             {/* <div className='bg-gree-300/20 bg-green-00 w-full h-[100%] flex items-center'>
                                             Match
@@ -3130,7 +3131,7 @@ const ProfileHr = () => {
                                 {reviewedCandidateFetchLoading !== true ? (
                                     <>
                                         {interviewDetails.isSingle ? (<>
-                                            <div className='INTERVIEW_DETAILS_SECTION w-full h-full overflow-scroll hscroll px-16 pt-5 '>
+                                            <div className='INTERVIEW_DETAILS_SECTION w-full h-full overflow-scroll scroll px-16 pt-5 '>
 
                                                 <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between'>
                                                     <div className='text-sm text-gray-700'>
@@ -3206,14 +3207,14 @@ const ProfileHr = () => {
                                                         {(() => {
                                                             const questions = interviewDetails?.questions;
                                                             // Filter out empty questions
-                                                            const validQuestions = Array.isArray(questions) 
+                                                            const validQuestions = Array.isArray(questions)
                                                                 ? questions.filter(q => q && q.trim() !== '')
                                                                 : [];
-                                                            
+
                                                             if (validQuestions.length === 0) {
                                                                 return 'No questions provided.';
                                                             }
-                                                            
+
                                                             return validQuestions.map((question, index) => (
                                                                 <div key={index}>
                                                                     <span className="mr-1">Q{index + 1}.</span>{question}
@@ -3296,7 +3297,7 @@ const ProfileHr = () => {
                                                 </div>
                                             </>) : (
                                                 <>
-                                                    <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
+                                                    <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll scroll transistion-all duration-300'>
                                                         {InterviewResultDetails.map((interview, idx) => (
                                                             <>
                                                                 <div key={interview._id} className='w-full'>
