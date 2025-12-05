@@ -54,7 +54,8 @@ app.use(cors({
 
 app.use((req, res, next) => {
     const t = new Date().toISOString()
-    console.log(`[${t}] ${req.method} ${req.path}`)
+    const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress
+    console.log(`[${t}] [${clientIP}] ${req.method} ${req.path}`)
     next()
 })
 
