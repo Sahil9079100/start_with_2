@@ -24,7 +24,7 @@ import { pipelineWorker, interviewPipelineQueue } from "./queues/interviewPipeli
 // const __filename = fileURLToPath(import.meta.url);
 // const __dirname = path.dirname(__filename);
 
-const app = express();
+	const app = express();
 
 const server = createServer(app)
 
@@ -54,6 +54,7 @@ app.use(cors({
 
 app.use((req, res, next) => {
     const t = new Date().toISOString()
+
     const clientIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress
     console.log(`[${t}] [${clientIP}] ${req.method} ${req.path}`)
     next()

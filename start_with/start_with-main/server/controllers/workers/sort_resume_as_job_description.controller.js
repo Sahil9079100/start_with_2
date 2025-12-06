@@ -6,6 +6,7 @@ import { APICounter } from "../../models/APICounter.model.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
+import { emitProgress } from "../../utils/progressTracker.js";
 
 // Rate limiter: allows up to RATE_LIMIT tokens per WINDOW_MS window
 class RateLimiter {
@@ -139,6 +140,14 @@ export const sort_resume_as_job_description = async (interviewId) => {
             level: "INFO",
             step: `Processing ${candidates.length} candidates for matching...`
         });
+
+        // Emit progress: SORTING start (65%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "SORTING", subStep: "start" });
+
+        // Counter for tracking processed candidates (atomic for parallel processing)
+        let processedCount = 0;
+        const totalCandidates = candidates.length;
+
         // Persist initial processing log to DB to maintain ordering
         await InterviewGSheetStructure.findOneAndUpdate(
             { interview: interviewId },
@@ -227,6 +236,10 @@ export const sort_resume_as_job_description = async (interviewId) => {
                 // Atomically increment reviewedCandidates to avoid race conditions
                 await Interview.findByIdAndUpdate(interviewId, { $inc: { reviewedCandidates: 1 } });
 
+                // Emit progress: SORTING progress (65-100% range)
+                processedCount++;
+                await emitProgress({ interviewId, ownerId: interview.owner, step: "SORTING", subStep: "progress", current: processedCount, total: totalCandidates });
+
                 return { success: true };
             } catch (err) {
                 console.error(`Error processing candidate ${candidate._id}:`, err?.message || err);
@@ -268,6 +281,9 @@ export const sort_resume_as_job_description = async (interviewId) => {
             level: "SUCCESS",
             step: `Sorted all ${candidates.length} candidates by job description`
         });
+
+        // Emit progress: SORTING complete (100%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "SORTING", subStep: "complete" });
 
 
         // find all candidates for that interview with top score to less score

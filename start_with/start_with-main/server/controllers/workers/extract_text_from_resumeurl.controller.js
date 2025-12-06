@@ -2,48 +2,68 @@ import { Interview } from "../../models/Interview.model.js";
 import { Candidate } from "../../models/Candidate.model.js";
 
 import axios from "axios";
-import FormData from "form-data";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { pdf } from "pdf-to-img";
-import Tesseract from "tesseract.js";
+import { spawn } from "child_process";
 import { google } from "googleapis";
 import { createOAuthClient } from "../../utils/googleClient.js";
 import GoogleIntegration from "../../models/googleIntegration.model.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
+import { fileURLToPath } from "url";
+import { emitProgress } from "../../utils/progressTracker.js";
 
-// Simple in-process semaphore to limit concurrent OCR tasks (keeps CPU/memory in check on hosts)
-const OCR_CONCURRENCY = Number(process.env.OCR_CONCURRENCY || 1);
-// Image rasterization scale for pdf->image conversion. Lower this to reduce memory usage.
-const OCR_IMAGE_SCALE = Number(process.env.OCR_IMAGE_SCALE || 2);
-const createSemaphore = (limit) => {
-    let active = 0;
-    const queue = [];
-    const run = (fn) => new Promise((resolve, reject) => {
-        const task = async () => {
-            active++;
-            try {
-                const res = await fn();
-                resolve(res);
-            } catch (err) {
-                reject(err);
-            } finally {
-                active--;
-                if (queue.length) {
-                    const next = queue.shift();
-                    // schedule next to avoid deep recursion
-                    setImmediate(next);
-                }
+// Get directory path for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Path to Python OCR script
+const PYTHON_SCRIPT_PATH = path.resolve(__dirname, "../../scripts/extract_pdf_text.py");
+
+// Python executable - prefer venv, fallback to system python
+const SERVER_ROOT = path.resolve(__dirname, "../../");
+const VENV_PYTHON = path.join(SERVER_ROOT, ".venv", "bin", "python");
+const PYTHON_EXECUTABLE = process.env.PYTHON_EXECUTABLE || 
+    (fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : "python3");
+
+// OCR DPI setting (lower = faster, 150 is good balance)
+const OCR_DPI = Number(process.env.OCR_DPI || 150);
+// Minimum chars before falling back to OCR
+const MIN_CHARS_FOR_OCR = Number(process.env.MIN_CHARS_FOR_OCR || 50);
+
+// Concurrency control for Python OCR processes
+const OCR_CONCURRENCY = Number(process.env.OCR_CONCURRENCY || 2);
+let activeOcrProcesses = 0;
+const ocrQueue = [];
+
+// Log which Python executable will be used
+console.log(`[Python OCR] Using Python executable: ${PYTHON_EXECUTABLE}`);
+console.log(`[Python OCR] Script path: ${PYTHON_SCRIPT_PATH}`);
+
+const runWithConcurrencyLimit = (fn) => new Promise((resolve, reject) => {
+    const execute = async () => {
+        activeOcrProcesses++;
+        try {
+            const result = await fn();
+            resolve(result);
+        } catch (err) {
+            reject(err);
+        } finally {
+            activeOcrProcesses--;
+            if (ocrQueue.length > 0) {
+                const next = ocrQueue.shift();
+                setImmediate(next);
             }
-        };
-        if (active < limit) task();
-        else queue.push(task);
-    });
-    return { run };
-};
-const ocrSemaphore = createSemaphore(OCR_CONCURRENCY);
+        }
+    };
+
+    if (activeOcrProcesses < OCR_CONCURRENCY) {
+        execute();
+    } else {
+        ocrQueue.push(execute);
+    }
+});
 
 export const extract_text_from_resumeurl = async (interviewId) => {
     try {
@@ -58,6 +78,10 @@ export const extract_text_from_resumeurl = async (interviewId) => {
             level: "INFO",
             step: `Extractiing text from resume url started...`
         });
+
+        // Emit progress: OCR start (30%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "OCR", subStep: "start" });
+
         const candidates = await Candidate.find({ interview: interviewId });
         if (!candidates.length) throw new Error("No candidates found for this interview");
 
@@ -111,6 +135,9 @@ export const extract_text_from_resumeurl = async (interviewId) => {
                 interview.resumeCollected = i + 1;
                 await interview.save();
                 count++;
+
+                // Emit progress: OCR progress (30-65% range)
+                await emitProgress({ interviewId, ownerId: interview.owner, step: "OCR", subStep: "progress", current: count, total: candidates.length });
             } catch (err) {
                 console.error(`Failed to extract resume for ${candidate.email || "unknown"}:`, err.message);
                 interview.logs.push({
@@ -132,6 +159,9 @@ export const extract_text_from_resumeurl = async (interviewId) => {
             level: "SUCCESS",
             step: `All candidate resumes are extracted successfully.`
         });
+
+        // Emit progress: OCR complete (65%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "OCR", subStep: "complete" });
 
         // ✅ Pipeline continues via BullMQ - next job (SORTING) enqueued by queue worker
         console.log("[extract_text_from_resumeurl] Completed for interview:", interviewId);
@@ -171,107 +201,22 @@ export const extract_text_from_resumeurl = async (interviewId) => {
 
 
 export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
-    try {
-        // const pdfParse = (await import("pdf-parse")).default || (await import("pdf-parse"));
-        const { default: pdfParse } = await import("pdf-parse");
+    // small sleep helper for retries
+    const _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+    try {
         if (!resumeUrl) throw new Error("No resume URL provided");
 
         console.log("Extracting text from resume URL:", resumeUrl);
         let pdfBuffer;
 
-        // small sleep helper for retries
-        const _sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-        // Helper: OCR fallback using external service (accepts only raw PDF)
-        const ocrExtract = async () => {
-            // Local OCR: write PDF buffer to temp file, convert pages to images, run tesseract
-            if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer)) return "";
-
-            const tmpName = `resume-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`;
-            const tmpPath = path.join(os.tmpdir(), tmpName);
-            let worker;
-            try {
-                await fs.promises.writeFile(tmpPath, pdfBuffer);
-
-                const pagesText = [];
-                let pageNumber = 1;
-
-                // Convert PDF -> images (pdf-to-img returns an async iterable of image buffers)
-                // Try conversion; if the PDF structure is invalid, attempt a lightweight repair
-                let document;
-                try {
-                    document = await pdf(tmpPath, { scale: OCR_IMAGE_SCALE });
-                } catch (convErr) {
-                    console.warn("PDF->image conversion failed, attempting to repair PDF and retry:", convErr?.message || convErr);
-                    // Attempt to repair the PDF by reserializing it via pdf-lib (may fix structure issues)
-                    try {
-                        const { PDFDocument } = await import('pdf-lib');
-                        const repaired = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
-                        const repairedBytes = await repaired.save();
-                        await fs.promises.writeFile(tmpPath, repairedBytes);
-                        // retry conversion with repaired file
-                        document = await pdf(tmpPath, { scale: OCR_IMAGE_SCALE });
-                        console.log("PDF repair + retry succeeded.");
-                    } catch (repairErr) {
-                        console.error("PDF repair attempt failed:", repairErr?.message || repairErr);
-                        throw convErr; // rethrow original conversion error
-                    }
-                }
-
-                try {
-                    for await (let imageBuffer of document) {
-                        console.log(`Processing OCR page ${pageNumber}...`);
-                        const { data } = await Tesseract.recognize(imageBuffer, "eng");
-                        const text = data?.text || "";
-                        const confidence = data?.confidence || 0;
-                        pagesText.push({ page: pageNumber, text: text.trim(), confidence: Number(confidence) });
-                        console.log(`Page ${pageNumber} OCR done – Confidence: ${confidence}`);
-                        // release reference to the large image buffer to allow GC to reclaim memory
-                        imageBuffer = null;
-                        pageNumber++;
-                        // cooperative yield so GC can run sooner on some runtimes
-                        await new Promise((r) => setImmediate(r));
-                        if (global && typeof global.gc === 'function') {
-                            try { global.gc(); } catch (e) { /* ignore if not permitted */ }
-                        }
-                    }
-                } catch (pdfErr) {
-                    console.warn(`PDF->image conversion/iteration stopped at page ${pageNumber}:`, pdfErr?.message || pdfErr);
-                }
-
-                if (!pagesText.length) {
-                    throw new Error("No pages could be processed by OCR");
-                }
-
-                const fullText = pagesText.map(p => p.text).join("\n\n--- Page Break ---\n\n");
-                console.log(`Local OCR extracted ${fullText.length} chars from ${pagesText.length} pages`);
-
-                return fullText;
-            } catch (err) {
-                console.error("Local OCR failed:", err?.message || err);
-                if (worker) {
-                    try { await worker.terminate(); } catch (e) { /* ignore */ }
-                }
-                return "";
-            } finally {
-                // cleanup temp file
-                fs.unlink(tmpPath, () => { });
-            }
-        };
-
         // Helper: extract Google Drive fileId from various link formats
         const extractDriveFileId = (url) => {
             try {
-                // Common patterns:
-                // - https://drive.google.com/file/d/<id>/view
-                // - https://drive.google.com/open?id=<id>
-                // - https://drive.google.com/uc?id=<id>&export=download
-                // - https://docs.google.com/document/d/<id>/edit (Docs export not PDF, but id is extractable)
                 const patterns = [
-                    /\/(?:file|document|presentation|spreadsheets)\/d\/([a-zA-Z0-9_-]+)/, // file/d/<id> or document/d/<id>
-                    /[?&]id=([a-zA-Z0-9_-]+)/, // ...?id=<id>
-                    /\/d\/([a-zA-Z0-9_-]+)/, // generic /d/<id>
+                    /\/(?:file|document|presentation|spreadsheets)\/d\/([a-zA-Z0-9_-]+)/,
+                    /[?&]id=([a-zA-Z0-9_-]+)/,
+                    /\/d\/([a-zA-Z0-9_-]+)/,
                 ];
                 for (const p of patterns) {
                     const m = url.match(p);
@@ -283,6 +228,7 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
             }
         };
 
+        // Fetch PDF buffer
         if (resumeUrl.includes("drive.google.com")) {
             const fileId = extractDriveFileId(resumeUrl);
             if (!fileId) throw new Error("Invalid Google Drive URL: unable to parse file id");
@@ -290,53 +236,128 @@ export async function TextExtractor(resumeUrl, ownerId, retries = 3) {
             const integration = await GoogleIntegration.findOne({ owner: ownerId, provider: "google" });
             if (!integration || !integration.tokens) throw new Error("No Google integration found for this owner");
 
-            // Create OAuth2 client with client ID & secret so refresh requests include client_id
             const oAuth2Client = createOAuthClient();
             oAuth2Client.setCredentials(integration.tokens);
             const drive = google.drive({ version: "v3", auth: oAuth2Client });
 
             const response = await drive.files.get({ fileId, alt: "media" }, { responseType: "arraybuffer" });
-            // console.log("Google Drive PDF response:", response);
             pdfBuffer = Buffer.from(response.data);
         }
-        // Handle direct PDF URLs
         else if (/\.pdf(\b|[?#])/i.test(resumeUrl)) {
             const response = await axios.get(resumeUrl, { responseType: "arraybuffer" });
             pdfBuffer = Buffer.from(response.data);
         }
         else {
-            // Not a Drive link or a direct PDF. Cannot OCR without a raw PDF buffer.
-            console.warn("Unsupported resume URL format for pdf-parse and OCR (expects raw PDF):", resumeUrl);
+            console.warn("Unsupported resume URL format (expects PDF):", resumeUrl);
             return "";
         }
 
-        // console.log("PDF buffer fetched, length:", pdfBuffer);
-        // Extract text from PDF
-        try {
-            const pdfData = await pdfParse(pdfBuffer);
-            const parsed = pdfData?.text || "";
-            if (parsed && parsed.trim().length >= 20) {
-                return parsed;
-            }
-            console.warn("pdf-parse returned empty/short text. Falling back to OCR...");
-            const ocrText = await ocrSemaphore.run(() => ocrExtract());
-            return ocrText || parsed || "";
-        } catch (parseErr) {
-            console.warn("pdf-parse threw an error. Falling back to OCR...", parseErr?.message || parseErr);
-            const ocrText = await ocrSemaphore.run(() => ocrExtract());
-            return ocrText || "";
+        if (!pdfBuffer || pdfBuffer.length === 0) {
+            throw new Error("Empty PDF buffer");
         }
+
+        // Extract text using Python script (with concurrency control)
+        const text = await runWithConcurrencyLimit(() => extractTextWithPython(pdfBuffer));
+        return text;
+
     } catch (err) {
         console.error("Error in TextExtractor:", err?.message || err);
         if (retries > 0) {
             console.warn(`TextExtractor failed, will retry ${retries} more time(s) after delay...`);
-            // small backoff: 1s -> 2s -> 4s
             const delay = 1000 * Math.pow(2, (3 - retries));
             await _sleep(delay);
             return TextExtractor(resumeUrl, ownerId, retries - 1);
         }
-        // exhausted retries
         console.error("TextExtractor: all retries exhausted. Returning empty string.");
         return "";
     }
+}
+
+/**
+ * Calls the Python script to extract text from PDF buffer.
+ * Uses PyMuPDF for native extraction, falls back to OCR if needed.
+ * @param {Buffer} pdfBuffer - The PDF file buffer
+ * @returns {Promise<string>} - Extracted text
+ */
+async function extractTextWithPython(pdfBuffer) {
+    return new Promise((resolve, reject) => {
+        // Check if Python script exists
+        if (!fs.existsSync(PYTHON_SCRIPT_PATH)) {
+            reject(new Error(`Python script not found at: ${PYTHON_SCRIPT_PATH}`));
+            return;
+        }
+
+        const args = [
+            PYTHON_SCRIPT_PATH,
+            "--stdin",
+            `--min-chars=${MIN_CHARS_FOR_OCR}`,
+            `--ocr-dpi=${OCR_DPI}`,
+            "--lang=eng"
+        ];
+
+        console.log(`[Python OCR] Spawning: ${PYTHON_EXECUTABLE} ${args.join(" ")}`);
+
+        const pythonProcess = spawn(PYTHON_EXECUTABLE, args, {
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        let stdout = "";
+        let stderr = "";
+
+        pythonProcess.stdout.on("data", (data) => {
+            stdout += data.toString();
+        });
+
+        pythonProcess.stderr.on("data", (data) => {
+            stderr += data.toString();
+            // Log stderr in real-time for debugging
+            console.error(`[Python OCR stderr]: ${data.toString()}`);
+        });
+
+        pythonProcess.on("error", (err) => {
+            reject(new Error(`Python process failed to start: ${err.message}. Make sure Python is installed and accessible.`));
+        });
+
+        pythonProcess.on("close", (code) => {
+            if (code !== 0) {
+                console.error(`[Python OCR] Script exited with code ${code}`);
+                console.error(`[Python OCR] stderr: ${stderr}`);
+                console.error(`[Python OCR] stdout: ${stdout}`);
+                
+                // Try to parse any partial output
+                try {
+                    const result = JSON.parse(stdout);
+                    if (result.text) {
+                        resolve(result.text);
+                        return;
+                    }
+                    if (result.error) {
+                        reject(new Error(`Python OCR error: ${result.error}`));
+                        return;
+                    }
+                } catch (_) {}
+                
+                reject(new Error(`Python OCR failed (code ${code}): ${stderr || stdout || "Unknown error"}`));
+                return;
+            }
+
+            try {
+                const result = JSON.parse(stdout);
+                if (!result.success) {
+                    reject(new Error(result.error || "Python extraction failed"));
+                    return;
+                }
+
+                console.log(`[Python OCR] Extracted ${result.char_count} chars via ${result.method}${result.ocr_used ? " (OCR used)" : ""}`);
+                resolve(result.text || "");
+            } catch (parseErr) {
+                console.error("[Python OCR] Failed to parse output:", stdout);
+                reject(new Error(`Failed to parse Python output: ${parseErr.message}`));
+            }
+        });
+
+        // Write PDF buffer to stdin
+        pythonProcess.stdin.write(pdfBuffer);
+        pythonProcess.stdin.end();
+    });
 }

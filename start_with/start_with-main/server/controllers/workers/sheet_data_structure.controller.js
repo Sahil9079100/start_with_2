@@ -8,6 +8,7 @@ import { createOAuthClient } from "../../utils/googleClient.js";
 import { geminiAPI } from "../../server.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
+import { emitProgress } from "../../utils/progressTracker.js";
 
 export async function sheet_structure_finder_agent(sampleRows) {
     const MAX_ATTEMPTS = 6;
@@ -112,6 +113,9 @@ export const sheet_data_structure_worker = async (interviewId) => {
                 step: "Sheet structure process started..."
             });
 
+        // Emit progress: STRUCTURE_SHEET start (0%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "STRUCTURE_SHEET", subStep: "start" });
+
 
         // 4️⃣ Setup OAuth client
         const oAuth2Client = createOAuthClient();
@@ -203,6 +207,10 @@ export const sheet_data_structure_worker = async (interviewId) => {
                 level: "INFO",
                 step: `Agent finding sheet structure...`
             });
+
+        // Emit progress: STRUCTURE_SHEET progress (2%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "STRUCTURE_SHEET", subStep: "progress" });
+
         const columnMapping = await sheet_structure_finder_agent(sampleRows);
 
         // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -235,12 +243,8 @@ export const sheet_data_structure_worker = async (interviewId) => {
 
         console.log(`[Worker] Sheet structure processed for interview ${interviewId}`);
 
-        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
-        // await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
-        //     interview: interviewId,
-        //     level: "INFO",
-        //     step: "Google Sheet structure processed"
-        // });
+        // Emit progress: STRUCTURE_SHEET complete (5%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "STRUCTURE_SHEET", subStep: "complete" });
 
         // ✅ Pipeline continues via BullMQ - next job (EXTRACT_SHEET) enqueued by queue worker
         return true;

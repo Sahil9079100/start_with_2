@@ -205,7 +205,10 @@ const interviewDetailsSchema = new mongoose.Schema({
         },
     ],
     totalCandidates: { type: Number, default: 0 },
-    isSheduled: { type: Boolean, default: false }
+    isSheduled: { type: Boolean, default: false },
+    processingPercentage: { type: Number, default: 0 },
+    processingStep: { type: String, default: null },
+    processingSubStep: { type: String, default: null }
 },
     { timestamps: true }
 );

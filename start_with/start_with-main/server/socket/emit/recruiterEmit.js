@@ -22,7 +22,7 @@ export default async function recruiterEmit(ownerid, event, data = {}) {
         if (data?.interview) {
             const userLogData = {
                 message: data.step || "NO_STEP_PROVIDED",
-                level: data.level?.toUpperCase() || "NONE",
+                level: data.level?.toUpperCase() || "INFO",
                 timestamp: new Date(),
             };
 

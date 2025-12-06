@@ -422,6 +422,7 @@ const ProfileHr = () => {
         sortedListRef.current = sortedListArray;
     }, [sortedListArray]);
     const [sendEmailLoading, setSendEmailLoading] = useState(false)
+    const [resendEmailLoading, setResendEmailLoading] = useState(null) // tracks candidateId being resent
 
     const toggleSelectedCandidate = (candidateId) => {
         console.log(candidateId);
@@ -993,10 +994,30 @@ const ProfileHr = () => {
         SocketService.on("EMAIL_PROGRESS_LOG", handleProgressEmail);
         SocketService.on("EMAIL_SUCCESS_PROGRESS_LOG", handleProgressEmailSuccess);
 
+        // Listen for processing percentage updates
+        const handleProcessingPercentage = (data) => {
+            if (!data?.interview) return;
+
+            // Update the interview in state with new percentage and step info
+            setInterviews(prev => prev.map(interview => {
+                if (interview._id === data.interview) {
+                    return {
+                        ...interview,
+                        processingPercentage: data.percentage,
+                        processingStep: data.step,
+                        processingSubStep: data.subStep
+                    };
+                }
+                return interview;
+            }));
+        };
+        SocketService.on("INTERVIEW_COMPLETE__CURRENT_PERCENTAGE", handleProcessingPercentage);
+
         return () => {
             SocketService.off("INTERVIEW_PROGRESS_LOG", handleProgress);
             SocketService.off("EMAIL_PROGRESS_LOG", handleProgressEmail);
             SocketService.off("EMAIL_SUCCESS_PROGRESS_LOG", handleProgressEmailSuccess);
+            SocketService.off("INTERVIEW_COMPLETE__CURRENT_PERCENTAGE", handleProcessingPercentage);
         };
     }, [isConnected, interviewDetails?._id]);
 
@@ -1162,7 +1183,6 @@ const ProfileHr = () => {
     }
 
     async function get_sorted_list(interviewId) {
-
         if (sortedListArray.length > 0) {
             console.log("Sorted list array is alreayd there");
             return;
@@ -1231,6 +1251,24 @@ const ProfileHr = () => {
         } catch (error) {
             console.log(error)
             setSendEmailLoading(false)
+        }
+    }
+
+    // Resend email to a single candidate
+    async function resend_email_single(candidateId, e) {
+        if (e) e.stopPropagation(); // Prevent parent onClick from firing
+        try {
+            setResendEmailLoading(candidateId)
+            console.log("Resending email to candidate:", candidateId)
+            const response = await API.post("/api/owner/send/email", {
+                interviewId: interviewDetails._id,
+                candidateIds: [candidateId]
+            })
+            console.log("Resend email response:", response);
+            setResendEmailLoading(null)
+        } catch (error) {
+            console.log("Resend email error:", error)
+            setResendEmailLoading(null)
         }
     }
 
@@ -1770,7 +1808,7 @@ const ProfileHr = () => {
                                             disabled={Number(scheduleForm.duration) > 0 && Number(scheduleForm.duration) < 5}
                                             className={`bg-black text-white px-8 py-2 rounded-full hover:bg-gray-800 transition-colors ${Number(scheduleForm.duration) > 0 && Number(scheduleForm.duration) < 5 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            Send
+                                            Schedule
                                         </button>
                                     </>)}
 
@@ -1917,7 +1955,20 @@ const ProfileHr = () => {
                                                                         <>
                                                                             <div onClick={() => { setInterviewDetails(interview); console.log('clicked interview:', interview); get_sorted_list(interview._id); setActivePage('Each Interview Detail'); }}
                                                                                 className='relative flex max-h-8 mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr-3 rounded-sm  justify-center items-center flex-nowrap text-black text-lg'>
-                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>{interview.jobPosition || 'Interview'}</div>
+                                                                                <div className='bg-gree-300/20 w-full h-[100%] flex items-center text-black/90 hover:text-black text-xl'>
+                                                                                    {interview.jobPosition || 'Interview'}
+                                                                                    {/* Show processing info only if not complete - simplified condition to prevent flickering */}
+                                                                                    {interview.currentStatus !== 'COMPLETED' && (interview.processingPercentage ?? 0) < 100 && (
+                                                                                        <>
+                                                                                            <span className="bg-gray-300/80 flex justify-center items-center h-full w-fit px-3 py-1 text-center text-sm font-normal rounded-full ml-3 min-w-[80px]">
+                                                                                                {interview.processingStep || 'Processing'}
+                                                                                            </span>
+                                                                                            <span className="ml-3 text-base font-semibold text-black/60 min-w-[45px]">
+                                                                                                {Math.round(interview.processingPercentage ?? 0)}%
+                                                                                            </span>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
                                                                                 <span className='p-1 cursor-pointer rounded-full h-fit flex justify-center items-center text-xl rotate-180'><RiArrowLeftSLine /> </span>
                                                                             </div>
                                                                             <hr className='border border-black/30 mx-[52px]' />
@@ -2617,7 +2668,15 @@ const ProfileHr = () => {
                                                                             <div className='space-y-2'>
                                                                                 <div>
                                                                                     <div className='text-sm text-gray-400 uppercase tracking-wide'>Email</div>
-                                                                                    <div className='text-sm text-black break-all mt-1'>{interview.email || '—'}</div>
+                                                                                    <div className='text-sm text-black break-all mt-1'>
+                                                                                        {interview.email || '—'}
+                                                                                        <span
+                                                                                            onClick={(e) => resend_email_single(interview._id, e)}
+                                                                                            className={`cursor-pointer text-black border border-black ml-3 px-3 py-[2px] rounded-full hover:bg-black hover:text-white transition-all duration-200 ${resendEmailLoading === interview._id ? 'opacity-50 pointer-events-none' : ''}`}
+                                                                                        >
+                                                                                            {resendEmailLoading === interview._id ? 'Sending...' : 'Resend'}
+                                                                                        </span>
+                                                                                    </div>
                                                                                 </div>
                                                                                 <div>
                                                                                     <div className='text-sm text-gray-400 uppercase tracking-wide'>Resume</div>
@@ -2647,7 +2706,7 @@ const ProfileHr = () => {
 
                                                                             {/* AI Note */}
                                                                             <div className='space-y-1'>
-                                                                                <div className='text-sm text-gray-400 uppercase tracking-wide'>AI Note</div>
+                                                                                <div className='text-sm text-gray-400 uppercase tracking-wide'>AI REVIEW</div>
                                                                                 <div className='text-sm leading-relaxed text-black'>
                                                                                     {interview.aiReviewComment || interview.dynamicData?.aiNote || 'Based on Job description, required skills, and minimum qualification this one is selected.'}
                                                                                 </div>
@@ -2751,7 +2810,7 @@ const ProfileHr = () => {
                                                 if (file) await handleJobDescriptionPdfFile(file);
                                             }}
                                         />
-                                        <label
+                                        {/* <label
                                             htmlFor='single-jd-upload'
                                             onDragOver={onJdDragOver}
                                             onDragEnter={onJdDragEnter}
@@ -2761,11 +2820,33 @@ const ProfileHr = () => {
                                         >
                                             <div className='flex flex-col items-center justify-center gap-1 text-gray-700'>
                                                 <span className='font-medium'>{singleJDDragActive ? 'Drop JD file to upload' : 'Upload JD file here'}</span>
-                                                <span className='text-xs text-gray-500'>(PDF, DOCX, DOC, TXT, CSV, XLSX, images — max 20MB)</span>
+                                                <span className='text-xs text-gray-500'>(PDF, DOCX, DOC, TXT, CSV, XLSX, images -3.382l max 20MB)</span>
                                             </div>
-                                        </label>
-                                        {singleJDExtractLoading && (
-                                            <div className='mt-2 text-sm text-gray-500'>Extracting job details from PDF...</div>
+                                        </label> */}
+                                        {singleJDExtractLoading ? (
+                                            // <div className='mt-2 text-sm text-gray-500'>Extracting job details from PDF...</div>
+                                            <label
+                                                className={`block w-full text-center px-4 py-6 rounded-lg border-2 border-dashed   border-gray-400 bg-gray-50  transition-colors`}
+                                            >
+                                                <div className='flex flex-col items-center justify-center gap-1 text-gray-700'>
+                                                    <span className='font-medium'>Extracting job details from PDF...</span>
+                                                    {/* <span className='text-xs text-gray-500'>(Extracting job details from PDF...)</span> */}
+                                                </div>
+                                            </label>
+                                        ) : (
+                                            <label
+                                                htmlFor='single-jd-upload'
+                                                onDragOver={onJdDragOver}
+                                                onDragEnter={onJdDragEnter}
+                                                onDragLeave={onJdDragLeave}
+                                                onDrop={onJdDrop}
+                                                className={`block w-full text-center px-4 py-6 rounded-lg border-2 border-dashed ${singleJDDragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'} cursor-pointer transition-colors`}
+                                            >
+                                                <div className='flex flex-col items-center justify-center gap-1 text-gray-700'>
+                                                    <span className='font-medium'>{singleJDDragActive ? 'Drop JD file to upload' : 'Upload JD file here'}</span>
+                                                    <span className='text-xs text-gray-500'>(PDF, DOCX, DOC, TXT, CSV, XLSX, images -3.382l max 20MB)</span>
+                                                </div>
+                                            </label>
                                         )}
                                     </div>
                                     {/* <div className='md:col-span-2 flex'>
@@ -2796,7 +2877,7 @@ const ProfileHr = () => {
                                         </div>
 
                                         <div className='md:col-span-2'>
-                                            <label className='text-sm text-gray-600'>Candidate Email (optional)</label>
+                                            <label className='text-sm text-gray-600'>Candidate Email</label>
 
                                             <input aria-label='Candidate Email' type='email' value={singleInterviewForm.candidateEmail} onChange={(e) => handleSingleInterviewChange('candidateEmail', e.target.value)} placeholder='name@example.com' className='w-full px-3 py-2 border border-gray-200 rounded-md' />
                                         </div>
@@ -2864,14 +2945,16 @@ const ProfileHr = () => {
                                 <div className='flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0'>
                                     <div className='flex-1 text-left'>
                                         {/* Persistent validation message for duration when too short */}
-                                        {Number(singleInterviewForm.duration) > 0 && Number(singleInterviewForm.duration) < 5 && (
+                                        {singleInterviewForm.duration !== "" && Number(singleInterviewForm.duration) < 5 && (
                                             <div className='text-sm text-red-600'>Minimum time for AI Interview is 5 minutes</div>
                                         )}
                                     </div>
                                     <button onClick={() => { setSingleInterviewWindow(false); }} className='px-4 py-2 rounded-md border border-gray-300 bg-white'>Cancel</button>
                                     {singleInterviewCreateLoading ? (
-                                        <button disabled className='px-4 py-2 rounded-md bg-black text-white flex items-center gap-2'>
-                                            <Spinner />
+                                        <button disabled className='relative pl-10 px-4 py-2  rounded-md bg-black text-white flex items-center gap-2'>
+                                            <div className='w-4 h-4 absolute top-1 left-[2px]' >
+                                                <Spinner />
+                                            </div>
                                             Creating...
                                         </button>
                                     ) : (
@@ -3145,14 +3228,49 @@ const ProfileHr = () => {
 
                                                 <hr className='border-t border-white my-2' />
 
-                                                <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between mb-4'>
-                                                    <div className='text-sm text-gray-700'>
+                                                <div className='rounded-2xl border border-gray-400 p-4 flex items-center justify-between mb-4 relative'>
+                                                    <div className='text-sm text-gray-700 '>
                                                         <div className='text-xs text-gray-400 mb-1'>Candidate email</div>
                                                         <div className='text-sm'>
                                                             {/* {console.log("qwqwqw", interviewDetails?.usercompleteintreviewemailandid[0].email || "N/A")} */}
                                                             {/* {interviewDetails?.usercompleteintreviewemailandid[0]?.email || "N/A"} */}
                                                             {candidateEmail}
+                                                            <span
+                                                                onClick={(e) => resend_email_single(singleInterviewCandidateID, e)}
+                                                                className={`cursor-pointer text-black border border-black ml-3 px-3 py-[2px] rounded-full hover:bg-black hover:text-white transition-all duration-200 ${resendEmailLoading === singleInterviewCandidateID ? 'opacity-50 pointer-events-none' : ''}`}
+                                                            >
+                                                                {resendEmailLoading === singleInterviewCandidateID ? 'Sending...' : 'Resend'}
+                                                            </span>
                                                         </div>
+
+                                                        {singleInterviewEmailStatus === 'NONE' ? (
+                                                            <div onClick={() => {
+                                                                if (singleInterviewEmailStatus == "NONE") {
+                                                                    console.log("it is NONE so send email")
+                                                                    console.log("JJJJ", singleInterviewCandidateID)
+                                                                    const data = [singleInterviewCandidateID]
+                                                                    // setSortedListArray(data)
+                                                                    setSelectedCandidates(data)
+                                                                    selectedCandidates.push(singleInterviewCandidateID)
+                                                                    console.log("email", data)
+                                                                    send_email_array()
+                                                                    setSingleInterviewEmailStatus('SUCCESS')
+                                                                }
+                                                            }} className="absolute bg-black/90 hover:cursor-pointer text-white px-4 py-2 rounded-full  top-[18px] right-[15px] z-50">
+                                                                Send Invite
+                                                            </div>
+                                                        ) : singleInterviewEmailStatus === 'PROCESSING' ? (
+                                                            <div className="absolute bg-black/90 text-white px-4 py-2 rounded-full  top-[18px] right-[15px] z-50">
+                                                                Sending Email...
+                                                            </div>
+                                                        ) : singleInterviewEmailStatus === 'SUCCESS' ? (
+                                                            <div className="absolute  bg-white border  gap-3 border-black text-black font-medium px-4 py-2 rounded-full  top-[18px] right-[15px] z-50">
+                                                                <GoCheckCircle className="absolute text-3xl top-1 right-[115px] text-green-600" />Invite Sent
+                                                            </div>
+
+                                                        ) : (
+                                                            "Loading..."
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -3182,12 +3300,11 @@ const ProfileHr = () => {
                                                 </div>
 
                                                 <div className='grid grid-cols-2 gap-4 mb-5'>
-                                                    <div className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
+                                                    <div className='hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                         <div>
                                                             <div className='text-sm text-gray-400'>Language</div>
                                                             <div className='text-xl font-medium text-black/90'>{interviewDetails.launguage ?? 'N/A'}</div>
                                                         </div>
-                                                        <div className='text-3xl  '>›</div>
                                                     </div>
 
                                                     <div className='rounded-2xl relative border  border-gray-400 p-4 flex justify-between items-center'>
@@ -3256,30 +3373,6 @@ const ProfileHr = () => {
                                                                 >
                                                                     Copy
                                                                 </button>
-
-                                                                <div onClick={() => {
-                                                                    if (singleInterviewEmailStatus == "NONE") {
-                                                                        console.log("it is NONE so send email")
-                                                                        console.log("JJJJ", singleInterviewCandidateID)
-                                                                        const data = [singleInterviewCandidateID]
-                                                                        // setSortedListArray(data)
-                                                                        setSelectedCandidates(data)
-                                                                        selectedCandidates.push(singleInterviewCandidateID)
-                                                                        console.log("email", data)
-                                                                        send_email_array()
-                                                                        setSingleInterviewEmailStatus('SUCCESS')
-                                                                    }
-                                                                }} className="absolute bg-black/90 text-white px-4 py-2 rounded-full  top-[20px] right-[15px] z-50">
-                                                                    {singleInterviewEmailStatus === 'NONE' ? (
-                                                                        "Send Email"
-                                                                    ) : singleInterviewEmailStatus === 'PROCESSING' ? (
-                                                                        "Sending Email..."
-                                                                    ) : singleInterviewEmailStatus === 'SUCCESS' ? (
-                                                                        "Email Sent"
-                                                                    ) : (
-                                                                        "Loading..."
-                                                                    )}
-                                                                </div>
                                                             </div>
                                                         ) : (
                                                             <div className='text-sm text-gray-600'>Link not available</div>

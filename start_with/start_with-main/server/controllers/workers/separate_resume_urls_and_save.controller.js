@@ -5,6 +5,7 @@ import { Candidate } from "../../models/Candidate.model.js";
 import { geminiAPI } from "../../server.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
+import { emitProgress } from "../../utils/progressTracker.js";
 
 /**
  * STEP D: Separate resume URLs, emails, and save candidates
@@ -41,6 +42,10 @@ export const separate_resume_urls_and_save = async (interviewId) => {
 
             const interview = await Interview.findById(interviewId);
             if (!interview) throw new Error("Interview not found");
+
+            // Emit progress: RESUME_SEPARATION start (15%)
+            await emitProgress({ interviewId, ownerId: interview.owner, step: "RESUME_SEPARATION", subStep: "start" });
+
             await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {
                 interview: interviewId,
                 level: "INFO",
@@ -63,6 +68,10 @@ export const separate_resume_urls_and_save = async (interviewId) => {
                 level: "INFO",
                 step: `Step D attempt ${attempt}: AI Agent is analyzing the sheet's rows and columns...`
             });
+
+            // Emit progress: RESUME_SEPARATION analyzing (18%)
+            await emitProgress({ interviewId, ownerId: interview.owner, step: "RESUME_SEPARATION", subStep: "analyzing" });
+
             const columnAnalysis = await which_column_is_which_agent(structureDoc.columnMapping, sampleRows);
             const { resumeUrlColumn, emailColumn, nameColumn, dynamicColumns } = columnAnalysis;
 
@@ -88,6 +97,7 @@ export const separate_resume_urls_and_save = async (interviewId) => {
             });
 
             let savedCount = 0;
+            const totalRows = extractDoc.rows.length;
 
             for (let i = 0; i < extractDoc.rows.length; i++) {
                 const row = extractDoc.rows[i];
@@ -147,6 +157,8 @@ export const separate_resume_urls_and_save = async (interviewId) => {
                         level: "INFO",
                         step: `Saved ${savedCount} candidates so far...`
                     });
+                    // Emit progress: RESUME_SEPARATION progress (20-30% range)
+                    await emitProgress({ interviewId, ownerId: interview.owner, step: "RESUME_SEPARATION", subStep: "progress", current: savedCount, total: totalRows });
                 }
             }
 
@@ -165,6 +177,9 @@ export const separate_resume_urls_and_save = async (interviewId) => {
                 level: "success",
             });
             await structureDoc.save();
+
+            // Emit progress: RESUME_SEPARATION complete (30%)
+            await emitProgress({ interviewId, ownerId: interview.owner, step: "RESUME_SEPARATION", subStep: "complete" });
 
             // ✅ Pipeline continues via BullMQ - next job (OCR) enqueued by queue worker
             return { success: true, savedCount };

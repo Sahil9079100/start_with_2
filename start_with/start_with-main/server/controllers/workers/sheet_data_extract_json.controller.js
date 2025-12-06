@@ -8,6 +8,7 @@ import { createOAuthClient } from "../../utils/googleClient.js";  // Your existi
 import InterviewGSheetStructureModel from "../../models/InterviewGSheetStructure.model.js";
 import recruiterEmit from "../../socket/emit/recruiterEmit.js";
 import { __RETRY_ENGINE } from "../../engines/retry.Engine.js";
+import { emitProgress } from "../../utils/progressTracker.js";
 
 export const extractSheetData = async (interviewId) => {
     try {
@@ -48,6 +49,9 @@ export const extractSheetData = async (interviewId) => {
             level: "INFO",
             step: "Started extracting data from google sheet..."
         });
+
+        // Emit progress: EXTRACT_SHEET start (5%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "EXTRACT_SHEET", subStep: "start" });
 
         // Helper: Convert column letters (A, Z, AA, AF) to zero-based index for comparison
         function columnLetterToIndex(col) {
@@ -126,6 +130,9 @@ export const extractSheetData = async (interviewId) => {
         sheetExtract.status = "completed";
         sheetExtract.logs.push({ message: "Sheet data extraction completed", level: "success" });
         await sheetExtract.save();
+
+        // Emit progress: EXTRACT_SHEET complete (15%)
+        await emitProgress({ interviewId, ownerId: interview.owner, step: "EXTRACT_SHEET", subStep: "complete" });
 
 
         // 7️⃣ Update parent interview status
