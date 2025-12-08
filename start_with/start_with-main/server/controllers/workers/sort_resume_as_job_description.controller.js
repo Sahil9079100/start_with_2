@@ -156,9 +156,9 @@ export const sort_resume_as_job_description = async (interviewId) => {
         );
 
         // 3️⃣ Parallel processing with throttling to respect external rate limits
-        const RATE_LIMIT_PER_MIN = Number(process.env.GEMINI_RATE_LIMIT_PER_MIN || 150);
+        const RATE_LIMIT_PER_MIN = Number(process.env.GEMINI_RATE_LIMIT_PER_MIN || 15);
         const WINDOW_MS = 60000;
-        const concurrency = Number(process.env.GEMINI_CONCURRENCY || 5); // number of parallel calls allowed
+        const concurrency = Number(process.env.GEMINI_CONCURRENCY || 2); // number of parallel calls allowed
 
         const limiter = new RateLimiter({ tokens: RATE_LIMIT_PER_MIN, windowMs: WINDOW_MS });
         const sem = createSemaphore(concurrency);

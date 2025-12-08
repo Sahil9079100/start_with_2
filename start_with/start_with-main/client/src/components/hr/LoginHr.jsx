@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../axios.config';
 import SocketService from '../../socket/socketService';
@@ -17,6 +17,29 @@ export const LoginHr = () => {
     const [form, setForm] = useState({ email: '@gmail.com', password: '' });
     const [isLoading, setIsLoading] = useState(false);
 
+    // error states with smooth transition and cleanup
+    const [errorMessage, setErrorMessage] = useState(null);
+    const [isErrorVisible, setIsErrorVisible] = useState(false);
+    const errorTimeoutRef = useRef(null);
+
+    const showError = (message) => {
+        if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+        setErrorMessage(message);
+        setIsErrorVisible(true);
+
+        // visible for 4s, then hide (300ms transition), then clear message
+        errorTimeoutRef.current = setTimeout(() => {
+            setIsErrorVisible(false);
+            errorTimeoutRef.current = setTimeout(() => setErrorMessage(null), 400);
+        }, 4000);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+        };
+    }, []);
+
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
@@ -33,17 +56,25 @@ export const LoginHr = () => {
 
             if (response.data.token) {
                 localStorage.setItem('otoken', response.data.token);
-                console.log('🔐Token saved in localStorage:', response.data.token);
+                console.log('Token saved in localStorage:', response.data.token);
 
                 SocketService.connect({ auth: { token: response.data.token } });
 
                 navigate(`/p/o/${response.data.owner}`);
             } else {
-                console.error('❌ No token received from server');
+                console.error('No token received from server');
             }
         } catch (error) {
             console.log("login owner error", error);
-            navigate('/r/o');
+            console.log("error message", error?.response?.data?.message || error.message);
+            if (error?.response?.data?.message == "Network Error" || error.message == "Network Error") {
+                // alert(`Something went wrong`);
+                showError("We are facing heavy traffic. Please try after some time.");
+            }
+            else {
+                showError(error.response.data.message || error.message || 'Login failed. Please try again.');
+            }
+            // navigate('/r/o');
         } finally {
             setIsLoading(false);
         }
@@ -56,6 +87,7 @@ export const LoginHr = () => {
 
     return (
         <div className="min-h-screen bg-white flex items-center justify-center p-4">
+            {/* how to make the whole page have transistion and a smooth transistion? */}
             <div className="w-full max-w-md">
                 {/* Logo */}
                 <div className="flex items-center gap-2 mb-12">
@@ -123,6 +155,9 @@ export const LoginHr = () => {
                             required
                             className="w-full bg-gray-200 border-0 rounded px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400"
                         />
+                    </div>
+                    <div className={`w-full text-center text-[15px] text-red-500 mb-3 font-medium overflow-hidden transition-all duration-300 ease-out ${isErrorVisible ? 'max-h-16 py-2 opacity-100 translate-y-0' : 'max-h-0 py-0 opacity-0 -translate-y-1'}`}>
+                        {errorMessage}
                     </div>
 
                     {/* Secret Key Field */}

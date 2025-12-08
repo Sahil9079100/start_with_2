@@ -1960,12 +1960,25 @@ const ProfileHr = () => {
                                                                                     {/* Show processing info only if not complete - simplified condition to prevent flickering */}
                                                                                     {interview.currentStatus !== 'COMPLETED' && (interview.processingPercentage ?? 0) < 100 && (
                                                                                         <>
-                                                                                            <span className="bg-gray-300/80 flex justify-center items-center h-full w-fit px-3 py-1 text-center text-sm font-normal rounded-full ml-3 min-w-[80px]">
-                                                                                                {interview.processingStep || 'Processing'}
-                                                                                            </span>
-                                                                                            <span className="ml-3 text-base font-semibold text-black/60 min-w-[45px]">
-                                                                                                {Math.round(interview.processingPercentage ?? 0)}%
-                                                                                            </span>
+                                                                                            {interview.processingStep ? (
+                                                                                                <span className="bg-gray-300/80 flex justify-center items-center h-full w-fit px-3 py-1 text-center text-sm font-normal rounded-full ml-3 min-w-[80px]">
+                                                                                                    {interview.processingStep || ''}
+                                                                                                </span>
+                                                                                            ) : (
+                                                                                                null
+                                                                                            )}
+                                                                                            {/* <span className="bg-gray-300/80 flex justify-center items-center h-full w-fit px-3 py-1 text-center text-sm font-normal rounded-full ml-3 min-w-[80px]">
+                                                                                                {interview.processingStep || ''}
+                                                                                            </span> */}
+
+                                                                                            {interview.processingPercentage ? (
+                                                                                                <span className="ml-3 text-base font-semibold text-black/60 min-w-[45px]">
+                                                                                                    {interview.processingPercentage || ''}%
+                                                                                                </span>
+                                                                                            ) : (
+                                                                                                null
+                                                                                            )}
+
                                                                                         </>
                                                                                     )}
                                                                                 </div>
