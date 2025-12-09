@@ -57,7 +57,7 @@ export const LoginOwner = async (req, res) => {
 
         const owner = await Owner.findOne({ email });
         if (!owner) {
-            return res.status(400).json({ message: "Owner with this email does not exist" });
+            return res.status(400).json({ message: "Invalid Email or Password" });
         }
 
 
@@ -65,7 +65,7 @@ export const LoginOwner = async (req, res) => {
         if (email !== 'rameshkumar.mali@educategirls.ngo') {
             const isPasswordValid = await bcrypt.compare(password, owner.password);
             if (!isPasswordValid) {
-                return res.status(400).json({ message: "Invalid password" });
+                return res.status(400).json({ message: "Invalid Email or Password" });
             }
         }
 
@@ -912,6 +912,85 @@ export const SendEmailToCandidates = async (req, res) => {
     } catch (error) {
         console.log("send email to candidates error", error);
         res.status(500).json({ message: "send email to candidates error" });
+    }
+}
+
+export const ScheduleAMeeting = async (req, res) => {
+    try {
+        const { fullName, email, organization, phone, message } = req.body;
+
+        if (!fullName || !email || !organization || !phone) {
+            return res.status(400).json({ message: "Full name, email, organization, and phone are required" });
+        }
+
+        // Build a nicely formatted HTML email
+        const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Meeting Request</title>
+</head>
+<body style="margin:0; padding:20px; font-family: Arial, sans-serif; background-color:#f4f4f4; color:#333;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; overflow:hidden;">
+    <tr>
+      <td style="padding:24px; border-bottom:1px solid #eee;">
+        <h1 style="margin:0; font-size:22px; color:#111;">New Meeting Request</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:24px;">
+        <p style="margin:0 0 12px;"><strong>Name:</strong> ${fullName}</p>
+        <p style="margin:0 0 12px;"><strong>Email:</strong> <a href="mailto:${email}" style="color:#0066cc;">${email}</a></p>
+        <p style="margin:0 0 12px;"><strong>Organization:</strong> ${organization}</p>
+        <p style="margin:0 0 12px;"><strong>Phone:</strong> ${phone}</p>
+        <p style="margin:0 0 12px;"><strong>Message:</strong></p>
+        <p style="margin:0; padding:12px; background:#f9f9f9; border-radius:4px;">${message || '(No message provided)'}</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:16px 24px; background:#f9f9f9; font-size:12px; color:#777; text-align:center;">
+        This request was submitted via <a href="https://startwith.live" style="color:#0066cc;">startwith.live</a>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+        `;
+
+        const data = {
+            to: 'contact@startwith.live',
+            subject: `Meeting Request from ${fullName} (${organization})`,
+            html,
+            senderName: 'Startwith Schedule',
+            senderEmail: 'schedule@startwith.live'
+        };
+
+        // Use dummy IDs since no real interview/candidate context exists for this request
+        const dummyOwnerId = 'schedule_request';
+        const dummyRoomId = 'owner:schedule_request';
+        const dummyInterviewId = 'schedule_meeting';
+        const dummyCandidateId = 'schedule_candidate';
+
+        const response = await axios.post(`${process.env.EMAIL_SERVICE_URL}/send/interview`, {
+            ownerId: dummyOwnerId,
+            roomId: dummyRoomId,
+            interviewId: dummyInterviewId,
+            candidateId: dummyCandidateId,
+            data
+        });
+
+        if (response.data.queued) {
+            console.log(`Meeting request email queued successfully for ${email}`);
+            return res.status(200).json({ message: "Meeting request submitted successfully", queued: true });
+        } else {
+            console.log(`Failed to queue meeting request email for ${email}`);
+            return res.status(500).json({ message: "Failed to queue meeting request email" });
+        }
+    } catch (error) {
+        console.log("schedule a meeting error", error);
+        res.status(500).json({ message: "schedule a meeting error" });
     }
 }
 // const { default: pdfParse } = await import("pdf-parse");

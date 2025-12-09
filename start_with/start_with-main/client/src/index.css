@@ -70,6 +70,106 @@
   display: none;
 }
 
+/* Glowing button style (button-85) */
+.button-85 {
+  padding: 0.7em 2em;
+  border: none;
+  outline: none;
+  color: rgb(255, 255, 255);
+  background: #111;
+  cursor: pointer;
+  position: relative;
+  z-index: 0;
+  border-radius: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  transition: transform 260ms ease, box-shadow 260ms ease;
+}
+
+.button-85:before {
+  content: "";
+  background: linear-gradient(45deg,
+      #ff0000,
+      #ff7300,
+      #fffb00,
+      #48ff00,
+      #00ffd5,
+      #002bff,
+      #7a00ff,
+      #ff00c8,
+      #ff0000);
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  background-size: 400%;
+  z-index: -1;
+  filter: blur(5px);
+  -webkit-filter: blur(5px);
+  width: calc(100% + 4px);
+  height: calc(100% + 4px);
+  animation: glowing-button-85 20s linear infinite;
+  transition: opacity 0.3s ease-in-out;
+  border-radius: 10px;
+}
+
+@keyframes glowing-button-85 {
+  0% {
+    background-position: 0 0;
+  }
+
+  50% {
+    background-position: 400% 0;
+  }
+
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.button-85:after {
+  z-index: -1;
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #303030;
+  left: 0;
+  top: 0;
+  border-radius: 10px;
+}
+
+/* Arrow icon animation inside button-85 */
+
+.button-85 .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 0;
+  /* hide without reserving fixed space */
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-6px) rotate(0deg);
+  transition: max-width 380ms cubic-bezier(.2, .9, .2, 1), transform 380ms cubic-bezier(.2, .9, .2, 1), opacity 260ms ease;
+}
+
+.button-85:hover .btn-icon,
+.button-85:focus .btn-icon,
+.button-85:active .btn-icon {
+  max-width: 32px;
+  /* enough room for the icon */
+  opacity: 1;
+  transform: translateX(6px) rotate(0deg);
+}
+
+.button-85:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.08);
+  outline-offset: 2px;
+}
+
 .hscroll {
   -ms-overflow-style: none;
   scrollbar-width: none;

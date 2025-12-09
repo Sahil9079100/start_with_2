@@ -6,6 +6,7 @@ import GIntegrationSuccess from './components/hr/GIntegrationSuccess.jsx';
 import { LoginHr } from './components/hr/LoginHr.jsx';
 import MainPage from './components/MainPage/MainPage.jsx';
 import UpdatedProfile from './components/hr/UpdatedProfile.jsx';
+import Schedule from './components/Schedule/Schedule.jsx';
 
 function App() {
 
@@ -19,8 +20,8 @@ function App() {
                 <Route path="/p/o/:id" element={<ProfileHr />} />
                 {/* <Route path="/p/:id" element={<UpdatedProfile />} /> */}
                 <Route path="/integrations" element={<GIntegrationSuccess />} />
-            <Route path="/" element={<MainPage />} />
-
+                <Route path="/" element={<MainPage />} />
+                <Route path='/schedule' element={<Schedule />} />
             </Routes>
         </Router>
     );
