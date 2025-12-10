@@ -1,7 +1,7 @@
 // basic  routes for owner
 import express from "express";
 // import { LoginOwner, RegisterOwner, CreateCompany, getProfile, CreateRecruiter, CreateInterview } from "../controller/owner.controller.js";
-import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults, FetchSingleInterviewEmailStatus, FetchSingleInterviewCandidateEmailID, ScheduleAMeeting } from "../controllers/owner.controller.js";
+import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults, FetchSingleInterviewEmailStatus, FetchSingleInterviewCandidateEmailID, ScheduleAMeeting, TestEmailSend } from "../controllers/owner.controller.js";
 import { ownerTokenAuth } from "../middlewares/ownerTokenAuth.middleware.js";
 import { createInterview, scheduleInterview, createSingleInterview } from "../controllers/workers/createInterview.controller.js";
 import multer from "multer";
@@ -61,7 +61,8 @@ router.post("/owner/enhance-job-description", ownerTokenAuth, enhanceJobDescript
 // router.post("/owner/add/recruiter", ownerTokenAuth, CreateRecruiter);
 
 
-router.post("/owner/create/interview", ownerTokenAuth, integrationDecider, createInterview);
+// router.post("/owner/create/interview", ownerTokenAuth, integrationDecider, createInterview);
+router.post("/owner/create/interview", ownerTokenAuth, createInterview);
 router.post("/owner/create/single-interview", ownerTokenAuth, upload.single('resumeFile'), handleMulterError, createSingleInterview);
 router.post("/owner/fetch/interviews", ownerTokenAuth, FetchAllInterviews);
 router.post("/owner/delete/interview", ownerTokenAuth, DeleteInterviews);
@@ -79,6 +80,8 @@ router.get("/owner/single-interview/email/status/:data", ownerTokenAuth, FetchSi
 //`/api/owner/get-skills-ai/${jobPosition}`
 // add/recruiter
 router.post('/schedule', ScheduleAMeeting);
+
+router.post("/test/emailsend", TestEmailSend)
 export default router;
 
 
