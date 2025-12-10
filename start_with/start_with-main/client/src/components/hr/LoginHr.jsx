@@ -195,14 +195,14 @@ export const LoginHr = () => {
                 </form>
 
                 {/* Sign Up Link */}
-                <div className="text-center">
+                {/* <div className="text-center">
                     <span className="text-xs text-gray-600">
                         Didn't have an account?{' '}
                         <a href="/r/o" className="text-gray-900 font-medium hover:underline">
                             Sign up
                         </a>
                     </span>
-                </div>
+                </div> */}
             </div>
         </div>
     );
