@@ -82,7 +82,7 @@ router.get("/owner/single-interview/email/status/:data", ownerTokenAuth, FetchSi
 // add/recruiter
 router.post('/schedule', ScheduleAMeeting);
 
-router.post("/test/emailsend", TestEmailSend)
+// router.post("/test/emailsend", TestEmailSend)
 export default router;
 
 
