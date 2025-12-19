@@ -3306,6 +3306,7 @@ const ProfileHr = () => {
                                                     }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                         <div>
                                                             <div className='text-lg text-gray-700 ml-5'>Candidate Interview Result</div>
+                                                            <div className='text-lg text-gray-900 ml-5'>Score: {InterviewResultDetails[0]?.interviewResult?.feedback?.overall_mark}</div>
                                                             {/* <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div> */}
                                                         </div>
                                                         <div className='text-3xl  '>›</div>
@@ -4989,4 +4990,3 @@ export default ProfileHr
 
 
 // export default ProfileHr
-
