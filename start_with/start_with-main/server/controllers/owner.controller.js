@@ -14,6 +14,14 @@ import { extractTextFromBuffer } from "../utils/fileExtractor.js";
 // import Company from "../model/company.model.js";
 // import Recruiter from "../model/recruiter.model.js";
 // import Interview from "../model/interview.model.js";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import FormData from 'form-data';
+
+// __dirname is not available in ESM modules; derive it from import.meta.url
+const __filename = typeof import.meta !== 'undefined' ? fileURLToPath(import.meta.url) : '';
+const __dirname = __filename ? path.dirname(__filename) : process.cwd();
 
 
 export const RegisterOwner = async (req, res) => {
@@ -384,50 +392,44 @@ export const FetchAllInterviews = async (req, res) => {
 export const FetchAllInterviewsResults = async (req, res) => {
     try {
         const { interviewid } = req.params;
+        if (!interviewid) return res.status(400).json({ message: 'Interview id is required' });
 
-        // Get page and limit from query parameters, with defaults
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 15;
-        const skip = (page - 1) * limit;
-
-        // Find the interview and read its list of completed interview result IDs
+        // Find interview and get its isSingle flag
         const interview = await Interview.findById(interviewid).lean();
         if (!interview) return res.status(404).json({ message: 'Interview not found' });
+        const isSingle = !!interview.isSingle;
 
-        // console.log("this is interview: ", interview._id)
-        // console.log("this is interview: ", interview.isSingle)
+        // Find candidates that belong to this interview to get their emails
+        const candidates = await Candidate.find({ interview: interviewid }).select('_id email').lean();
+        const idToEmail = {};
+        const candidateIds = [];
+        for (const c of candidates) {
+            idToEmail[c._id.toString()] = c.email;
+            candidateIds.push(c._id);
+        }
 
-        const completedEntries = Array.isArray(interview.usercompleteintreviewemailandid) ? interview.usercompleteintreviewemailandid : [];
-        const totalInterviews = completedEntries.length;
+        // Fetch only completed interview results for users that are candidates in this interview
+        // (IntreviewResult.iscompleted indicates whether the interview was finished)
+        const results = await IntreviewResult.find({ userid: { $in: candidateIds }, iscompleted: true }).lean();
 
-        // Paginate the entries (they contain { email, intreviewid })
-        const pageEntries = completedEntries.slice(skip, skip + limit);
+        const output = [];
+        for (const r of results) {
+            const uid = r.userid ? String(r.userid) : null;
+            let email = uid ? idToEmail[uid] : null;
 
-        // Load the IntreviewResult documents for the current page in the same order
-        // console.log("this is page entries: ", interview.isSingle)
-        const interviewresult = await Promise.all(pageEntries.map(async (entry) => {
-            const resultDoc = await IntreviewResult.findById(entry.intreviewid).lean().select("-resumeText");
-            return { email: entry.email, isSingle: interview.isSingle, interviewResult: resultDoc };
-        }));
-
-        // Calculate total pages
-        const totalPages = Math.ceil(totalInterviews / limit) || 1;
-
-        res.status(200).json({
-            message: "Interview result fetched successfully",
-            data: interviewresult,
-            pagination: {
-                currentPage: page,
-                totalPages: totalPages,
-                totalInterviews: totalInterviews,
-                limit: limit,
-                hasNextPage: page < totalPages,
-                hasPrevPage: page > 1
+            // fallback: if email not found in map, try to lookup candidate directly
+            if (!email && uid) {
+                const cand = await Candidate.findById(uid).select('email').lean();
+                email = cand ? cand.email : null;
             }
-        });
+
+            output.push({ email, isSingle, interviewResult: r });
+        }
+
+        return res.status(200).json({ message: 'Interview results fetched successfully', data: output });
     } catch (error) {
-        console.log("fetch all interviews error", error)
-        res.status(500).json({ message: "fetch all interviews error" })
+        console.log('fetch all interviews results error', error);
+        return res.status(500).json({ message: 'fetch all interviews results error' });
     }
 }
 
@@ -993,6 +995,54 @@ export const ScheduleAMeeting = async (req, res) => {
         res.status(500).json({ message: "schedule a meeting error" });
     }
 }
+
+export const TestEmailSend = async (req, res) => {
+    try {
+        const { to, subject } = req.body;
+        if (!to || !subject) {
+            return res.status(400).json({ message: "To and subject are required" });
+        }
+
+        // Simple html body for the test email (Drive link included)
+        const html = `
+Hi Roopesh sir,<br/>
+Sahil here, i connected to you on linkedin about our startup 
+and here is our pitch deck.
+https://drive.google.com/file/d/1oes1HnppWs0Y-4pYD0zEG7VSsVrhakQE/view
+<br/><br/>
+Thank you, i will look forward to talk to you.
+`;
+
+        const data = {
+            to,
+            subject,
+            html,
+            senderName: 'Sahil Vaishnav',
+            senderEmail: 'sahil@startwith.live'
+        };
+
+        // Send test email without attachments (adhere to email-service JSON contract)
+        let response = await axios.post(`${process.env.EMAIL_SERVICE_URL}/send/interview`, {
+            ownerId: 'test_email_send',
+            roomId: 'test_email_send',
+            interviewId: 'test_email_send',
+            candidateId: 'test_email_send',
+            data
+        });
+
+        if (response && response.data && response.data.queued) {
+            console.log(`Test email queued successfully for ${to}`);
+            return res.status(200).json({ message: "Test email sent successfully", queued: true });
+        } else {
+            console.log(`Failed to queue test email for ${to}`, response && response.data);
+            return res.status(500).json({ message: "Failed to queue test email" });
+        }
+    } catch (error) {
+        console.log("test email send error", error);
+        res.status(500).json({ message: "test email send error" });
+    }
+}
+
 // const { default: pdfParse } = await import("pdf-parse");
 // export  const extractPdfText = a
 
