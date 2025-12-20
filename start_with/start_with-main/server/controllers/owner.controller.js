@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Owner from "../models/owner.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -389,49 +390,112 @@ export const FetchAllInterviews = async (req, res) => {
     }
 }
 
+// export const FetchAllInterviewsResults = async (req, res) => {
+//     try {
+//         const { interviewid } = req.params;
+//         if (!interviewid) return res.status(400).json({ message: 'Interview id is required' });
+
+//         // Find interview and get its isSingle flag
+//         const interview = await Interview.findById(interviewid).lean();
+//         if (!interview) return res.status(404).json({ message: 'Interview not found' });
+//         const isSingle = !!interview.isSingle;
+
+//         // Find candidates that belong to this interview to get their emails
+//         const candidates = await Candidate.find({ interview: interviewid }).select('_id email').lean();
+//         const idToEmail = {};
+//         const candidateIds = [];
+//         for (const c of candidates) {
+//             idToEmail[c._id.toString()] = c.email;
+//             candidateIds.push(c._id);
+//         }
+
+//         // Fetch only completed interview results for users that are candidates in this interview
+//         // (IntreviewResult.iscompleted indicates whether the interview was finished)
+//         const results = await IntreviewResult.find({ userid: { $in: candidateIds }, iscompleted: true }).lean();
+
+//         const output = [];
+//         for (const r of results) {
+//             const uid = r.userid ? String(r.userid) : null;
+//             let email = uid ? idToEmail[uid] : null;
+
+//             // fallback: if email not found in map, try to lookup candidate directly
+//             if (!email && uid) {
+//                 const cand = await Candidate.findById(uid).select('email').lean();
+//                 email = cand ? cand.email : null;
+//             }
+
+//             output.push({ email, isSingle, interviewResult: r });
+//         }
+
+//         return res.status(200).json({ message: 'Interview results fetched successfully', data: output });
+//     } catch (error) {
+//         console.log('fetch all interviews results error', error);
+//         return res.status(500).json({ message: 'fetch all interviews results error' });
+//     }
+// }
+
+/**
+ * ok
+ * @param {*} req 
+ * @param {*} res 
+ * @returns 
+ */
+
 export const FetchAllInterviewsResults = async (req, res) => {
     try {
+        // console.log("ok")
         const { interviewid } = req.params;
-        if (!interviewid) return res.status(400).json({ message: 'Interview id is required' });
+        if (!interviewid) {
+            return res.status(400).json({ message: 'Interview id is required' });
+        }
 
-        // Find interview and get its isSingle flag
-        const interview = await Interview.findById(interviewid).lean();
+        const interview = await Interview.findById(interviewid).select('isSingle').lean();
         if (!interview) return res.status(404).json({ message: 'Interview not found' });
-        const isSingle = !!interview.isSingle;
 
-        // Find candidates that belong to this interview to get their emails
-        const candidates = await Candidate.find({ interview: interviewid }).select('_id email').lean();
-        const idToEmail = {};
-        const candidateIds = [];
-        for (const c of candidates) {
-            idToEmail[c._id.toString()] = c.email;
-            candidateIds.push(c._id);
-        }
-
-        // Fetch only completed interview results for users that are candidates in this interview
-        // (IntreviewResult.iscompleted indicates whether the interview was finished)
-        const results = await IntreviewResult.find({ userid: { $in: candidateIds }, iscompleted: true }).lean();
-
-        const output = [];
-        for (const r of results) {
-            const uid = r.userid ? String(r.userid) : null;
-            let email = uid ? idToEmail[uid] : null;
-
-            // fallback: if email not found in map, try to lookup candidate directly
-            if (!email && uid) {
-                const cand = await Candidate.findById(uid).select('email').lean();
-                email = cand ? cand.email : null;
+        const pipeline = [
+            { $match: { interview: new mongoose.Types.ObjectId(interviewid) } },
+            { $project: { email: 1 } },
+            {
+                $lookup: {
+                    from: IntreviewResult.collection.name,
+                    let: { candidateId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$userid', '$$candidateId'] },
+                                        { $eq: ['$iscompleted', true] }
+                                    ]
+                                }
+                            }
+                        },
+                        { $project: { resumeText: 1, transcript: 1, feedback: 1, videoUrl: 1, videoUrls: 1, iscompleted: 1, createdAt: 1, updatedAt: 1 } }
+                    ],
+                    as: 'results'
+                }
+            },
+            { $unwind: { path: '$results', preserveNullAndEmptyArrays: false } },
+            {
+                $project: {
+                    _id: 0,
+                    email: '$email',
+                    interviewResult: '$results'
+                }
             }
+        ];
 
-            output.push({ email, isSingle, interviewResult: r });
-        }
+        const rows = await Candidate.aggregate(pipeline);
+
+        const output = rows.map(r => ({ ...r, isSingle: !!interview.isSingle }));
 
         return res.status(200).json({ message: 'Interview results fetched successfully', data: output });
     } catch (error) {
-        console.log('fetch all interviews results error', error);
+        console.error('fetch all interviews results error', error);
         return res.status(500).json({ message: 'fetch all interviews results error' });
     }
-}
+};
+
 
 export const DeleteInterviews = async (req, res) => {
     try {
