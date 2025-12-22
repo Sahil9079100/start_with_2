@@ -3490,10 +3490,10 @@ const ProfileHr = () => {
                                             <div className="VIdeo_+ _Feedback bg-yellow400 w-[65%] p-3 flex flex-col gap-3">
                                                 {/* Prefer Drive preview iframe when we can compute a previewSrc (file id),
                                             otherwise fall back to showing the raw URL or a placeholder */}
-                                                {previewSrc ? (
-                                                    <div className="Video w-full bg-black/5 flex items-center justify-center">
-                                                        {/* Aspect-ratio wrapper: 56.25% = 16:9. The iframe fills this area and scales with width
+                                                {/* Aspect-ratio wrapper: 56.25% = 16:9. The iframe fills this area and scales with width
                                                     Cap height so modal doesn't overflow (75vh) and ensure a minimum height so it's not tiny. */}
+                                                {/* {previewSrc ? (
+                                                    <div className="Video w-full bg-black/5 flex items-center justify-center">
                                                         <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
                                                             <iframe
                                                                 title="candidate-video"
@@ -3509,6 +3509,84 @@ const ProfileHr = () => {
                                                     <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
                                                         {resultWindowData?.interviewResult?.videoUrls?.[0] || resultWindowData?.interviewResult?.videoUrl || 'No video available.'}
                                                     </div>
+                                                )} */}
+
+                                                {previewSrc ? (
+                                                    <div className="Video w-full bg-black/5 flex items-center justify-center">
+                                                        <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
+                                                            <iframe
+                                                                title="candidate-video"
+                                                                src={previewSrc}
+                                                                className="absolute inset-0 w-full h-full rounded-md border border-gray-200"
+                                                                frameBorder="0"
+                                                                allowFullScreen
+                                                            />
+                                                        </div>
+
+                                                    </div>
+                                                ) : (
+                                                    (() => {
+                                                        const vUrl = resultWindowData?.interviewResult?.videoUrls?.[0] || resultWindowData?.interviewResult?.videoUrl;
+
+                                                        if (!vUrl) {
+                                                            return (
+                                                                <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
+                                                                    No video available.
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        // Cloudflare R2 / pub-hosted videos -> use <video>
+                                                        if (vUrl.startsWith('https://pub')) {
+                                                            return (
+                                                                <div className="Video w-full bg-black/5 flex items-center justify-center">
+                                                                    <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
+                                                                        <video className="absolute inset-0 w-full h-full rounded-md border border-gray-200" controls>
+                                                                            <source src={vUrl} />
+                                                                            Your browser does not support the video tag.
+                                                                        </video>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        // Drive-hosted previews -> use <iframe>
+                                                        if (vUrl.startsWith('https://drive') || vUrl.includes('drive.google.com') || vUrl.includes('docs.google.com')) {
+                                                            return (
+                                                                <div className="Video w-full bg-black/5 flex items-center justify-center">
+                                                                    <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
+                                                                        <iframe
+                                                                            title="candidate-video"
+                                                                            src={vUrl}
+                                                                            className="absolute inset-0 w-full h-full rounded-md border border-gray-200"
+                                                                            frameBorder="0"
+                                                                            allowFullScreen
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        // Fallback: if it looks like a direct video URL, use <video>, otherwise show the URL
+                                                        if (vUrl.includes('.mp4') || vUrl.includes('.webm') || vUrl.includes('.ogg')) {
+                                                            return (
+                                                                <div className="Video w-full bg-black/5 flex items-center justify-center">
+                                                                    <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
+                                                                        <video className="absolute inset-0 w-full h-full rounded-md border border-gray-200" controls>
+                                                                            <source src={vUrl} />
+                                                                            Your browser does not support the video tag.
+                                                                        </video>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
+                                                                {vUrl}
+                                                            </div>
+                                                        );
+                                                    })()
                                                 )}
 
                                                 <div className="Feedback w-full bg-pink300 max-w-[100%] h-[40%] p-3 overflow-y-auto flex-wrap ">
