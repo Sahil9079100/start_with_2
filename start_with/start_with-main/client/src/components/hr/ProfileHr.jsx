@@ -3526,7 +3526,7 @@ const ProfileHr = () => {
                                                     </div>
                                                 ) : (
                                                     (() => {
-                                                        const vUrl = resultWindowData?.interviewResult?.videoUrls?.[0] || resultWindowData?.interviewResult?.videoUrl;
+                                                        const vUrl = resultWindowData?.interviewResult?.videoUrls?.[0] || resultWindowData?.interviewResult?.videoUrl || resultWindowData[0]?.interviewResult?.videoUrls?.[0] || resultWindowData[0]?.interviewResult?.videoUrl;
 
                                                         if (!vUrl) {
                                                             return (
