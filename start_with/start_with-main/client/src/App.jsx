@@ -1,4 +1,4 @@
-import { Route, BrowserRouter as Router, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 
 import RegisterOwner from './components/hr/RegisterHr.jsx'
 import ProfileHr from './components/hr/ProfileHr.jsx';
@@ -11,21 +11,18 @@ import Schedule from './components/Schedule/Schedule.jsx';
 function App() {
 
     return (
-        <Router>
-            <Routes>
-                <Route path="*" element={<><h1 className='flex justify-center'>404 Not Found</h1></>} />
+        <Routes>
+            <Route path="*" element={<><h1 className='flex justify-center'>404 Not Found</h1></>} />
 
-                <Route path="/r/o" element={<RegisterOwner />} />
-                <Route path="/l/o" element={<LoginHr />} />
-                <Route path="/p/o/:id" element={<ProfileHr />} />
-                {/* <Route path="/p/:id" element={<UpdatedProfile />} /> */}
-                <Route path="/integrations" element={<GIntegrationSuccess />} />
-                <Route path="/" element={<MainPage />} />
-                <Route path='/schedule' element={<Schedule />} />
-            </Routes>
-        </Router>
+            <Route path="/r/o" element={<RegisterOwner />} />
+            <Route path="/l/o" element={<LoginHr />} />
+            <Route path="/p/o/:id" element={<ProfileHr />} />
+            {/* <Route path="/p/:id" element={<UpdatedProfile />} /> */}
+            <Route path="/integrations" element={<GIntegrationSuccess />} />
+            <Route path="/" element={<MainPage />} />
+            <Route path="/schedule" element={<Schedule />} />
+        </Routes>
     );
 }
-
 
 export default App

@@ -6,7 +6,9 @@ import { SocketProvider } from './socket/SocketProvider.jsx'
 import { BrowserRouter } from 'react-router-dom';
 
 createRoot(document.getElementById('root')).render(
-  <SocketProvider> {/*I didnt pass the token here, because i will set it later when user logs in through login page */}
-    <App />
-  </SocketProvider>
+  <BrowserRouter>
+    <SocketProvider> {/*I didnt pass the token here, because i will set it later when user logs in through login page */}
+      <App />
+    </SocketProvider>
+  </BrowserRouter>
 )

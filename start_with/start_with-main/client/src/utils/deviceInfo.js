@@ -259,8 +259,12 @@ async function reverseGeocode(latitude, longitude) {
  */
 export async function getIPBasedLocation() {
     try {
-        // Using ip-api.com - free for non-commercial use
-        const response = await fetch('http://ip-api.com/json/?fields=status,city,regionName,country,countryCode,timezone,query');
+        // Using ipapi.co - free tier with HTTPS support (1000 requests/day)
+        const response = await fetch('https://ipapi.co/json/', {
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
         
         if (!response.ok) {
             throw new Error("IP location lookup failed");
@@ -268,26 +272,26 @@ export async function getIPBasedLocation() {
         
         const data = await response.json();
         
-        if (data.status !== 'success') {
-            throw new Error("IP location lookup failed");
+        if (data.error) {
+            throw new Error(data.reason || "IP location lookup failed");
         }
         
-        const locationString = data.city && data.countryCode 
-            ? `${data.city}, ${data.countryCode}` 
-            : data.country || "Unknown Location";
+        const locationString = data.city && data.country_code 
+            ? `${data.city}, ${data.country_code}` 
+            : data.country_name || "Unknown Location";
         
         return {
             success: true,
             permissionGranted: false, // IP-based doesn't require permission
             city: data.city || "",
-            region: data.regionName || "",
-            country: data.country || "",
-            countryCode: data.countryCode || "",
+            region: data.region || "",
+            country: data.country_name || "",
+            countryCode: data.country_code || "",
             timezone: data.timezone || "",
-            ipAddress: data.query || "",
+            ipAddress: data.ip || "",
             locationString,
-            latitude: null,
-            longitude: null
+            latitude: data.latitude || null,
+            longitude: data.longitude || null
         };
     } catch (error) {
         console.error("IP location error:", error);

@@ -1576,7 +1576,7 @@ const ProfileHr = () => {
             setWorkdayUsername('');
             setWorkdayPassword('');
             setWorkdayIntegrationLoading(false);
-            setIs_greenhouse_connected(true);
+            setIs_workday_connected(true);
         } catch (error) {
             console.log("workday integration error", error)
             setWorkdayIntegrationLoading(false);
@@ -1906,6 +1906,12 @@ const ProfileHr = () => {
                                                 <div className="w-10"><LuFolderOpen className="text-4xl text-gray-500" /></div>
                                                 <div>Local Files</div>
                                             </div>
+
+                                            <div onClick={() => { setIntegrationWindow(true); }} className={`border border-black/40 border-dashed rounded-[4px] flex gap-1 items-center py-1 pr-2 pl-1 cursor-pointer hover:bg-gray-50 hover:border hover:border-black/100 transition-colors`}>
+                                                <div className="w-10"><IoAdd className="text-4xl text-gray-500" /></div>
+                                                <div>Add Integrations</div>
+                                            </div>
+                                            {/* onClick={() => { setIntegrationWindow(true); }} */}
                                         </div>
                                     </div>
 
