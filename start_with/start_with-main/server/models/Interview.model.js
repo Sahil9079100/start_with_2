@@ -1,51 +1,3 @@
-// import mongoose from "mongoose";
-
-// const interviewSchema = new mongoose.Schema({
-//     owner: {
-//         type: mongoose.Schema.Types.ObjectId,
-//         ref: "Owner",
-//         required: true,
-//     },
-//     company: { type: String, default: "" },
-//     launguage: { type: String, default: "English" },
-//     candidateSheetId: { type: String, required: true },
-//     jobPosition: { type: String, required: true },
-//     jobDescription: { type: String, required: true },
-//     duration: { type: String, required: true },
-//     expiryDate: { type: Date, required: true },
-//     minimumQualification: { type: String },
-//     minimumSkillsRequired: { type: String },
-//     questions: [{ type: String }],
-//     interviewUrl: {
-//         type: String,
-//         unique: true,
-//         required: true,
-//     },
-//     status: {//separate_resume_urls_and_save
-//         type: String,
-//         enum: ["initial", "sheet_data_structure", "sheet_data_extract_json", "separate_resume_urls_and_save", "extract_text_from_resumeurl", "sort_resume_as_job_description", "waiting_for_recruiter", "send_email_to_candidates", "interview_successfully_processed"],
-//         default: "initial",
-//     },
-//     logs: [
-//         {
-//             message: String,
-//             level: { type: String, enum: ["info", "error", "success"], default: "info" },
-//             timestamp: { type: Date, default: Date.now },
-//         },
-//     ],
-// }, { timestamps: true });
-
-// const Interview = mongoose.model("Interview", interviewSchema);
-// export default Interview;
-
-
-// const url = "http://localhost:5000/interview/" + new_interview._id + "/login";
-
-
-
-
-
-
 import mongoose from "mongoose";
 
 const interviewDetailsSchema = new mongoose.Schema({
@@ -59,12 +11,7 @@ const interviewDetailsSchema = new mongoose.Schema({
         required: true
     },
     launguage: { type: String, default: "English" },
-    // recruiter: {
-    //     type: mongoose.Schema.Types.ObjectId,
-    //     ref: "Recruiter",
-    //     required: true
-    // },
-    candidateSheetId: { type: String, required: true },
+    candidateSheetId: { type: String },
     jobPosition: { type: String, required: true },
     jobDescription: { type: String, required: true },
     useremail: {
@@ -82,11 +29,6 @@ const interviewDetailsSchema = new mongoose.Schema({
         type: String,
         default: "You are a helpful assistant",
     },
-    // description: {
-    //     type: String,
-    //     required: true,
-    // },
-
     usercompleteintreviewemailandid: [{
         email: {
             type: String,
@@ -98,30 +40,18 @@ const interviewDetailsSchema = new mongoose.Schema({
             required: true,
         }
     }],
-
     duration: {
         type: String,
-        // required: true
     },
     minimumQualification: {
         type: String,
-        // required: true
     },
     questions: {
         type: [String],
         default: []
     },
-    // jobtitle: {
-    //     type: String,
-    //     required: true,
-    // },
-    // level: {
-    //   type: String,
-    //   required: true,
-    // },
     minimumSkills: {
         type: String,
-        // required: true
     },
     minimumExperience: { type: String },
     resumeCollected: {
@@ -132,24 +62,61 @@ const interviewDetailsSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
-    resumeCollected: {
-        type: Number,
-        default: 0,
-    },
-    status: {//separate_resume_urls_and_save
+    integrationType: {
         type: String,
-        enum: ["initial", "sheet_data_structure", "sheet_data_extract_json", "separate_resume_urls_and_save", "extract_text_from_resumeurl", "sort_resume_as_job_description", "waiting_for_recruiter", "send_email_to_candidates", "interview_successfully_processed"],
+        enum: ["GOOGLESHEET", "WORKDAY", "LOCALFILES", "GREENHOUSE"],
+        default: "GOOGLESHEET"
+    },
+    integrationData: {
+        type: String,
+        default: null
+    },
+    status: {
+        type: String,
+        enum: [
+            "initial",
+            "sheet_data_structure",
+            "sheet_data_extract_json",
+            "separate_resume_urls_and_save",
+            "extract_text_from_resumeurl",
+            "sort_resume_as_job_description",
+            "waiting_for_recruiter",
+            "send_email_to_candidates",
+            "interview_successfully_processed",
+            // Workday-specific statuses
+            "workday_data_fetched",
+            "workday_candidates_separated",
+            "workday_ocr_complete",
+            "workday_sorting_complete",
+            // LocalFile-specific statuses
+            "localfile_parsed",
+            "localfile_candidates_separated",
+            "localfile_ocr_complete",
+            "localfile_sorting_complete"
+        ],
         default: "initial",
     },
     currentStatus: {
         type: String,
         enum: [
             "CREATED",
+            // GoogleSheet pipeline statuses
             "STRUCTURING",
             "EXTRACTING_SHEET",
             "RESUME_SEPARATION",
             "OCR",
             "SORTING",
+            // Workday pipeline statuses
+            "WD_FETCHING",
+            "WD_SEPARATING",
+            "WD_OCR",
+            "WD_SORTING",
+            // LocalFile pipeline statuses
+            "LF_PARSING",
+            "LF_SEPARATING",
+            "LF_OCR",
+            "LF_SORTING",
+            // Common statuses
             "COMPLETED",
             "FAILED"
         ],
@@ -217,3 +184,50 @@ export const Interview = mongoose.model(
     "Interview",
     interviewDetailsSchema
 );
+
+
+
+
+
+// import mongoose from "mongoose";
+
+// const interviewSchema = new mongoose.Schema({
+//     owner: {
+//         type: mongoose.Schema.Types.ObjectId,
+//         ref: "Owner",
+//         required: true,
+//     },
+//     company: { type: String, default: "" },
+//     launguage: { type: String, default: "English" },
+//     candidateSheetId: { type: String, required: true },
+//     jobPosition: { type: String, required: true },
+//     jobDescription: { type: String, required: true },
+//     duration: { type: String, required: true },
+//     expiryDate: { type: Date, required: true },
+//     minimumQualification: { type: String },
+//     minimumSkillsRequired: { type: String },
+//     questions: [{ type: String }],
+//     interviewUrl: {
+//         type: String,
+//         unique: true,
+//         required: true,
+//     },
+//     status: {//separate_resume_urls_and_save
+//         type: String,
+//         enum: ["initial", "sheet_data_structure", "sheet_data_extract_json", "separate_resume_urls_and_save", "extract_text_from_resumeurl", "sort_resume_as_job_description", "waiting_for_recruiter", "send_email_to_candidates", "interview_successfully_processed"],
+//         default: "initial",
+//     },
+//     logs: [
+//         {
+//             message: String,
+//             level: { type: String, enum: ["info", "error", "success"], default: "info" },
+//             timestamp: { type: Date, default: Date.now },
+//         },
+//     ],
+// }, { timestamps: true });
+
+// const Interview = mongoose.model("Interview", interviewSchema);
+// export default Interview;
+
+
+// const url = "http://localhost:5000/interview/" + new_interview._id + "/login";

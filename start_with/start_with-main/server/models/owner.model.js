@@ -15,6 +15,22 @@ const ownerSchema = new mongoose.Schema({
         type: String,
         // required: true
     },
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    isLoggedIn: {
+        type: Boolean,
+        default: false
+    },
+    // lastLogin: {
+    //     type: Date,
+    //     default: null
+    // },
+    // lastLogout: {
+    //     type: Date,
+    //     default: null
+    // },
     company: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Company"

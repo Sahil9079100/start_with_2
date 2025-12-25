@@ -10,9 +10,12 @@ import { initSocket } from "./socket/index.js";
 import ownerRoute from "./routes/owner.routes.js";
 import googleRoute from "./routes/google.route.js";
 import webhookRoute from "./routes/webhook.routes.js";
+import workdayRoute from "./routes/workday.route.js";
 
-// BullMQ Pipeline Worker - import to auto-start processing
+// BullMQ Pipeline Workers - import to auto-start processing
 import { pipelineWorker, interviewPipelineQueue } from "./queues/interviewPipelineQueue.js";
+import { workdayPipelineWorker, workdayPipelineQueue } from "./queues/workdayPipelineQueue.js";
+import { localfilePipelineWorker, localfilePipelineQueue } from "./queues/localfilePipelineQueue.js";
 
 
 // import { startAttendanceScheduler } from "./utilits/cron_jobs/attendanceScheduler.cron.js";
@@ -64,6 +67,7 @@ app.use((req, res, next) => {
 app.use("/api", ownerRoute)
 app.use("/api/google", googleRoute);
 app.use("/email", webhookRoute);
+app.use("/api/integrate", workdayRoute);
 
 dbconnect()
     .then(() => {
@@ -72,26 +76,40 @@ dbconnect()
             throw error;
         });
         // app.listen(process.env.PORT || 4000, () => {
-        //     console.log(`⚙️ Server running on port ${process.env.PORT || 4000}`);
+        //     console.log(`Server running on port ${process.env.PORT || 4000}`);
         // });
         server.listen(process.env.PORT || 4000, () => {
-            console.log(`⚙️ Server running on port ${process.env.PORT || 4000}`);
-            console.log(`📋 BullMQ Pipeline Worker started - processing interview jobs`);
+            console.log(`Server running on port ${process.env.PORT || 4000}`);
+            console.log(`BullMQ Pipeline Workers started:`);
+            console.log(`   - GoogleSheet Pipeline Worker: Active`);
+            console.log(`   - Workday Pipeline Worker: Active`);
+            console.log(`   - LocalFile Pipeline Worker: Active`);
         });
     })
     .catch((error) => {
         console.error(`Error from app.js:::-> ${error}`);
     });
 
-// Graceful shutdown for BullMQ worker
+// Graceful shutdown for BullMQ workers
 const gracefulShutdown = async (signal) => {
-    console.log(`\n${signal} received. Closing BullMQ worker...`);
+    console.log(`\n${signal} received. Closing BullMQ workers...`);
     try {
+        // Close GoogleSheet pipeline
         await pipelineWorker.close();
         await interviewPipelineQueue.close();
-        console.log("BullMQ worker closed gracefully.");
+        console.log("GoogleSheet pipeline worker closed gracefully.");
+
+        // Close Workday pipeline
+        await workdayPipelineWorker.close();
+        await workdayPipelineQueue.close();
+        console.log("Workday pipeline worker closed gracefully.");
+
+        // Close LocalFile pipeline
+        await localfilePipelineWorker.close();
+        await localfilePipelineQueue.close();
+        console.log("LocalFile pipeline worker closed gracefully.");
     } catch (err) {
-        console.error("Error closing BullMQ worker:", err);
+        console.error("Error closing BullMQ workers:", err);
     }
     process.exit(0);
 };

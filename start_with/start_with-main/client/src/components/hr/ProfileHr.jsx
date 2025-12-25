@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import SocketService from '../../socket/socketService.js';
 import { useNavigate } from "react-router-dom"
 
-import { FiInfo } from "react-icons/fi";
+import { FiInfo, FiEye, FiEyeOff } from "react-icons/fi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RiArrowLeftSLine } from "react-icons/ri";
 import { LuListCheck } from "react-icons/lu";
@@ -17,12 +17,20 @@ import { IoIosSend } from "react-icons/io";
 import { createAvatar } from "@dicebear/core";
 import { initials } from '@dicebear/collection';
 import { Upload } from 'lucide-react';
+import { MdOutlineModeEdit } from "react-icons/md";
+import { LuFolderOpen } from "react-icons/lu";
+import { BiDevices } from "react-icons/bi";
+import { MdLockOutline } from "react-icons/md";
+import { RiAccountCircleLine } from "react-icons/ri";
+import { IoAdd } from "react-icons/io5";
+import useLiveSessionCount, { formatSessionDate } from "../../socket/useLiveSessionCount";
+
 
 import { GoXCircle } from "react-icons/go"; // if there is a error
 import { GoCheckCircle } from "react-icons/go"; // if there is a success
 import { GoCircle } from "react-icons/go"; // unselected emails
 import { FaRegDotCircle } from "react-icons/fa"; // selected emails
-
+// import gsheetImage from "/public/i_gsheets.svg"
 
 
 
@@ -83,6 +91,7 @@ const ProfileHr = () => {
     const textareaRef = useRef(null);
     const [avatarSvg, setAvatarSvg] = useState('');
     const [ownername, setOwnername] = useState('');
+    const [workdayPasswordVisible, setWorkdayPasswordVisible] = useState(false);
     // Guard to prevent double-fetching profile in React Strict Mode (dev double-invoke of effects)
     const hasFetchedProfile = useRef(false);
     // Guard to ensure interviews are fetched only once when profile becomes available
@@ -91,6 +100,32 @@ const ProfileHr = () => {
 
     const [skillsListArray, setSkillsListArray] = useState(["React", "Node Js", "Typescript"]);
     const [isEnhancing, setIsEnhancing] = useState(false);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const profileMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        const handleEscKey = (event) => {
+            if (event.key === 'Escape') {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        if (isProfileMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('keydown', handleEscKey);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscKey);
+        };
+    }, [isProfileMenuOpen]);
     const [sheetsNames, setSheetsName] = useState([])
     const [interviews, setInterviews] = useState([])
     const [interviewDetails, setInterviewDetails] = useState(null);
@@ -133,6 +168,7 @@ const ProfileHr = () => {
     const [singleJDDragActive, setSingleJDDragActive] = useState(false);
     const [singleResumeDragActive, setSingleResumeDragActive] = useState(false);
     const [resultWindowData, setResultWindowData] = useState(false);
+    const { liveCount, sessions, isLoading } = useLiveSessionCount();
 
     const [singleInterviewWindow, setSingleInterviewWindow] = useState(false);
     const [singleInterviewCreateLoading, setSingleInterviewCreateLoading] = useState(false);
@@ -147,6 +183,13 @@ const ProfileHr = () => {
         resumeUrl: '',
         resumeFile: null,
     });
+
+    const INTEGRATIONS = {
+        GOOGLESHEETS: "og1ci0cNel9ZAMr02NAPq61CT8myVYBP",
+        WORKDAY: "1otW6v71irL9DYOkKc4AcVAILNZsvsRM",
+        LOCALFILES: "c4n3FfW6cK9amZ1ljCYFAKBdVlKtYlfR*",
+        GREENHOUSE: "qpYffv0VJlDlXOJvsvHYWi07H7w9QyP2"
+    }
 
     // Validation message for duration input (will auto-clear)
     const [durationError, setDurationError] = useState('');
@@ -497,6 +540,26 @@ const ProfileHr = () => {
         }
     };
 
+    const [adminKey, setAdminKey] = useState([]);
+    const onKeyPress = (event) => {
+        // event.key returns the actual character produced (e.g., "#")
+        console.log('Key pressed:', event.key);
+        setAdminKey(adminKey.push(event.key));
+        console.log(adminKey.join(''));
+        if ('withstart9090' === adminKey.join('')) {
+            navigate('/hr-admin')
+        }
+
+    };
+
+    // useEffect(() => {
+    //     window.addEventListener('keydown', onKeyPress);
+    //     return () => {
+    //         window.removeEventListener('keydown', onKeyPress);
+    //     };
+    // }, []);
+
+
     const handleRemoveSkill = (skillToRemove) => {
         setInterviewForm(prev => ({
             ...prev,
@@ -599,10 +662,43 @@ const ProfileHr = () => {
                 sahil = true;
                 emptyItems.push('Required Skills');
             }
-            if (!interviewForm.candidateSheetId) {
+            if (selectedIntegration == "googleSheets") {
+                if (!interviewForm.candidateSheetId) {
+                    errors.candidateSheetId = true;
+                    sahil = true;
+                    emptyItems.push('Candidate Sheet');
+                }
+            }
+            if (selectedIntegration == "workday") {
+                console.log("THis is workday integration", workdayraasurl)
+                if (workdayraasurl == '') {
+                    console.log("The workday integration url is empty")
+                    errors.candidateSheetId = true;
+                    sahil = true;
+                    emptyItems.push('Workday Report ID');
+                }
+            }
+            if (selectedIntegration == "localFiles") {
+                if (!localfileselected) {
+                    errors.candidateSheetId = true;
+                    sahil = true;
+                    emptyItems.push('Candidate Data File (CSV/XLSX)');
+                }
+            }
+            if (selectedIntegration == "greenhouse") {
                 errors.candidateSheetId = true;
                 sahil = true;
-                emptyItems.push('Candidate Sheet');
+                emptyItems.push('Greenhouse Job ID');
+            }
+            // if (!interviewForm.candidateSheetId) {
+            //     errors.candidateSheetId = true;
+            //     sahil = true;
+            //     emptyItems.push('Candidate Sheet');
+            // }
+            if (selectedIntegration == null) {
+                errors.candidateSheetId = true;
+                sahil = true;
+                emptyItems.push('Data Source Integration');
             }
 
             setFormErrors(errors);
@@ -617,8 +713,84 @@ const ProfileHr = () => {
                 ? interviewForm.minimumSkills.join(', ')
                 : (interviewForm.minimumSkills || '');
 
-            const payload = { ...interviewForm, minimumSkills: minSkillsString, questions: interviewQuestions };
+            // const iId = "og1ci0cNel9ZAMr02NAPq61CT8myVYBP";
+
+            console.log("das", selectedIntegration)
+
+            // Handle LocalFiles integration separately (file upload)
+            if (selectedIntegration.toUpperCase() == "LOCALFILES") {
+                console.log("Creating LocalFile interview with file:", localfileselected.name);
+
+                // Create FormData for file upload
+                const formData = new FormData();
+                formData.append('candidateFile', localfileselected);
+
+                // Add all interview fields to FormData
+                formData.append('jobPosition', interviewForm.jobPosition);
+                formData.append('jobDescription', interviewForm.jobDescription);
+                formData.append('minimumQualification', interviewForm.minimumQualification);
+                formData.append('minimumExperience', interviewForm.minimumExperience);
+                formData.append('minimumSkills', minSkillsString);
+                formData.append('questions', JSON.stringify(interviewQuestions));
+
+                // Add other optional fields if present
+                if (interviewForm.duration) formData.append('duration', interviewForm.duration);
+                if (interviewForm.launguage) formData.append('launguage', interviewForm.launguage);
+
+                console.log('Creating LocalFile interview with FormData');
+
+                const response = await API.post('/api/owner/create/localfile-interview', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+
+                console.log("LocalFile interview created", response);
+                console.log(response.data);
+
+                setInterviewCreateWindow(false);
+                console.log("interview details each: ", response.data.Interview);
+                setInterviewDetails(response.data.Interview);
+                setInterviews(prev => [response.data.Interview, ...prev]);
+                setTotalInterviews(prev => prev + 1);
+                setActivePage('Each Interview Detail');
+                setCreateInterviewLoading(false);
+
+                // Reset states
+                setLocalfileselected('');
+                setSelectedIntegration(null);
+                return;
+            }
+
+            // Handle other integrations (GoogleSheets, Workday, Greenhouse)
+            let iObj = {};
+            if (selectedIntegration.toUpperCase() == "GOOGLESHEETS") {
+                console.log(INTEGRATIONS.GOOGLESHEETS)
+                console.log(INTEGRATIONS)
+                const iId = INTEGRATIONS.GOOGLESHEETS;
+                const iData = interviewForm.candidateSheetId
+                iObj = { iId, iData }
+            }
+            else if (selectedIntegration.toUpperCase() == "WORKDAY") {
+                console.log(INTEGRATIONS.WORKDAY)
+                const iId = INTEGRATIONS.WORKDAY;
+                const iData = workdayraasurl
+                iObj = { iId, iData }
+            }
+            // const iId = "1otW6v71irL9DYOkKc4AcVAILNZsvsRM";
+            // const iData = "https://impl-mycompany.workday.com/ccx/service/customreport2"
+            // const iObj = { iId, iData }
+            // const payload = { ...interviewForm, minimumSkills: minSkillsString, questions: interviewQuestions, iObj };
+            const payload = { ...interviewForm, minimumSkills: minSkillsString, questions: interviewQuestions, iObj };
             console.log('Create interview payload:', payload);
+
+            // GOOGLESHEET: "og1ci0cNel9ZAMr02NAPq61CT8myVYBP",
+            // WORKDAY: "1otW6v71irL9DYOkKc4AcVAILNZsvsRM",
+            // LOCALFILES: "c4n3FfW6cK9amZ1ljCYFAKBdVlKtYlfR*",
+            // GREENHOUSE: "qpYffv0VJlDlXOJvsvHYWi07H7w9QyP2"
+
+            // setCreateInterviewLoading(false);
+            // return 0;
 
             const response = await API.post('/api/owner/create/interview', payload);
             console.log("interview created", response)
@@ -637,6 +809,10 @@ const ProfileHr = () => {
 
             setActivePage('Each Interview Detail');
             setCreateInterviewLoading(false);
+
+            // Reset states
+            setWorkdayraasurl('');
+            setSelectedIntegration(null);
             // setShowLogsModal(true)
         } catch (error) {
             console.log("create interview error", error)
@@ -1166,6 +1342,7 @@ const ProfileHr = () => {
             if (Array.isArray(response.data.data)) {
                 // setCompletedInterviewCandidateResults(response.data.data);
                 setInterviewResultDetails(response.data.data);
+                console.log(response.data.data[0].interviewResult.feedback.overall_mark)
             } else {
                 setInterviewResultDetails([]);
                 // setCompletedInterviewCandidateResults([]);
@@ -1272,6 +1449,17 @@ const ProfileHr = () => {
         }
     }
 
+    const [integrationsStatus, setIntegrationsStatus] = useState({});
+    async function check_integrations() {
+        try {
+            const response = await API.get("/api/owner/check/integrations");
+            console.log("Integrations status:", response.data);
+            setIntegrationsStatus(response.data);
+        } catch (error) {
+            console.log("Error checking integrations:", error)
+        }
+    }
+
     const [recruiterCreateWindow, setRecruiterCreateWindow] = useState(false);
     const [companyCreateWindow, setCompanyCreateWindow] = useState(false);
     const [interviewCreateWindow, setInterviewCreateWindow] = useState(false);
@@ -1285,7 +1473,6 @@ const ProfileHr = () => {
         if (e.target.checked) {
             connectGoogleSheets()
         }
-
     }
 
     // Group interviews by date
@@ -1329,17 +1516,150 @@ const ProfileHr = () => {
         return grouped;
     };
     const [currentTab, setCurrentTab] = useState('Jobs');
-    async function tabChange() {
 
+    useEffect(() => {
+        // check_integrations();
+        checkConnectedIntegrations();
+    }, [])
+
+    const checkConnectedIntegrations = async () => {
+        try {
+            const response = await API.get("/api/owner/check/connected/integrations");
+            if (response.data.success === true) {
+                console.log(response.data.allIntegrations)
+                response.data.allIntegrations.forEach((integration) => {
+                    // setIs_googlesheet_connected(false)
+                    if (integration === 'gsheets') { setIs_googlesheet_connected(true); }
+                    if (integration === 'workday') { setIs_workday_connected(true); }
+                    if (integration === 'greenhouse') { setIs_greenhouse_connected(true); }
+                });
+            }
+        } catch (error) {
+            console.log(error)
+        }
     }
 
+    const [integrationWindow, setIntegrationWindow] = useState(false);
+
+    const [workdayUsername, setWorkdayUsername] = useState('');
+    const [workdayPassword, setWorkdayPassword] = useState('');
+    const [workdayIntegrationLoading, setWorkdayIntegrationLoading] = useState(false);
+    const [workdayIntegrationSuccess, setWorkdayIntegrationSuccess] = useState(false);
+
+    const integrate_workday = async () => {
+        try {
+            setWorkdayIntegrationLoading(true);
+            if (!workdayUsername.trim() || !workdayPassword.trim()) {
+                alert("Please enter both Workday username and password.");
+                setWorkdayIntegrationLoading(false);
+                return;
+            }
+            const response = await API.post("/api/integrate/workday", { provider: 'workday', username: workdayUsername, password: workdayPassword });
+            console.log("this is res", response)
+            setWorkdayIntegrationLoading(false);
+            setWorkdayIntegrationSuccess(true);
+
+            // 3 second sleep
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Close the workday credentials overlay by unchecking the toggle
+            try {
+                const workdayToggle = document.getElementById('workday-toggle');
+                if (workdayToggle) workdayToggle.checked = false;
+            } catch (err) {
+                // ignore DOM errors
+            }
+            // Optionally clear credentials after success
+            setWorkdayUsername('');
+            setWorkdayPassword('');
+            setWorkdayIntegrationLoading(false);
+            setIs_greenhouse_connected(true);
+        } catch (error) {
+            console.log("workday integration error", error)
+            setWorkdayIntegrationLoading(false);
+        } finally {
+            setWorkdayIntegrationLoading(false);
+        }
+    }
+    const edit_workday_credentials = async () => {
+        try {
+            setWorkdayIntegrationLoading(true);
+            if (!workdayUsername.trim() || !workdayPassword.trim()) {
+                alert("Please enter both Workday username and password.");
+                setWorkdayIntegrationLoading(false);
+                return;
+            }
+            const response = await API.post("/api/integrate/edit/workday", { provider: 'workday', username: workdayUsername, password: workdayPassword });
+            console.log("this is res", response)
+            setWorkdayIntegrationLoading(false);
+            setWorkdayIntegrationSuccess(true);
+
+            // 3 second sleep
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Close the workday credentials overlay by unchecking the toggle
+            try {
+                // const workdayToggle = document.getElementById('workday-toggle');
+                // if (workdayToggle) workdayToggle.checked = false;
+                setWorkdayEditWindow(false);
+            } catch (err) {
+                // ignore DOM errors
+            }
+            // Optionally clear credentials after success
+            setWorkdayUsername('');
+            setWorkdayPassword('');
+            setWorkdayIntegrationLoading(false);
+        } catch (error) {
+            console.log("workday integration error", error)
+            setWorkdayIntegrationLoading(false);
+        } finally {
+            setWorkdayIntegrationLoading(false);
+        }
+    }
+
+    const [selectedIntegration, setSelectedIntegration] = useState(null);
+    const [workdayraasurl, setWorkdayraasurl] = useState('')
+    const [localfileselected, setLocalfileselected] = useState('')
+
+    const disconnectGoogleSheets = async () => {
+        try {
+            const response = await API.get("/api/google/disconnect-googlesheet");
+            console.log(response.data)
+            setIs_googlesheet_connected(false);
+            localStorage.setItem('gsconn', '0');
+            setDeleteGoogleConfirmation(false);
+            setIs_googlesheet_connected(false);
+        }
+        catch (error) {
+            console.log("Error disconnecting Google Sheets:", error)
+            setDeleteGoogleConfirmation(false);
+        }
+    }
+    const disconnectWorkday = async () => {
+        try {
+            const response = await API.get("/api/integrate/disconnect/workday");
+            console.log(response.data)
+            setIs_workday_connected(false);
+            setDeleteWorkdayConfirmation(false);
+        } catch (error) {
+            console.log("Error disconnecting Workday:", error)
+        }
+    }
+
+
+    const [deleteGoogleConfirmation, setDeleteGoogleConfirmation] = useState(false);
+    const [deleteWorkdayConfirmation, setDeleteWorkdayConfirmation] = useState(false);
+    const [deleteGreenhouseConfirmation, setDeleteGreenhouseConfirmation] = useState(false);
+
+    const [workdayEditWindow, setWorkdayEditWindow] = useState(false);
+
+    const [is_googlesheet_connected, setIs_googlesheet_connected] = useState(false);
+    const [is_workday_connected, setIs_workday_connected] = useState(false);
+    const [is_greenhouse_connected, setIs_greenhouse_connected] = useState(false);
+
+    const [otherIntegrationsWindow, setOtherIntegrationsWindow] = useState(false);
     return (
         <>
             {profile ? (<>
                 <div className='w-full h-[100vh] flex relative overflow-hidden' onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-
-
-
 
                     {interviewCreateWindow &&
                         <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
@@ -1348,7 +1668,14 @@ const ProfileHr = () => {
                                 <div className='px-8 pt-6 pb-4'>
                                     <div className='w-full text-3xl font-normal mb-2 flex justify-between'>
                                         <div>Create a Job Role</div>
-                                        <div onClick={() => { setInterviewCreateWindow(false); setErrorMessage(''); setFormErrors([]) }} className='hover:cursor-pointer'><IoCloseOutline /></div>
+                                        <div onClick={() => {
+                                            setInterviewCreateWindow(false);
+                                            setErrorMessage('');
+                                            setFormErrors([]);
+                                            setLocalfileselected('');
+                                            setWorkdayraasurl('');
+                                            setSelectedIntegration(null);
+                                        }} className='hover:cursor-pointer'><IoCloseOutline /></div>
                                     </div>
                                     <hr className='border border-gray-300' />
                                 </div>
@@ -1555,23 +1882,136 @@ const ProfileHr = () => {
                                     </div>
 
                                     <div className='mb-4'>
+                                        <label className='text-gray-600 text-sm mb-2 block'>Select data source</label>
+
+                                        <div className={`flex flex-wrap justify-start items-center gap-2 p-1 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-100'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
+                                            {is_googlesheet_connected &&
+                                                <div onClick={() => { if (selectedIntegration == 'googleSheets') { setSelectedIntegration(null); return 0; }; setSelectedIntegration('googleSheets') }} className={` ${selectedIntegration === 'googleSheets' ? 'bg-gray-100 border border-black/100' : 'border border-black/20'} rounded-[4px] flex items-center py-1 pr-2 cursor-pointer hover:bg-gray-50 hover:border hover:border-black/100 transition-colors`}>
+                                                    <div className="w-10"><img src="/i_gsheets.svg" alt="" /></div>
+                                                    <div>Google Sheets</div>
+                                                </div>
+                                            }
+                                            {is_workday_connected &&
+                                                <div onClick={() => { if (selectedIntegration == 'workday') { setSelectedIntegration(null); return 0; }; setSelectedIntegration('workday') }} className={` ${selectedIntegration === 'workday' ? 'bg-gray-100 border border-black/100' : 'border border-black/20'} rounded-[4px] gap-2 flex items-center py-1 pr-2 pl-1 cursor-pointer hover:bg-gray-50 hover:border hover:border-black/100 transition-colors`}>
+                                                    <div className="w-10"><img className="rounded-[4px]" src="/i_workday.png" alt="" /></div>
+                                                    <div>Workday</div>
+                                                </div>
+                                            }
+                                            <div onClick={() => { if (selectedIntegration == 'localFiles') { setSelectedIntegration(null); return 0; }; setSelectedIntegration('localFiles') }} className={` ${selectedIntegration === 'localFiles' ? 'bg-gray-100  border border-black/100' : 'border border-black/20'} rounded-[4px] flex gap-1 items-center py-1 pr-2 pl-1 cursor-pointer hover:bg-gray-50 hover:border hover:border-black/100 transition-colors`}>
+                                                <div className="w-10"><LuFolderOpen className="text-4xl text-gray-500" /></div>
+                                                <div>Local Files</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+                                    {selectedIntegration == 'googleSheets' &&
+                                        <div className='mb-4'>
+                                            <label className='text-gray-600 text-sm mb-2 block'>Select Candidates Sheet</label>
+                                            <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
+
+                                                <select
+                                                    name='candidateSheetId'
+                                                    value={interviewForm.candidateSheetId}
+                                                    onClick={() => { getSheetsNames(); }}
+                                                    onFocus={() => { getSheetsNames(); }}
+                                                    onChange={(e) => {
+                                                        handleInterviewChange(e);
+                                                        if (formErrors.candidateSheetId) {
+                                                            setFormErrors(prev => ({ ...prev, candidateSheetId: false }));
+                                                        }
+                                                    }}
+                                                    className='w-full px-2 py-2 border-none rounded-md focus:outline-none focus:ring-0'
+                                                >
+                                                    <option value=''>Select a Google Sheet</option>
+                                                    {sheetsNames.map((sheet) => (
+                                                        <option key={sheet.id} value={sheet.id}>
+                                                            {sheet.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                            </div>
+                                        </div>
+                                    }
+
+                                    {selectedIntegration == 'workday' &&
+                                        <div className='mb-4'>
+                                            <label className='text-gray-600 text-sm mb-2 block'>Enter RAAS Sheet URL</label>
+                                            <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
+
+                                                <input onChange={e => setWorkdayraasurl(e.target.value)} value={workdayraasurl} type="text" placeholder="Enter your RAAS workday url here" className="w-full px-2 py-2 border-none rounded-md focus:outline-none focus:ring-0" />
+                                            </div>
+                                        </div>
+                                    }
+
+                                    {selectedIntegration == 'localFiles' &&
+                                        <>
+                                            <label className='text-gray-600 text-sm mb-2 block'>Upload your data file here</label>
+                                            <div className='mb-4'>
+                                                <div className={`border border-gray-200 rounded-lg ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} hover:bg-gray-100  bg-white `}>
+                                                    <div className='text-center'>
+                                                        <input
+                                                            type='file'
+                                                            accept='.csv,.xlsx,.xls'
+                                                            onChange={async (e) => {
+                                                                // in this get the file name and set it to localfileselected
+                                                                const file = e.target.files[0];
+                                                                console.log(file)
+
+                                                                if (file) {
+                                                                    // Validate file size (max 20MB)
+                                                                    if (file.size > 20 * 1024 * 1024) {
+                                                                        alert('File is too large. Maximum allowed size is 20MB.');
+                                                                        return;
+                                                                    }
+
+                                                                    // Validate file type
+                                                                    const allowedTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+                                                                    const fileExtension = file.name.toLowerCase();
+                                                                    if (!allowedTypes.includes(file.type) && !fileExtension.endsWith('.csv') && !fileExtension.endsWith('.xlsx') && !fileExtension.endsWith('.xls')) {
+                                                                        alert('Invalid file type. Please upload a CSV or XLSX file.');
+                                                                        return;
+                                                                    }
+
+                                                                    setLocalfileselected(file);
+                                                                    // Clear error if file is selected
+                                                                    if (formErrors.candidateSheetId) {
+                                                                        setFormErrors(prev => ({ ...prev, candidateSheetId: false }));
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className='hidden'
+                                                            id='pdf-upload-candidate-data'
+                                                        />
+                                                        <label
+                                                            htmlFor='pdf-upload-candidate-data'
+                                                            className='cursor-pointer  w-full flex justify-center items-center gap-2 px-6 py-2 text-gray-700 rounded-lg transition-colors  font-medium'
+                                                        >
+                                                            <Upload size={20} className='text-gray-600' />
+                                                            {localfileselected ? (
+                                                                <span className='text-green-600 font-medium'>
+                                                                    ✓ {localfileselected.name}
+                                                                </span>
+                                                            ) : (
+                                                                'Upload Candidates data (.csv / .xlsx)'
+                                                            )}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    }
+
+                                    {/* <div className='mb-4'>
                                         <label className='text-gray-600 text-sm mb-2 block'>Allowed Candidates Sheet</label>
                                         <div className={`flex flex-wrap items-center gap-2 p-2 border ${formErrors.candidateSheetId ? 'border-red-500' : 'border-gray-300'} rounded-md focus-within:ring-2 ${formErrors.candidateSheetId ? 'focus-within:ring-red-400' : 'focus-within:ring-gray-400'}`}>
 
-                                            {/* <input
-                                                type='text'
-                                                value={newSkill}
-                                                onChange={(e) => setNewSkill(e.target.value)}
-                                                placeholder='Add a skill and press Enter'
-                                                className='flex-grow px-2 py-1 border-none focus:outline-none focus:ring-0'
-                                            /> */}
                                             <select
                                                 name='candidateSheetId'
-                                                // required
                                                 value={interviewForm.candidateSheetId}
                                                 onClick={() => { getSheetsNames(); }}
                                                 onFocus={() => { getSheetsNames(); }}
-                                                onMouseDown={() => { getSheetsNames(); }}
                                                 onChange={(e) => {
                                                     handleInterviewChange(e);
                                                     if (formErrors.candidateSheetId) {
@@ -1589,10 +2029,9 @@ const ProfileHr = () => {
                                             </select>
 
                                         </div>
-                                    </div>
+                                    </div> */}
                                 </div>
 
-                                {/* Fixed Footer */}
                                 <div className='px-8 py-6 border-t border-gray-200'>
                                     <div className='flex justify-between items-center'>
                                         {createInterviewLoading ? (<>
@@ -1629,6 +2068,333 @@ const ProfileHr = () => {
                             </div>
                         </div>
                     }
+
+
+                    {integrationWindow &&
+                        <div className="absolute bg-[#6164688c] w-full h-full z-40">
+                            <div className="md:mx-[400px] mx-10 min-h-[65%] h-fit m-auto top-0 bottom-0 left-0 right-0 absolute flex flex-col items-center bg-white rounded-lg shadow-lg">
+                                <div className="TITLE_TEXT w-full flex justify-between items-center px-4 pt-1 bg-yello-400">
+                                    <div className="text-[18px]">Integrations</div>
+                                    <div onClick={() => { setIntegrationWindow(false); }} className="text-4xl hover:cursor-pointer">×</div>
+                                </div>
+
+                                <hr className="border-b-1 w-full border-black/50" />
+
+                                <div className="BOTTOM_PART bg-red-40 w-full h-full flex flex-wrap gap-6 p-6">
+
+                                    <div className="INTEGRATION_GSHEETS bg-gray-00 border px-3 py-2 border-black rounded-lg flex flex-col gap-1 pb-2 w-[180px] items-center">
+                                        <div className="w-full bg-red-00 flex justify-center">
+                                            <img src="/i_gsheets.svg" draggable="false" alt="" className="h-[90px]" />
+                                        </div>
+                                        Google Sheets
+                                        {/* <div className="w-full text-base bg-emerald-600 text-white flex justify-center mt-2 py-1 rounded-md hover:cursor-pointer hover:bg-emerald-700/90 transition-colors">
+                                            Integrate
+                                        </div> */}
+
+                                        {is_googlesheet_connected ? (<>
+                                            <div className="w-full text-base gap-2 text-gray-800 flex justify-center mt-2 py-1 rounded-md hover:cursor-pointer  transition-colors">
+                                                <div onClick={() => { setDeleteGoogleConfirmation(true) }} className="w-full text-base bg-gray-400/30 text-gray-800 flex justify-center py-1 rounded-md hover:cursor-pointer hover:bg-gray-300 transition-colors">
+                                                    Disconnect
+                                                </div>
+                                                <div onClick={() => {
+                                                    connectGoogleSheets()
+                                                }} className="relative group w-fit px-2 text-base bg-gray-200 boder border-black/40 text-gray-800 flex justify-center items-center py-1 rounded-md hover:cursor-pointer hover:bg-gray-300/90 transition-colors">
+                                                    <MdOutlineModeEdit />
+                                                    <div className="absolute bg-black/80 px-[6px] rounded-[4px] text-white top-[-26px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-300">Edit</div>
+                                                </div>
+                                            </div>
+                                        </>) : (<>
+                                            <label onClick={() => { connectGoogleSheets() }} className="select-none w-full text-base bg-emerald-600 text-white flex justify-center mt-3 py-1 rounded-md cursor-pointer hover:bg-emerald-700/90">
+                                                Integrate
+                                            </label>
+                                        </>)}
+
+                                        {/* <div className="w-full h-full absolute top-0 left-0 flex justify-center items-center bg-gray-400/50">
+                                                Hello
+                                            </div> */}
+                                    </div>
+
+                                    {/* --------------------------------------------------------------------------------------- */}
+                                    {deleteGoogleConfirmation && (
+                                        <div className="bg-[#6164688c] absolute w-full h-full top-0 left-0 flex justify-center items-center">
+                                            {/* <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4"> */}
+                                            <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full font-sans">
+                                                <h2 class="text-2xl font-bold text-gray-900 mb-4 leading-tight">
+                                                    Are you sure you want to disconnect google sheets?
+                                                </h2>
+                                                <p class="text-gray-600 text-base mb-8">
+                                                    This will disconnect google sheets permanently. You cannot undo this action.
+                                                </p>
+                                                <div class="flex gap-4">
+                                                    <button onClick={() => { setDeleteGoogleConfirmation(false) }} class="w-full py-3 px-4 bg-white border border-gray-300 rounded-lg text-gray-900 font-semibold hover:bg-gray-50 transition duration-200">
+                                                        Cancel
+                                                    </button>
+                                                    <button onClick={() => { disconnectGoogleSheets() }} class="w-full py-3 px-4 bg-red-600 rounded-lg text-white font-semibold hover:bg-red-700 transition duration-200 shadow-sm">
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* --------------------------------------------------------------------------------------- */}
+
+                                    <div className="INTEGRATION_WORKDAY border px-3 py-2 border-black rounded-lg flex flex-col gap-1 pb-2 w-[180px] items-center">
+                                        <input type="checkbox" id="workday-toggle" className="hidden peer" />
+
+                                        <div className="w-full flex justify-center">
+                                            <img src="/i_workday.png" draggable="false" className="h-[90px] rounded-md" />
+                                        </div>
+                                        Workday
+
+                                        {is_workday_connected ? (<>
+                                            <div className="w-full text-base gap-2 text-gray-800 flex justify-center mt-2 py-1 rounded-md hover:cursor-pointer  transition-colors">
+                                                <div onClick={() => { setDeleteWorkdayConfirmation(true) }} className="w-full text-base bg-gray-400/30 text-gray-800 flex justify-center py-1 rounded-md hover:cursor-pointer hover:bg-gray-300 transition-colors">
+                                                    Disconnect
+                                                </div>
+                                                <div onClick={() => {
+                                                    setWorkdayEditWindow(true)
+                                                }} className="relative group w-fit px-2 text-base bg-gray-200 boder border-black/40 text-gray-800 flex justify-center items-center py-1 rounded-md hover:cursor-pointer hover:bg-gray-300/90 transition-colors">
+                                                    <MdOutlineModeEdit />
+                                                    <div className="absolute bg-black/80 px-[6px] rounded-[4px] text-white top-[-26px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-300">Edit</div>
+                                                </div>
+                                            </div>
+                                        </>) : (<>
+                                            <label htmlFor="workday-toggle" className="select-none w-full text-base bg-emerald-600 text-white flex justify-center mt-3 py-1 rounded-md cursor-pointer hover:bg-emerald-700/90">
+                                                Integrate
+                                            </label>
+                                        </>)}
+
+                                        <div className="hidden peer-checked:absolute peer-checked:top-0 peer-checked:left-0 peer-checked:flex items-center justify-center w-full h-full bg-gray-400/50">
+                                            <div className="bg-white rounded-md w-fit h-fit">
+
+                                                <div className="flex justify-between bg-gray-50 rounded-t-md">
+                                                    <div className="px-4 pt-2 text-[17px]">Workday Credentials</div>
+
+                                                    <label htmlFor="workday-toggle" className="text-4xl mx-[9px] cursor-pointer">×</label>
+                                                </div>
+
+                                                <hr />
+
+                                                <div className="flex flex-col gap-3 p-3">
+                                                    <div>Username</div>
+                                                    <input onChange={e => setWorkdayUsername(e.target.value)} value={workdayUsername} type="text" className="w-[400px] px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                    />
+
+                                                    <div>Password</div>
+                                                    <div className="relative">
+                                                        <input
+                                                            onChange={e => setWorkdayPassword(e.target.value)}
+                                                            value={workdayPassword}
+                                                            type={workdayPasswordVisible ? 'text' : 'password'}
+                                                            className="w-[400px] pr-10 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setWorkdayPasswordVisible(v => !v)}
+                                                            aria-label={workdayPasswordVisible ? 'Hide password' : 'Show password'}
+                                                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                        >
+                                                            {workdayPasswordVisible ? <FiEyeOff /> : <FiEye />}
+                                                        </button>
+                                                    </div>
+                                                    {workdayIntegrationLoading ? (<>
+                                                        <div className="mt-5 select-none text-white gap-2 flex flex-col items-center">
+                                                            <div className="w-full text-[14px] underline decoration-dotted select-none text-black flex justify-end rounded-md ">
+                                                                <a href="https://www.youtube.com/watch?v=mlr_FLQPFII" target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                                                                    How to do it
+                                                                </a>
+                                                            </div>
+                                                            <div className="bg-gray-600/20 w-full relative text-black/60 flex justify-center py-[9px] rounded-md cursor-not-allowed">
+                                                                <div className='absolute top-[5px] left-[120px]'>
+                                                                    <Spinner />
+                                                                </div>
+                                                                <div isSelectable="false" className="ml-6">
+                                                                    Integrating
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>) : (<>
+
+                                                        <div className="mt-5 select-none text-white gap-2 flex flex-col items-center">
+                                                            <div className="w-full text-[14px] underline decoration-dotted select-none text-black flex justify-end rounded-md ">
+                                                                <a href="https://www.youtube.com/watch?v=mlr_FLQPFII" target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                                                                    How to do it
+                                                                </a>
+                                                            </div>
+                                                            <div onClick={() => { integrate_workday() }} className="w-full select-none bg-emerald-600 text-white flex justify-center py-[9px] rounded-md cursor-pointer hover:bg-emerald-700/90">
+                                                                Integrate
+                                                            </div>
+                                                        </div>
+                                                    </>)}
+                                                    {workdayIntegrationSuccess && (<>
+                                                        <div className="text-[15px] w-full text-center text-green-700">Workday Integration Successful</div>
+                                                    </>)}
+                                                </div>
+
+
+                                            </div>
+                                        </div>
+
+                                        {workdayEditWindow && (
+                                            <div className="absolute top-0 left-0 flex items-center justify-center w-full h-full bg-gray-400/50">
+                                                <div className="bg-white rounded-md w-fit h-fit">
+
+                                                    <div className="flex justify-between bg-gray-50 rounded-t-md">
+                                                        <div className="px-4 pt-2 text-[17px]">Edit Workday Credentials</div>
+
+                                                        <label onClick={() => { setWorkdayEditWindow(false) }} className="text-4xl mx-[9px] cursor-pointer">×</label>
+                                                    </div>
+
+                                                    <hr />
+
+                                                    <div className="flex flex-col gap-3 p-3">
+                                                        <div>Username</div>
+                                                        <input onChange={e => setWorkdayUsername(e.target.value)} type="text" className="w-[400px] px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                        />
+
+                                                        <div>Password</div>
+                                                        <div className="relative">
+                                                            <input
+                                                                onChange={e => setWorkdayPassword(e.target.value)}
+                                                                type={workdayPasswordVisible ? 'text' : 'password'}
+                                                                className="w-[400px] pr-10 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setWorkdayPasswordVisible(v => !v)}
+                                                                aria-label={workdayPasswordVisible ? 'Hide password' : 'Show password'}
+                                                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                            >
+                                                                {workdayPasswordVisible ? <FiEyeOff /> : <FiEye />}
+                                                            </button>
+                                                        </div>
+                                                        {workdayIntegrationLoading ? (<>
+                                                            <div className="mt-5 select-none text-white gap-2 flex flex-col items-center">
+                                                                {/* <div className="w-full text-[14px] underline decoration-dotted select-none text-black flex justify-end rounded-md ">
+                                                                    <a href="https://www.youtube.com/watch?v=mlr_FLQPFII" target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                                                                        How to do it
+                                                                    </a>
+                                                                </div> */}
+                                                                <div className="bg-gray-600/20 w-full relative text-black/60 flex justify-center py-[9px] rounded-md cursor-not-allowed">
+                                                                    <div className='absolute top-[5px] left-[120px]'>
+                                                                        <Spinner />
+                                                                    </div>
+                                                                    <div isSelectable="false" className="ml-6">
+                                                                        Saving
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </>) : (<>
+
+                                                            <div className="mt-5 select-none text-white gap-2 flex flex-col items-center">
+                                                                {/* <div className="w-full text-[14px] underline decoration-dotted select-none text-black flex justify-end rounded-md ">
+                                                                    <a href="https://www.youtube.com/watch?v=mlr_FLQPFII" target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+                                                                        How to do it
+                                                                    </a>
+                                                                </div> */}
+                                                                <div onClick={() => { edit_workday_credentials() }} className="w-full select-none bg-emerald-600 text-white flex justify-center py-[9px] rounded-md cursor-pointer hover:bg-emerald-700/90">
+                                                                    Save Changes
+                                                                </div>
+                                                            </div>
+                                                        </>)}
+                                                        {workdayIntegrationSuccess && (<>
+                                                            <div className="text-[15px] w-full text-center text-green-700">Changes Saved</div>
+                                                        </>)}
+                                                    </div>
+
+
+                                                </div>
+                                            </div>
+                                        )}
+
+                                    </div>
+
+                                    {deleteWorkdayConfirmation && (
+                                        <div className="bg-[#6164688c] absolute w-full h-full top-0 left-0 flex justify-center items-center">
+                                            {/* <div class="min-h-screen bg-gray-100 flex items-center justify-center p-4"> */}
+                                            <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full font-sans">
+                                                <h2 class="text-2xl font-bold text-gray-900 mb-4 leading-tight">
+                                                    Are you sure you want to disconnect workday?
+                                                </h2>
+                                                <p class="text-gray-600 text-base mb-8">
+                                                    This will disconnect workday permanently. You cannot undo this action.
+                                                </p>
+                                                <div class="flex gap-4">
+                                                    <button onClick={() => { setDeleteWorkdayConfirmation(false) }} class="w-full py-3 px-4 bg-white border border-gray-300 rounded-lg text-gray-900 font-semibold hover:bg-gray-50 transition duration-200">
+                                                        Cancel
+                                                    </button>
+                                                    <button onClick={() => { disconnectWorkday() }} class="w-full py-3 px-4 bg-red-600 rounded-lg text-white font-semibold hover:bg-red-700 transition duration-200 shadow-sm">
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* <div className="INTEGRATION_GREENHOUSE bg-gray-00 border px-3 py-2 border-black rounded-lg flex flex-col gap-1 pb-2 w-[180px] items-center">
+                                        <div className="w-full bg-red-00 flex justify-center ">
+                                            <img src="/i_greenhouse.png" draggable="false" alt="" className="h-[90px] rounded-md" />
+                                        </div>
+                                        Greenhouse
+                                        <div className="w-full text-base bg-emerald-600 text-white flex justify-center mt-3 py-1 rounded-md hover:cursor-pointer hover:bg-emerald-700/90 transition-colors">
+                                            Integrate
+                                        </div>
+                                    </div> */}
+
+                                    {/* <div
+                                        onClick={() => setOtherIntegrationsWindow(true)}
+                                        className="INTEGRATION_GREENHOUSE hover:text-black hover:cursor-pointer hover:border-2 hover:border-black transistion-all duration-300 text-black/50 bg-gray-00 text-[14px] border-2 border-dashed px-3 py-2 border-black/40 rounded-lg flex flex-col gap-1 pb-2 w-[180px] items-center justify-between">
+                                        <div className="w-full bg-red-00 flex justify-center ">
+                                            <IoAdd className="text-[100px]" />
+                                        </div>
+                                        <div className="pb-3 font-medium">
+                                            Add more integration
+                                        </div>
+                                    </div> */}
+
+                                    {otherIntegrationsWindow && (
+                                        <div className="absolute w-full h-full bg-[#6164688c] top-0 left-0 flex justify-center items-center rounded-lg">
+                                            <div className="w-[90%] h-[90%] bg-white rounded-lg flex flex-col justify-start items-center">
+                                                <div className="bg-red-300 h-fit w-full px-3 flex justify-between items-center">
+                                                    <div>Request Integrations</div>
+                                                    <div onClick={() => setOtherIntegrationsWindow(false)} className="text-4xl hover:cursor-pointer">×</div>
+                                                </div>
+                                                <div className="h-full w-full flex flex-wrap gap-6 p-6">
+
+                                                    <div className="INTEGRATION_GSHEETS bg-gray-00 border px-3 py-2 h-fit border-black rounded-lg flex flex-col gap-1 pb-2 w-[180px] items-center">
+                                                        <div className="w-full bg-red-00 flex justify-center">
+                                                            <img src="/i_gsheets.svg" draggable="false" alt="" className="h-[90px]" />
+                                                        </div>
+                                                        Google Sheets
+                                                        {is_googlesheet_connected ? (<>
+                                                            <div className="w-full text-base gap-2 text-gray-800 flex justify-center mt-2 py-1 rounded-md hover:cursor-pointer  transition-colors">
+                                                                <div onClick={() => { setDeleteGoogleConfirmation(true) }} className="w-full text-base bg-gray-400/30 text-gray-800 flex justify-center py-1 rounded-md hover:cursor-pointer hover:bg-gray-300 transition-colors">
+                                                                    Disconnect
+                                                                </div>
+                                                                <div onClick={() => {
+                                                                    connectGoogleSheets()
+                                                                }} className="relative group w-fit px-2 text-base bg-gray-200 boder border-black/40 text-gray-800 flex justify-center items-center py-1 rounded-md hover:cursor-pointer hover:bg-gray-300/90 transition-colors">
+                                                                    <MdOutlineModeEdit />
+                                                                    <div className="absolute bg-black/80 px-[6px] rounded-[4px] text-white top-[-26px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-300">Edit</div>
+                                                                </div>
+                                                            </div>
+                                                        </>) : (<>
+                                                            <label onClick={() => { connectGoogleSheets() }} className="select-none w-full text-base bg-emerald-600 text-white flex justify-center mt-3 py-1 rounded-md cursor-pointer hover:bg-emerald-700/90">
+                                                                Integrate
+                                                            </label>
+                                                        </>)}
+                                                    </div>
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </div>
+                            </div>
+                        </div>
+                    }
+
 
                     {interviewLogsWindow &&
                         <div className='absolute w-full h-full z-10 flex items-center justify-center bg-gray-400/30 backdrop-blur-sm'>
@@ -1858,7 +2624,15 @@ const ProfileHr = () => {
 
                         <div className='SIDE_BOTTON_PART w-full h-fit'>
                             <div className='w-full h-fit'>
-                                <div className='px-5 text-lg'>Connections</div>
+                                <div className='px-5 text-lg'>
+                                    <div
+                                        onClick={() => { setIntegrationWindow(true); }}
+                                        draggable="false" className="w-full group bg-gray-200 border hover:border hover:border-black border-black/50 hover:cursor-pointer transition-all duration-300 rounded-md px-3 py-2 flex  justify-between pr-4">
+                                        Integrations
+                                        <div className={`-rotate-45 group-hover:rotate-0 transition-transform duration-300`}>→</div>
+                                    </div>
+                                </div>
+                                {/* <div className='px-5 text-lg'>Connections</div> */}
                                 <div className='bg-orange-40 w-full h-fit px-5 py-2'>
                                     <div className='flex border justify-between pr-3 pl-4 py-3 rounded-3xl border-black w-full gap-1 '>
                                         Google Sheets
@@ -1884,10 +2658,76 @@ const ProfileHr = () => {
                                 </div>
                             </div>
                             <hr className='border border-gray-600/40 mx-5' />
-                            <div className='w-full flex gap-3 items-center px-5 py-5 group relative'>
-                                <div className=' w-10 h-10 rounded-full overflow-hidden bg-slate-500' dangerouslySetInnerHTML={{ __html: avatarSvg }}></div>
-                                <div className='USERNAME text-xl'>{profile?.name}</div>
-                                <button
+
+                            <div className="relative w-full" ref={profileMenuRef}>
+                                <div
+                                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                                    className="w-full flex gap-3 items-center cursor-pointer group"
+                                >
+                                    <div className={`hover:bg-gray-400/80 transition-all duration-300 w-full flex gap-3 justify-start items-center px-3 py-2 mx-4 my-2 rounded-xl ${isProfileMenuOpen ? 'bg-gray-400/80' : ''}`}>
+                                        <div className="w-10 h-10 min-w-[2.5rem] rounded-full overflow-hidden bg-slate-200 shadow-sm border border-gray-200" dangerouslySetInnerHTML={{ __html: avatarSvg }}></div>
+                                        <div className="text-base font-medium text-gray-800 truncate select-none">{profile?.name}</div>
+                                    </div>
+                                </div>
+
+                                <div className={`absolute bottom-[calc(100%+8px)] left-4 w-[240px] bg-gray-200 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-500 overflow-hidden
+                                    transition-all duration-300 ease-out origin-bottom-left z-40
+                                    ${isProfileMenuOpen
+                                        ? 'opacity-100 translate-y-0 pointer-events-auto'
+                                        : 'opacity-0 translate-y-2 pointer-events-none'
+                                    }`}>
+                                    <div className="flex flex-col py-2">
+                                        <div className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
+                                            <BiDevices className="text-lg  transition-transform duration-300" />
+                                            <span className="font-medium text-sm">Live Sessions</span>
+                                        </div>
+                                        <div className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
+                                            <MdLockOutline className="text-lg  transition-transform duration-300" />
+                                            <span className="font-medium text-sm">Current Limits</span>
+                                        </div>
+                                        <div className="h-px bg-gray-100 mx-4 my-1"></div>
+                                        <div className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
+                                            <RiAccountCircleLine className="text-lg transition-transform duration-300" />
+                                            <span className="font-medium text-sm">Logout</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div className='w-1 h-full bg-white cursor-col-resize transition-colors' onMouseDown={handleMouseDown} style={{ userSelect: 'none' }} />
+
+                    {/* <div className="absolute w-full h-full bg-gray-500/40 top-0 z-50 flex justify-center items-center">
+                        <div className="w-fit min-w-[50%] h-fit min-h-[60%] flex flex-col justify-start items-center bg-white rounded-[8px]">
+                            <div className="px-[13px] py-[6px] w-full border-b border-gray-400 flex justify-between items-center">
+                                <div className=" font-medium">Live Sesions</div>
+                                <div className="CLOSE_LIVESESSIONS_WINDOW text-[18px]">🗙</div>
+                            </div>
+                            <div className="flex flex-col justify-center items-center p-3 w-full h-full bg-white gap-3">
+
+                                {sessions.map(s => (
+                                    <div className="LIVE_SESSION_CARD border border-black rounded-[4px] w-full">
+                                        <div key={s.socketId}>
+                                            <span>{s.deviceString}</span>
+                                            <span>{s.locationString}</span>
+                                            <span>{formatSessionDate(s.connectedAt)}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div> */}
+                    {/* <div>
+                                                {isLoading ? "Loading..." : `${liveCount} people are using currently`}
+                                            </div> */}
+                    {/* <div className="LIVE_SESSION_CARD border border-black rounded-[4px] w-full">ok</div>
+                                <div className="LIVE_SESSION_CARD border border-black rounded-[4px] w-full">ok</div> */}
+
+
+                    {/* 
+
+<button
                                     onClick={async () => {
                                         try {
                                             const response = await API.get('/api/owner/logout');
@@ -1904,12 +2744,8 @@ const ProfileHr = () => {
                                 >
                                     Logout
                                 </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className='w-1 h-full bg-white cursor-col-resize transition-colors' onMouseDown={handleMouseDown} style={{ userSelect: 'none' }} />
 
-
+ */}
 
                     {/* Main window where we ahow all the interviews */}
                     {activePage == 'Home' &&
@@ -2373,7 +3209,7 @@ const ProfileHr = () => {
                                 {reviewedCandidateFetchLoading !== true ? (
                                     <>
                                         <div className='INTERVIEW_DETAILS_SECTION  w-full h-full overflow-scroll hscroll overflow-x-hidden transistion-all duration-300'>
-                                            {/*  */}
+
                                             {sortedListArray.map((interview, idx) => (
                                                 <>
                                                     <div key={interview._id} className='w-full'>
@@ -2384,7 +3220,14 @@ const ProfileHr = () => {
                                                                 setCurrentcandidateResumeDetailsID(interview._id);
                                                                 setCandidateResumeDetailsWindow(true);
                                                             }
-                                                            console.log(interview?.aiQuestions)
+                                                            {
+                                                                if (interview?.aiQuestions.length == 0) {
+                                                                    console.log("No questions are there")
+                                                                }
+                                                                else {
+                                                                    console.log(interview?.aiQuestions)
+                                                                }
+                                                            }
                                                             setQuestionsArray(interview?.aiQuestions || interview.dynamicData?.Questions || []);
                                                         }}
                                                             className='relative w-full flex max-h-8  pr-[130px] mx-[52px] hover:cursor-pointer hover:bg-gray-00 pl-[15px] py-[23px] pr- rounded-sm justify-center items-center flex-nowrap text-black text-lg'>
@@ -3303,10 +4146,12 @@ const ProfileHr = () => {
                                                         console.log("HYHYHY", resultWindowData)
                                                         console.log("qqqq", InterviewResultDetails);
                                                         setResultWindowData(InterviewResultDetails)
+                                                        // console.log(InterviewResultDetails)
+                                                        // console.log(InterviewResultDetails.data[0].interviewResult.feedback.overall_mark)
                                                     }} className='hover:cursor-pointer hover:text-black text-gray-400 transistion-all duration-300 rounded-2xl border border-gray-400 p-4 flex justify-between items-center'>
                                                         <div>
                                                             <div className='text-lg text-gray-700 ml-5'>Candidate Interview Result</div>
-                                                            <div className='text-lg text-gray-900 ml-5'>Score: {InterviewResultDetails[0]?.interviewResult?.feedback?.overall_mark}</div>
+                                                            <div className='text-lg text-gray-700 ml-5'>Score: {InterviewResultDetails[0]?.interviewResult?.feedback?.overall_mark}</div>
                                                             {/* <div className='text-2xl font-medium text-black'>{reviewedCandidatesLiveCount ?? 'N/A'}</div> */}
                                                         </div>
                                                         <div className='text-3xl  '>›</div>
@@ -3492,25 +4337,6 @@ const ProfileHr = () => {
                                             otherwise fall back to showing the raw URL or a placeholder */}
                                                 {/* Aspect-ratio wrapper: 56.25% = 16:9. The iframe fills this area and scales with width
                                                     Cap height so modal doesn't overflow (75vh) and ensure a minimum height so it's not tiny. */}
-                                                {/* {previewSrc ? (
-                                                    <div className="Video w-full bg-black/5 flex items-center justify-center">
-                                                        <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
-                                                            <iframe
-                                                                title="candidate-video"
-                                                                src={previewSrc}
-                                                                className="absolute inset-0 w-full h-full rounded-md border border-gray-200"
-                                                                frameBorder="0"
-                                                                allowFullScreen
-                                                            />
-                                                        </div>
-
-                                                    </div>
-                                                ) : (
-                                                    <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
-                                                        {resultWindowData?.interviewResult?.videoUrls?.[0] || resultWindowData?.interviewResult?.videoUrl || 'No video available.'}
-                                                    </div>
-                                                )} */}
-
                                                 {previewSrc ? (
                                                     <div className="Video w-full bg-black/5 flex items-center justify-center">
                                                         <div className="relative w-full" style={{ paddingTop: '52.25%', maxHeight: '75vh', minHeight: '360px' }}>
@@ -3528,7 +4354,10 @@ const ProfileHr = () => {
                                                     (() => {
                                                         const vUrl = resultWindowData?.interviewResult?.videoUrls?.[0] || resultWindowData?.interviewResult?.videoUrl || resultWindowData[0]?.interviewResult?.videoUrls?.[0] || resultWindowData[0]?.interviewResult?.videoUrl;
 
+
+
                                                         if (!vUrl) {
+                                                            console.log(resultWindowData[0]?.interviewResult?.videoUrls?.[0])
                                                             return (
                                                                 <div className="Video w-full bg-red300 break-words p-3 min-h-[360px] flex items-center justify-center">
                                                                     No video available.
@@ -3588,6 +4417,7 @@ const ProfileHr = () => {
                                                         );
                                                     })()
                                                 )}
+
 
                                                 <div className="Feedback w-full bg-pink300 max-w-[100%] h-[40%] p-3 overflow-y-auto flex-wrap ">
                                                     {console.log(normalizedResult?.interviewResult?.feedback)}
@@ -5068,3 +5898,4 @@ export default ProfileHr
 
 
 // export default ProfileHr
+

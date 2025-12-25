@@ -23,16 +23,16 @@ export const extractSheetData = async (interviewId) => {
 
         console.log("Column mapping found: ", sheetStructure.columnMapping);
 
-        // 2️⃣ Fetch owner's Google integration
+        //Fetch owner's Google integration
         const integration = await GoogleIntegration.findOne({ owner: interview.owner, provider: "google" });
         if (!integration || !integration.tokens) throw new Error("No Google integration found");
 
-        // 3️⃣ Initialize OAuth2 client
+        // Initialize OAuth2 client
         const oAuth2Client = createOAuthClient();
         oAuth2Client.setCredentials(integration.tokens);
         const sheets = google.sheets({ version: "v4", auth: oAuth2Client });
 
-        // 4️⃣ Create or fetch SheetDataExtractJson doc
+        // Create or fetch SheetDataExtractJson doc
         let sheetExtract = await SheetDataExtractJson.findOne({ interview: interview._id });
         if (!sheetExtract) {
             sheetExtract = await SheetDataExtractJson.create({
@@ -147,9 +147,9 @@ export const extractSheetData = async (interviewId) => {
         });
 
         console.log(`[Worker] Sheet extraction done for interview ${interview._id}`);
-        // console.log(`✅ Sheet extraction done for interview ${interview._id}`);
+        // console.log(`Sheet extraction done for interview ${interview._id}`);
 
-        // ✅ Pipeline continues via BullMQ - next job (RESUME_SEPARATION) enqueued by queue worker
+        // Pipeline continues via BullMQ - next job (RESUME_SEPARATION) enqueued by queue worker
     } catch (error) {
         console.error("Error extracting sheet data:", error);
 

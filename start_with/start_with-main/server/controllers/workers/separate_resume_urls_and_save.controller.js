@@ -120,7 +120,7 @@ export const separate_resume_urls_and_save = async (interviewId) => {
                 const email = row[emailIndex] || "";
                 const name = row[nameIndex] || "";
 
-                console.log("@@@@", resumeUrl, email, name);
+                // console.log("@@@@", resumeUrl, email, name);
 
                 if (!resumeUrl) {
                     console.log(`Row ${i + 1}: Missing resume URL, skipping`);

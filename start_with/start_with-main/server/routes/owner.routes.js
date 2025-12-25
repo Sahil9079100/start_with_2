@@ -1,10 +1,10 @@
 // basic  routes for owner
 import express from "express";
 // import { LoginOwner, RegisterOwner, CreateCompany, getProfile, CreateRecruiter, CreateInterview } from "../controller/owner.controller.js";
-import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults, FetchSingleInterviewEmailStatus, FetchSingleInterviewCandidateEmailID, ScheduleAMeeting} from "../controllers/owner.controller.js";
+import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults, FetchSingleInterviewEmailStatus, FetchSingleInterviewCandidateEmailID, ScheduleAMeeting, CurrentLiveSessions, GetSessionHistory, checkIntegrationsConnections } from "../controllers/owner.controller.js";
 // import { LoginOwner, RegisterOwner, getProfile, enhanceJobDescription, FetchAllInterviews, DeleteInterviews, FetchSortedListCandidates, FetchCandiateCompletedInterviewDetails, getSkillsUsingAI, SendEmailToCandidates, Logout, extractPdfText, FetchAllInterviewsResults, FetchSingleInterviewEmailStatus, FetchSingleInterviewCandidateEmailID, ScheduleAMeeting, TestEmailSend } from "../controllers/owner.controller.js";
 import { ownerTokenAuth } from "../middlewares/ownerTokenAuth.middleware.js";
-import { createInterview, scheduleInterview, createSingleInterview } from "../controllers/workers/createInterview.controller.js";
+import { createInterview, scheduleInterview, createSingleInterview, createLocalFileInterview } from "../controllers/workers/createInterview.controller.js";
 import multer from "multer";
 import { integrationDecider } from "../middlewares/IntegrationDecider.middleware.js";
 
@@ -62,9 +62,11 @@ router.post("/owner/enhance-job-description", ownerTokenAuth, enhanceJobDescript
 // router.post("/owner/add/recruiter", ownerTokenAuth, CreateRecruiter);
 
 
-// router.post("/owner/create/interview", ownerTokenAuth, integrationDecider, createInterview);
-router.post("/owner/create/interview", ownerTokenAuth, createInterview);
+router.post("/owner/create/interview", ownerTokenAuth, integrationDecider, createInterview);
+// router.post("/owner/create/interview", ownerTokenAuth, createInterview);
 router.post("/owner/create/single-interview", ownerTokenAuth, upload.single('resumeFile'), handleMulterError, createSingleInterview);
+// LocalFile interview creation with CSV/XLSX file upload
+router.post("/owner/create/localfile-interview", ownerTokenAuth, upload.single('candidateFile'), handleMulterError, createLocalFileInterview);
 router.post("/owner/fetch/interviews", ownerTokenAuth, FetchAllInterviews);
 router.post("/owner/delete/interview", ownerTokenAuth, DeleteInterviews);
 router.get("/owner/fetch/interview/:id/sorted-list", ownerTokenAuth, FetchSortedListCandidates);
@@ -76,7 +78,16 @@ router.post("/owner/schedule/interview", ownerTokenAuth, scheduleInterview);
 router.post("/owner/send/email", ownerTokenAuth, SendEmailToCandidates);
 router.post("/owner/extract-pdf-text", ownerTokenAuth, upload.single('pdf'), handleMulterError, extractPdfText);
 router.get("/owner/single-interview/email/status/:data", ownerTokenAuth, FetchSingleInterviewEmailStatus);
+// /check/connected/integrations
+router.get("/owner/check/connected/integrations", ownerTokenAuth, checkIntegrationsConnections)
 // router.get("/api/owner/single-interview/email/id/:interviewid", ownerTokenAuth, FetchSingleInterviewCandidateEmailID);
+
+// Get current live sessions for the authenticated owner
+router.get("/owner/live-sessions", ownerTokenAuth, CurrentLiveSessions);
+
+// Get session history for the authenticated owner (paginated)
+// Query params: page (default 1), limit (default 20)
+router.get("/owner/session-history", ownerTokenAuth, GetSessionHistory);
 
 //`/api/owner/get-skills-ai/${jobPosition}`
 // add/recruiter

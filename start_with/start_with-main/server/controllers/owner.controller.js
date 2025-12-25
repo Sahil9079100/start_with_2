@@ -19,6 +19,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import FormData from 'form-data';
+import Integrations from '../models/Integrations.model.js';
+import GoogleIntegration from "../models/googleIntegration.model.js"
 
 // __dirname is not available in ESM modules; derive it from import.meta.url
 const __filename = typeof import.meta !== 'undefined' ? fileURLToPath(import.meta.url) : '';
@@ -1104,6 +1106,131 @@ Thank you, i will look forward to talk to you.
     } catch (error) {
         console.log("test email send error", error);
         res.status(500).json({ message: "test email send error" });
+    }
+}
+
+
+export const CurrentLiveSessions = async (req, res) => {
+    try {
+        const ownerId = req.user; // From ownerTokenAuth middleware
+
+        if (!ownerId) {
+            return res.status(401).json({ message: "Unauthorized - Owner ID not found" });
+        }
+
+        // Import live session tracker functions
+        const {
+            getLiveSessionCount,
+            getOwnerLiveSessions,
+            emitLiveCountToOwner
+        } = await import("../utils/liveSessionTracker.js");
+
+        // Get the live session count for this owner
+        const count = await getLiveSessionCount(ownerId);
+
+        // Get detailed session info (now includes device and location)
+        const sessions = await getOwnerLiveSessions(ownerId);
+
+        // Also emit the count to the owner's room (useful for real-time updates)
+        await emitLiveCountToOwner(ownerId);
+
+        return res.status(200).json({
+            message: "Live sessions fetched successfully",
+            data: {
+                ownerId,
+                liveCount: count,
+                sessions, // Each session now has deviceString, locationString, connectedAt, etc.
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.log("current live sessions error", error);
+        res.status(500).json({ message: "current live sessions error" });
+    }
+}
+
+/**
+ * Get session history for the authenticated owner
+ * Query params: page (default 1), limit (default 20)
+ */
+export const GetSessionHistory = async (req, res) => {
+    try {
+        const ownerId = req.user; // From ownerTokenAuth middleware
+
+        if (!ownerId) {
+            return res.status(401).json({ message: "Unauthorized - Owner ID not found" });
+        }
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+
+        // Import session history function
+        const { getSessionHistory } = await import("../utils/liveSessionTracker.js");
+
+        const historyData = await getSessionHistory(ownerId, page, limit);
+
+        return res.status(200).json({
+            message: "Session history fetched successfully",
+            data: historyData
+        });
+    } catch (error) {
+        console.log("get session history error", error);
+        res.status(500).json({ message: "get session history error" });
+    }
+}
+
+export const checkIntegrationsConnections = async (req, res) => {
+    try {
+        const ownerId = req.user; // From ownerTokenAuth middleware
+
+        if (!ownerId) {
+            return res.status(401).json({ message: "Unauthorized - Owner ID not found" });
+        }
+
+        const data = [];
+        const allIntegrations = await Integrations.find({ owner: ownerId });
+
+        console.log("All integrations documents count:", allIntegrations.length);
+
+        // GoogleIntegration.find() returns an array - check length, not truthiness
+        const googleIntegrationCheck = await GoogleIntegration.find({ owner: ownerId });
+        if (googleIntegrationCheck && googleIntegrationCheck.length > 0) {
+            data.push('gsheets');
+        }
+
+        // Check if there are any integrations from the Integrations model
+        if (allIntegrations.length > 0 && allIntegrations[0].allIntegration) {
+            const integrationObj = allIntegrations[0].allIntegration;
+            const keys = Object.keys(integrationObj);
+            // console.log("Integration object keys:", keys);
+            for (const key of keys) {
+                // Skip gsheets as it's handled via google integration
+                if (key === 'gsheets') {
+                    continue;
+                }
+                // Check if the integration has actual data (not just an empty schema default)
+                // An integration is considered "connected" if it has tokens with at least one non-empty value
+                const integration = integrationObj[key];
+                if (integration && integration.tokens) {
+                    const tokenValues = Object.values(integration.tokens);
+                    // Check if there's at least one token with a non-empty value
+                    const hasValidTokens = tokenValues.some(val => val !== undefined && val !== null && val !== '');
+                    if (hasValidTokens) {
+                        data.push(key);
+                    }
+                }
+            }
+        }
+
+        console.log("Integration connections data", data);
+        res.status(200).json({
+            success: true,
+            message: "Integration connections fetched successfully",
+            allIntegrations: data
+        });
+    } catch (error) {
+        console.log("check integrations connections error", error);
+        res.status(500).json({ message: "check integrations connections error" });
     }
 }
 

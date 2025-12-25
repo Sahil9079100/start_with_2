@@ -53,19 +53,10 @@
 import mongoose, { Schema } from "mongoose";
 
 const userSchema = new Schema({
-
-    // name : {
-    //     type : String , 
-    //     required : true
-    // },
-
     email: {
         type: String,
         required: true
     },
-    // password : {
-    //     type : String ,  
-    // },
     photourl: {
         type: String,
         default: ""
@@ -143,9 +134,6 @@ const userSchema = new Schema({
         type: mongoose.Schema.Types.Mixed,
         default: {},
     },
-
-
-
 },
     {
         timestamps: true,

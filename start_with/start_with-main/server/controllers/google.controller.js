@@ -74,6 +74,30 @@ export const oauthCallback = async (req, res) => {
     }
 };
 
+export const disconnectGoogle = async (req, res) => {
+    try {
+        const userId = req.user._id || req.user; // assuming you’re using JWT middleware
+        const integration = await GoogleIntegration.findOneAndDelete({ owner: userId, provider: "google" });
+
+        if (!integration) {
+            return res.status(404).json({ message: "No Google integration found" });
+        }
+
+        // Optionally, update Owner profile to reflect disconnection
+        const owner = await Owner.findById(userId);
+        if (owner) {
+            owner.googleSheetsConnected = false;
+            await owner.save();
+        }
+        
+
+        res.json({ message: "Google account disconnected successfully" });
+    } catch (error) {
+        console.error("Error disconnecting Google account:", error);
+        res.status(500).json({ message: "Failed to disconnect Google account" });
+    }
+}
+
 export const getGoogleSheets = async (req, res) => {
     try {
         const userId = req.user._id || req.user; // assuming you’re using JWT middleware

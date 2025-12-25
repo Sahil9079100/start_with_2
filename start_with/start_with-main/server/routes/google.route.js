@@ -10,6 +10,7 @@ router.get("/auth-url", ownerTokenAuth, googleCtrl.getAuthUrl);
 
 // OAuth2 callback - Google will call this
 router.get("/callback", googleCtrl.oauthCallback);
+router.get("/disconnect-googlesheet", ownerTokenAuth, googleCtrl.disconnectGoogle);
 
 router.get("/get-sheets-names", ownerTokenAuth, googleCtrl.getGoogleSheets);
 

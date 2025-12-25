@@ -55,12 +55,12 @@ ${JSON.stringify(sampleRows, null, 2)}
             }
 
             if (attempt > 1) {
-                console.warn(`✅ sheet_structure_finder_agent succeeded on retry attempt ${attempt}`);
+                console.warn(`heet_structure_finder_agent succeeded on retry attempt ${attempt}`);
             }
             return parsed; // success
         } catch (err) {
             lastErr = err;
-            console.error(`⚠️ sheet_structure_finder_agent attempt ${attempt} failed:`, err.message);
+            console.error(`sheet_structure_finder_agent attempt ${attempt} failed:`, err.message);
             if (attempt < MAX_ATTEMPTS) {
                 // Exponential backoff with jitter
                 const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 200);
@@ -269,7 +269,7 @@ export const sheet_data_structure_worker = async (interviewId) => {
             console.error(`[Worker] failed to update interview status for ${interviewId}:`, updateErr?.message || updateErr);
         }
 
-        // INTERVIEW_PROGRESS_LOG -----------------------------------------------------------------------------------------------------------------------------------------------------------
+        // INTERVIEW_PROGRESS_LOG ----------------------------------------------------------------------------------------------------------------------------------------------------------- sourcefinder.js AI agent , diff data soucres integreated greehouse() workday()
         if (interview?.owner) {
             try {
                 await recruiterEmit(interview.owner, "INTERVIEW_PROGRESS_LOG", {

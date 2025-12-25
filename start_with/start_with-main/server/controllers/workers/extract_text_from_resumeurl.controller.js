@@ -24,7 +24,7 @@ const PYTHON_SCRIPT_PATH = path.resolve(__dirname, "../../scripts/extract_pdf_te
 // Python executable - prefer venv, fallback to system python
 const SERVER_ROOT = path.resolve(__dirname, "../../");
 const VENV_PYTHON = path.join(SERVER_ROOT, ".venv", "bin", "python");
-const PYTHON_EXECUTABLE = process.env.PYTHON_EXECUTABLE || 
+const PYTHON_EXECUTABLE = process.env.PYTHON_EXECUTABLE ||
     (fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : "python3");
 
 // OCR DPI setting (lower = faster, 150 is good balance)
@@ -323,7 +323,7 @@ async function extractTextWithPython(pdfBuffer) {
                 console.error(`[Python OCR] Script exited with code ${code}`);
                 console.error(`[Python OCR] stderr: ${stderr}`);
                 console.error(`[Python OCR] stdout: ${stdout}`);
-                
+
                 // Try to parse any partial output
                 try {
                     const result = JSON.parse(stdout);
@@ -335,8 +335,8 @@ async function extractTextWithPython(pdfBuffer) {
                         reject(new Error(`Python OCR error: ${result.error}`));
                         return;
                     }
-                } catch (_) {}
-                
+                } catch (_) { }
+
                 reject(new Error(`Python OCR failed (code ${code}): ${stderr || stdout || "Unknown error"}`));
                 return;
             }

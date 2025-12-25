@@ -15,7 +15,7 @@ function App() {
             <Routes>
                 <Route path="*" element={<><h1 className='flex justify-center'>404 Not Found</h1></>} />
 
-                {/* <Route path="/r/o" element={<RegisterOwner />} /> */}
+                <Route path="/r/o" element={<RegisterOwner />} />
                 <Route path="/l/o" element={<LoginHr />} />
                 <Route path="/p/o/:id" element={<ProfileHr />} />
                 {/* <Route path="/p/:id" element={<UpdatedProfile />} /> */}
