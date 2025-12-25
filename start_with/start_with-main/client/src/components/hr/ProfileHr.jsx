@@ -23,6 +23,10 @@ import { BiDevices } from "react-icons/bi";
 import { MdLockOutline } from "react-icons/md";
 import { RiAccountCircleLine } from "react-icons/ri";
 import { IoAdd } from "react-icons/io5";
+import { RxMobile } from "react-icons/rx";
+import { PiDesktop } from "react-icons/pi";
+import { GoDotFill } from "react-icons/go";
+
 import useLiveSessionCount, { formatSessionDate } from "../../socket/useLiveSessionCount";
 
 
@@ -1655,6 +1659,7 @@ const ProfileHr = () => {
     const [is_workday_connected, setIs_workday_connected] = useState(false);
     const [is_greenhouse_connected, setIs_greenhouse_connected] = useState(false);
 
+    const [liveSessionWindow, setLiveSessionWindow] = useState(false);
     const [otherIntegrationsWindow, setOtherIntegrationsWindow] = useState(false);
     return (
         <>
@@ -2677,16 +2682,29 @@ const ProfileHr = () => {
                                         : 'opacity-0 translate-y-2 pointer-events-none'
                                     }`}>
                                     <div className="flex flex-col py-2">
-                                        <div className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
+                                        <div onClick={() => setLiveSessionWindow(true)} className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
                                             <BiDevices className="text-lg  transition-transform duration-300" />
                                             <span className="font-medium text-sm">Live Sessions</span>
                                         </div>
-                                        <div className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
+                                        {/* <div className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
                                             <MdLockOutline className="text-lg  transition-transform duration-300" />
                                             <span className="font-medium text-sm">Current Limits</span>
-                                        </div>
+                                        </div> */}
                                         <div className="h-px bg-gray-100 mx-4 my-1"></div>
-                                        <div className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
+                                        <div
+                                            onClick={async () => {
+                                                try {
+                                                    const response = await API.get('/api/owner/logout');
+                                                    localStorage.clear();
+                                                    if (response.status === 200) { navigate("/") }
+                                                } catch (error) {
+                                                    console.log('Logout error:', error);
+                                                    // Still clear localStorage and redirect
+                                                    localStorage.clear();
+                                                    window.location.href = '/';
+                                                }
+                                            }}
+                                            className="px-5 py-3 hover:bg-white cursor-pointer flex items-center gap-3 text-gray-700 transition-colors group/item">
                                             <RiAccountCircleLine className="text-lg transition-transform duration-300" />
                                             <span className="font-medium text-sm">Logout</span>
                                         </div>
@@ -2698,26 +2716,38 @@ const ProfileHr = () => {
                     </div>
                     <div className='w-1 h-full bg-white cursor-col-resize transition-colors' onMouseDown={handleMouseDown} style={{ userSelect: 'none' }} />
 
-                    {/* <div className="absolute w-full h-full bg-gray-500/40 top-0 z-50 flex justify-center items-center">
+                    {liveSessionWindow && (<div className="absolute w-full h-full bg-gray-500/40 top-0 z-50 flex justify-center items-center">
                         <div className="w-fit min-w-[50%] h-fit min-h-[60%] flex flex-col justify-start items-center bg-white rounded-[8px]">
-                            <div className="px-[13px] py-[6px] w-full border-b border-gray-400 flex justify-between items-center">
-                                <div className=" font-medium">Live Sesions</div>
-                                <div className="CLOSE_LIVESESSIONS_WINDOW text-[18px]">🗙</div>
+                            <div className="px-[22px] pt-[16px] w-full flex justify-between items-center">
+                                <div className=" font-semibold text-[17px]">Active Sessions</div>
+                                <div onClick={() => setLiveSessionWindow(false)} className="CLOSE_LIVESESSIONS_WINDOW text-[18px] hover:cursor-pointer">🗙</div>
+                            </div>
+                            <div className="px-[22px] pt-[2px] pb-[3px] w-full flex justify-between items-center">
+                                <div className=" font-medium text-[14px] text-gray-500">You have <span className="text-black/90">{sessions.length} active sessions</span>.</div>
                             </div>
                             <div className="flex flex-col justify-center items-center p-3 w-full h-full bg-white gap-3">
-
                                 {sessions.map(s => (
-                                    <div className="LIVE_SESSION_CARD border border-black rounded-[4px] w-full">
-                                        <div key={s.socketId}>
+                                    <div className="LIVE_SESSION_CARD  bggray-300 px-[12px] py-2 rounded-[4px] w-full flex items-center justify-start gap-3">
+                                        <div className="text-[30px]">{s.deviceType === 'desktop' ? <PiDesktop /> : <RxMobile />}</div>
+                                        <div className="">
+                                            <div className="text-[17px] font-semibold">{s.deviceString}</div>
+                                            <div className="text-[15px] font-semibold text-gray-500 flex items-center">
+                                                {s.locationString},
+                                                <span className="text-gray-400 text-[10px] mx-1"><GoDotFill /></span>
+                                                {formatSessionDate(s.connectedAt)}
+                                            </div>
+                                            {/* <div className="text-[15px] font-semibold text-gray-500">{s.locationString}</div> */}
+                                        </div>
+                                        {/* <div key={s.socketId}>
                                             <span>{s.deviceString}</span>
                                             <span>{s.locationString}</span>
                                             <span>{formatSessionDate(s.connectedAt)}</span>
-                                        </div>
+                                        </div> */}
                                     </div>
                                 ))}
                             </div>
                         </div>
-                    </div> */}
+                    </div>)}
                     {/* <div>
                                                 {isLoading ? "Loading..." : `${liveCount} people are using currently`}
                                             </div> */}
