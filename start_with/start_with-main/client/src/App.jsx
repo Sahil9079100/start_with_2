@@ -7,6 +7,7 @@ import { LoginHr } from './components/hr/LoginHr.jsx';
 import MainPage from './components/MainPage/MainPage.jsx';
 import UpdatedProfile from './components/hr/UpdatedProfile.jsx';
 import Schedule from './components/Schedule/Schedule.jsx';
+import SessionsHistory from './components/hr/SessionsHistory.jsx';
 
 function App() {
 
@@ -21,6 +22,7 @@ function App() {
             <Route path="/integrations" element={<GIntegrationSuccess />} />
             <Route path="/" element={<MainPage />} />
             <Route path="/schedule" element={<Schedule />} />
+            {/* <Route path="/sessions-history/:id" element={<SessionsHistory />} /> */}
         </Routes>
     );
 }

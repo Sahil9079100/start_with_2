@@ -34,6 +34,7 @@ import { GoXCircle } from "react-icons/go"; // if there is a error
 import { GoCheckCircle } from "react-icons/go"; // if there is a success
 import { GoCircle } from "react-icons/go"; // unselected emails
 import { FaRegDotCircle } from "react-icons/fa"; // selected emails
+import SessionsHistory from './SessionsHistory.jsx';
 // import gsheetImage from "/public/i_gsheets.svg"
 
 
@@ -1660,6 +1661,7 @@ const ProfileHr = () => {
     const [is_greenhouse_connected, setIs_greenhouse_connected] = useState(false);
 
     const [liveSessionWindow, setLiveSessionWindow] = useState(false);
+    const [liveSessionHistoryWindow, setLiveSessionHistoryWindow] = useState(false);
     const [otherIntegrationsWindow, setOtherIntegrationsWindow] = useState(false);
     return (
         <>
@@ -2079,7 +2081,6 @@ const ProfileHr = () => {
                             </div>
                         </div>
                     }
-
 
                     {integrationWindow &&
                         <div className="absolute bg-[#6164688c] w-full h-full z-40">
@@ -2726,10 +2727,10 @@ const ProfileHr = () => {
                         <div className="w-fit min-w-[50%] h-fit min-h-[60%] flex flex-col justify-start items-center bg-white rounded-[8px]">
                             <div className="px-[22px] pt-[16px] w-full flex justify-between items-center">
                                 <div className=" font-semibold text-[17px]">Active Sessions</div>
-                                <div onClick={() => setLiveSessionWindow(false)} className="CLOSE_LIVESESSIONS_WINDOW text-[18px] hover:cursor-pointer">🗙</div>
+                                <div onClick={() => setLiveSessionWindow(false)} className="CLOSE_LIVESESSIONS_WINDOW text-[18px] hover:cursor-pointer">x</div>
                             </div>
                             <div className="px-[22px] pt-[2px] pb-[3px] w-full flex justify-between items-center">
-                                <div className=" font-medium text-[14px] text-gray-500">You have <span className="text-black/90">{sessions.length} active sessions</span>.</div>
+                                <div className=" font-medium text-[14px] text-gray-500">You have <span className="text-black/90">{sessions.length} active sessions</span>. To view sessions history <a onClick={() => setLiveSessionHistoryWindow(true)} className="text-blue-500 underline hover:cursor-pointer">click here</a></div>
                             </div>
                             <div className="flex flex-col justify-center items-center p-3 w-full h-full bg-white gap-3">
                                 {sessions.map(s => (
@@ -2742,16 +2743,28 @@ const ProfileHr = () => {
                                                 <span className="text-gray-400 text-[10px] mx-1"><GoDotFill /></span>
                                                 {formatSessionDate(s.connectedAt)}
                                             </div>
-                                            {/* <div className="text-[15px] font-semibold text-gray-500">{s.locationString}</div> */}
                                         </div>
-                                        {/* <div key={s.socketId}>
-                                            <span>{s.deviceString}</span>
-                                            <span>{s.locationString}</span>
-                                            <span>{formatSessionDate(s.connectedAt)}</span>
-                                        </div> */}
                                     </div>
                                 ))}
+                                {/* <div className="text-[15px] font-semibold text-gray-500">{s.locationString}</div> */}
+                                {/* <div key={s.socketId}>
+                                    <span>{s.deviceString}</span>
+                                    <span>{s.locationString}</span>
+                                    <span>{formatSessionDate(s.connectedAt)}</span>
+                                    href={`/sessions-history/${profile._id}`}
+                                </div> */}
                             </div>
+                        </div>
+                    </div>)}
+
+                    {liveSessionHistoryWindow && (<div className="absolute w-full h-full top-0 z-50 flex justify-center items-center">
+                        <div className="w-fit min-w-[50%] h-fit min-h-[60%] flex flex-col justify-start items-center bg-white rounded-[8px]">
+                            <div className="text-[20px] font-semibold mb-4 w-full pt-3 px-4 flex items-center justify-between ">
+                                <div>Sessions History</div>
+                                <div onClick={() => { setLiveSessionHistoryWindow(false) }} className="hover:cursor-pointer">x</div>
+                            </div>
+                            <SessionsHistory />
+                            
                         </div>
                     </div>)}
                     {/* <div>
