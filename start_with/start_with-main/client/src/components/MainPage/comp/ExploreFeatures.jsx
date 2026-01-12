@@ -102,7 +102,7 @@ function ExploreFeatures() {
                  The classNames are set to replicate the look of the phone in the screenshot (rounded corners, border, shadow).
               */}
               <img
-                src="./../../../../public/allInte.png"
+                src="/allInte.png"
                 alt="integrations"
                 className="h-full object-contain rounded-[40px] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] z-10 relative"
               />
