@@ -175,21 +175,24 @@ function PromptGrid() {
 function App() {
     return (
         <>
-            {/* Injecting styles here */}
+            {/* Inject internal styles (keeps marquee CSS available if needed) */}
             <style>{styles}</style>
 
-            {/* Changed bg-black to bg-[#212121] as requested */}
-            <div className="min-h-screen flex flex-col bg-[#212121] text-white font-sans overflow-x-hidden">
-                <Header />
+            <div className="min-h-screen flex items-center justify-center bg-[#212121] text-white font-sans">
+                <div className="text-center px-6">
+                    <h1 className="text-4xl md:text-6xl font-bold mb-4">StartWith_</h1>
+                    <p className="text-[#b4b4b4] mb-8 text-lg">We're building something great — coming soon.</p>
 
-                <main className="flex-grow flex flex-col justify-between">
-                    <HeroSection />
-                    <PromptGrid />
-                    <WritingFeature />
-                    <ExploreFeatures />
-                    <PricingPage />
-                    <Footer />
-                </main>
+                        <div className="flex items-center justify-center gap-4">
+                            <a href="/l/o" className="inline-block bg-transparent border border-white text-white px-5 py-3 rounded-full font-semibold hover:bg-white hover:text-black transition-colors">
+                                Sign In
+                            </a>
+
+                            <a href="mailto:contact@startwith.co" className="inline-block bg-white text-black px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition-colors">
+                                Contact Us
+                            </a>
+                        </div>
+                </div>
             </div>
         </>
     );
