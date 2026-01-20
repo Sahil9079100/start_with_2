@@ -796,7 +796,7 @@ export const SendEmailToCandidates = async (req, res) => {
 
         <tr>
             <td style="padding-top: 30px; font-size: 12px; color: #777777; text-align: center;">
-                <p>[Powered by <a href="https://startwith.live" target="_blank">Startwith.live</a>]</p>
+                <p>[Powered by <a href="https://startwith.co" target="_blank">Startwith</a>]</p>
                 <p>[This is an auto-generated email; please don't reply directly.]</p>
             </td>
         </tr>
