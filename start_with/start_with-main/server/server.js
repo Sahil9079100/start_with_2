@@ -50,7 +50,7 @@ initSocket(server);
 app.use(express.json());
 app.use(cookieParser())
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://backend.startwith.live', 'http://localhost:3121', 'https://startwith.live', 'https://startwith.co', 'https://60f01cb99d34.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app', 'https://app.startwith.live', 'https://emailservice.startwith.live'],
+    origin: ['http://localhost:5173', 'https://backend.startwith.live', 'http://localhost:3121', 'https://startwith.live', 'https://startwith.co', 'https://60f01cb99d34.ngrok-free.app', 'https://coruscating-crumble-6992a8.netlify.app', 'https://app.startwith.co', 'https://emailservice.startwith.live'],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
 }))
