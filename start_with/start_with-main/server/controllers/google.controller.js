@@ -35,7 +35,7 @@ export const oauthCallback = async (req, res) => {
             // state invalid: you might still attempt to proceed but we prefer to abort
             console.warn("Invalid/expired OAuth state:", err.message);
             // redirect to frontend with error
-            return res.redirect(`${process.env.FRONTEND_ORIGIN}/integrations?error=invalid_state`);
+            return res.redirect(`${process.env.APP_FRONTEND_ORIGIN}/integrations?error=invalid_state`);
         }
 
         const oAuth2Client = createOAuthClient();
@@ -66,11 +66,11 @@ export const oauthCallback = async (req, res) => {
             await ownerFind.save();
         }
 
-        console.log(`${process.env.FRONTEND_ORIGIN}/integrations?connected=google`);
-        return res.redirect(`${process.env.FRONTEND_ORIGIN}/integrations?connected=google`);
+        console.log(`${process.env.APP_FRONTEND_ORIGIN}/integrations?connected=google`);
+        return res.redirect(`${process.env.APP_FRONTEND_ORIGIN}/integrations?connected=google`);
     } catch (err) {
         console.error("oauthCallback error:", err);
-        return res.redirect(`${process.env.FRONTEND_ORIGIN}/integrations?error=server_error`);
+        return res.redirect(`${process.env.APP_FRONTEND_ORIGIN}/integrations?error=server_error`);
     }
 };
 
@@ -89,7 +89,7 @@ export const disconnectGoogle = async (req, res) => {
             owner.googleSheetsConnected = false;
             await owner.save();
         }
-        
+
 
         res.json({ message: "Google account disconnected successfully" });
     } catch (error) {
