@@ -9,6 +9,7 @@ import UpdatedProfile from './components/hr/UpdatedProfile.jsx';
 import Schedule from './components/Schedule/Schedule.jsx';
 import SessionsHistory from './components/hr/SessionsHistory.jsx';
 
+
 function App() {
 
     return (
@@ -20,11 +21,22 @@ function App() {
             <Route path="/p/o/:id" element={<ProfileHr />} />
             {/* <Route path="/p/:id" element={<UpdatedProfile />} /> */}
             <Route path="/integrations" element={<GIntegrationSuccess />} />
-            <Route path="/" element={<MainPage />} />
+            {/* <Route path="/" element={<MainPage />} /> */}
+            <Route path="/" element={<MainPage_divert />} />
             <Route path="/schedule" element={<Schedule />} />
             {/* <Route path="/sessions-history/:id" element={<SessionsHistory />} /> */}
         </Routes>
     );
+}
+
+const MainPage_divert = () => {
+    const divert_to_main = () => {
+        if (window.location.pathname === '/') {
+            window.location.href = 'https://startwith.co';
+        }
+    }
+    divert_to_main();
+    return null;
 }
 
 export default App
