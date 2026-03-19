@@ -600,7 +600,7 @@ export const SendEmailToCandidates = async (req, res) => {
             const now = new Date();
             const expiryDateObj = findInterview.expiryDate ? new Date(findInterview.expiryDate) : null;
 
-            const subject = `${candidate?.name || candidateName}, Your AI Interview Invitation for ${findInterview.jobPosition} at Balotra`;
+            const subject = `${candidate?.name || candidateName}, Your AI Interview Invitation for ${findInterview.jobPosition}`;
             // compute formatted expiry date or 'None'
             const expiryDateObjSafe = expiryDateObj && !isNaN(expiryDateObj.getTime()) ? expiryDateObj : null;
             const getOrdinalSuffix = (n) => {
@@ -632,7 +632,7 @@ export const SendEmailToCandidates = async (req, res) => {
             let html;
 
             const companyNameSafe = companyName ? String(companyName).trim() : '';
-            const senderName = companyNameSafe ? capitalizeWords(companyNameSafe) : 'Educategirls';
+            const senderName = companyNameSafe ? capitalizeWords(companyNameSafe) : 'DEME Group';
             const senderEmail = companyNameSafe ? `${companyNameSafe}@startwith.co` : 'interview@startwith.co';
             // const senderEmail = 'interview@startwith.live';
             const candidateId = candidate._id;
@@ -758,7 +758,7 @@ export const SendEmailToCandidates = async (req, res) => {
 
                 <p>Hope this email finds you well!</p>
 
-                <p>Thanks for applying to the <strong>${findInterview.jobPosition}</strong> at Balotra with Foundation to Educate Girls. I'm happy to let you know you've been shortlisted for the AI interview.</p>
+                <p>Thanks for applying to the <strong>${findInterview.jobPosition}</strong>. I'm happy to let you know you've been shortlisted for the AI interview.</p>
                 <p>Please go ahead and complete it when you're ready, here's what you need:</p>
 
                 <ul>
@@ -785,10 +785,7 @@ export const SendEmailToCandidates = async (req, res) => {
         <tr>
             <td style="padding-top: 20px;">
                 <p style="margin: 0;">Best,</p>
-                <p style="margin: 0;"><strong>Ramesh Kumar Mali</strong></p>
-                <p style="margin: 0;">District HR</p>
-                <p style="margin: 0;">Foundation to Educate Girls</p>
-                <p style="margin: 0;">+91 97827 40008</p>
+                <p style="margin: 0;"><strong>Prem Kumar Roshini</strong></p>
                 <br>
                 <p style="margin: 0;"><a href="mailto:${findowner.email}">${findowner.email}</a></p>
             </td>
@@ -800,12 +797,9 @@ export const SendEmailToCandidates = async (req, res) => {
                 <p>[This is an auto-generated email; please don't reply directly.]</p>
             </td>
         </tr>
-
     </table>
-
 </body>
 </html>
-
                 `;
             } else {
                 html = `
@@ -1574,3 +1568,101 @@ export const FetchSingleInterviewCandidateEmailID = async (req, res) => {
 //         res.status(500).json({ message: "add recruiter error" })
 //     }
 // }
+
+
+
+
+
+
+
+
+/*
+
+html = `
+                <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Invitation</title>
+    <style>
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+        }
+      
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 20px;">
+
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; margin: 0 auto; border: 1px solid #dddddd; padding: 20px;">
+        <tr>
+            <td >
+                <p>Dear <strong>${candidateName}</strong>,</p>
+
+                <p>Hope this email finds you well!</p>
+our AI Interview Invitation for Junior Full Stack Developer 
+
+                <p>Thanks for applying to the <strong>${findInterview.jobPosition}</strong> at Balotra with Foundation to Educate Girls. I'm happy to let you know you've been shortlisted for the AI interview.</p>
+                <p>Please go ahead and complete it when you're ready, here's what you need:</p>
+
+                <ul>
+                    <li style="margin-bottom: 5px;"><strong>Expiry Date:</strong> ${findInterview.expiryDate == null ? ('None') : (expiryDataEmailFormet)}</li>
+                    <li style="margin-bottom: 5px;"><strong>Interview Link:</strong> <a href="${findInterview.interviewUrl}">Click here</a></li>
+                </ul>
+
+
+                <p>Quick tips to get started smoothly:</p>
+                <ul>
+                    <li style="margin-bottom: 5px;">Pick a quiet spot with little background noise.</li>
+                    <li style="margin-bottom: 5px;">Use a stable Wi-Fi connection.</li>
+                    <li style="margin-bottom: 5px;">Test your microphone, camera, and speakers beforehand.</li>
+                    <li style="margin-bottom: 5px;">Use a laptop or desktop computer (mobile phones/tablets are not recommended for this interview as some features may not work properly).</li>
+                    <li style="margin-bottom: 5px;">Use chromium-based browsers like Google Chrome or Microsoft Edge or Brave, other browsers will not work.</li>
+                </ul>
+
+                <p>If anything comes up or you have questions, just reply to this email or reach out to me directly at <a href="mailto:${findowner.email}">${findowner.email}</a></p>
+
+                <p>Looking forward to chatting soon!</p>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="padding-top: 20px;">
+                <p style="margin: 0;">Best,</p>
+                <p style="margin: 0;"><strong>Ramesh Kumar Mali</strong></p>
+                <p style="margin: 0;">District HR</p>
+                <p style="margin: 0;">Foundation to Educate Girls</p>
+                <p style="margin: 0;">+91 97827 40008</p>
+                <br>
+                <p style="margin: 0;"><a href="mailto:${findowner.email}">${findowner.email}</a></p>
+            </td>
+        </tr>
+
+        <tr>
+            <td style="padding-top: 30px; font-size: 12px; color: #777777; text-align: center;">
+                <p>[Powered by <a href="https://startwith.co" target="_blank">Startwith</a>]</p>
+                <p>[This is an auto-generated email; please don't reply directly.]</p>
+            </td>
+        </tr>
+
+    </table>
+
+</body>
+</html>
+
+                `;
+
+*/
